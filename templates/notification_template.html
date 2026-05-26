@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { font-family: Arial, sans-serif; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+</style>
+</head>
+<body>
+
+    <p><strong>帳號：{{ username }}</strong></p>
+    <p>
+        您的 {{ period_description }} 用量已超過設定的提醒門檻：<strong>{{ threshold | float | round(2) }}</strong> 元。<br>
+        {{ period_description }} 目前用量為：<strong>{{ total_price | float | round(2) }}</strong> 元。
+    </p>
+
+    <h3>各伺服器花費明細</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Server</th>
+                <th>花費金額 (元)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for server, cost in details.items() %}
+            <tr>
+                <td>{{ server }}</td>
+                <td>{{ cost | float | round(2) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

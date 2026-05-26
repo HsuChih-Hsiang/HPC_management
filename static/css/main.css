@@ -1,0 +1,704 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 20px;
+    padding-left: 50px; /* <== 新增：與螢幕左側保持間隔 */
+    color: #333;
+    overflow-x: hidden;
+}
+
+/* 新增：主佈局容器，用於左右分欄 */
+.main-layout-container {
+    display: flex;
+    width: 100%;
+    max-width: 1200px; /* 增加最大寬度以容納左右兩欄 */
+    background-color: transparent; /* 父容器透明，讓子容器控制背景 */
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* 整個區域的陰影 */
+    overflow: hidden; /* 防止內容溢出佈局容器 */
+    margin-top: 50px; /* 為側邊主選單預留空間 */
+}
+
+/* 左側模板列表區域 */
+.left-template-list {
+    flex-shrink: 0; /* 不讓它縮小 */
+    width: 300px; /* 固定寬度 */
+    background-color: #ffffff;
+    padding: 20px;
+    border-right: 1px solid #e0e0e0; /* 分隔線 */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    position: relative; /* 為了 noTemplatesMessage 的定位 */
+}
+
+.left-template-list h2 {
+    text-align: center;
+    color: #0056b3;
+    margin-top: 0; /* 移除頂部外邊距 */
+    margin-bottom: 20px;
+    font-weight: 700;
+    font-size: 1.8em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.template-list-scrollable {
+    flex-grow: 1; /* 讓列表佔滿剩餘空間 */
+    overflow-y: auto; /* 啟用垂直滾動 */
+    padding-right: 10px; /* 防止滾動條覆蓋內容 */
+    margin-right: -10px; /* 補償 padding-right */
+}
+
+#noTemplatesMessage {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    margin-top: 20px; /* 調整為適合左側列表的間距 */
+    padding: 10px;
+}
+
+/* 右側編輯區域 (原有的 .container 樣式現在應用於此) */
+.right-editor-container {
+    flex-grow: 1; /* 佔據剩餘空間 */
+    background-color: #ffffff; /* 確保有背景色 */
+    padding: 30px; /* 與原來的 container 保持一致 */
+    box-sizing: border-box;
+    /* 移除這裡的 box-shadow 和 border-radius，因為它們現在由 main-layout-container 控制 */
+    box-shadow: none;
+    border-radius: 0;
+    margin-top: 0; /* 移除頂部外邊距 */
+}
+
+h1 { /* 保留，應用於 right-editor-container 內 */
+    text-align: center;
+    color: #0056b3;
+    margin-bottom: 30px;
+    font-weight: 700;
+    font-size: 2.2em;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #555;
+    font-size: 1.05em;
+}
+
+.optional {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-left: 5px;
+    font-weight: normal;
+}
+
+/* --- 模態視窗通用樣式 (主頁面 index.html 使用，編輯頁面已移除) --- */
+.modal {
+    display: none; /* 預設隱藏 */
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: auto;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 600px;
+    position: relative;
+    max-height: 80vh;
+    overflow-y: auto;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    color: #333;
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.close-button {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 36px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #777;
+}
+
+/* --- 側邊選單樣式 (用於主功能導航) --- */
+.menu-button {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: #007bff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.3s ease;
+}
+
+.menu-button:hover {
+    background-color: #0056b3;
+}
+
+.menu-button .bar {
+    width: 25px;
+    height: 3px;
+    background-color: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.side-menu {
+    position: fixed;
+    top: 0;
+    left: -280px; /* 預設隱藏在左側 */
+    width: 260px;
+    height: 100%;
+    background-color: #343a40;
+    color: white;
+    padding: 20px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    transition: left 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-menu.open {
+    left: 0; /* 展開時顯示 */
+}
+
+.close-menu-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.close-menu-button:hover {
+    color: #f8d7da;
+}
+
+.side-menu h2 {
+    text-align: center;
+    color: #ffffff;
+    margin-bottom: 30px;
+    font-size: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 15px;
+}
+
+.side-menu nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.side-menu nav ul li {
+    margin-bottom: 10px;
+}
+
+.side-menu nav ul li a {
+    display: block;
+    padding: 12px 15px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-size: 18px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.side-menu nav ul li a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.side-menu nav ul li a.active {
+    background-color: #007bff;
+    color: white;
+    font-weight: 600;
+}
+
+/* --- 編輯模板頁面中的模板列表項目樣式 (直接顯示在左側列表) --- */
+.template-list-item { /* 這是列表項目的基礎樣式 */
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    cursor: pointer; /* 讓整個項目可點擊來編輯 */
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.template-list-item:hover {
+    background-color: #e9e9e9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.template-list-item h3 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 1.2em;
+    flex-basis: 100%;
+}
+
+.template-list-item p {
+    margin: 0 0 10px 0;
+    color: #666;
+    font-size: 0.95em;
+    flex-basis: 100%;
+}
+
+.template-list-item .template-actions { /* 編輯和刪除按鈕組 */
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-basis: 100%;
+    justify-content: flex-end;
+}
+
+.text-button {
+    width: auto;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 8px;
+    border: 1px solid #1a73e8; /* 藍色邊框 */
+    background-color: #4285f4; /* 藍色背景 */
+    color: white; /* 白色文字 */
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 4px; /* 輕微圓角 */
+}
+
+.text-button:hover {
+    background-color: #3367d6; /* 滑鼠懸停時顏色變深 */
+}
+
+
+/* --- 訊息框樣式 --- */
+.message-box {
+    margin-top: 25px;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-box.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message-box.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message-box.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* --- 按鈕通用樣式 --- */
+/* 主要操作按鈕 */
+.send-button, .save-template-button, .cancel-button, .clear-template-button {
+    padding: 15px; /* 統一主要按鈕的內邊距 */
+    border: none;
+    border-radius: 8px;
+    font-size: 18px; /* 統一主要按鈕的字體大小 */
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.send-button {
+    background-color: #28a745;
+    color: white;
+    box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2);
+}
+
+.send-button:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3);
+}
+
+.send-button:active {
+    background-color: #1e7e34;
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(40, 167, 69, 0.2);
+}
+
+/* 儲存模板按鈕 (主要表單提交，尺寸較大) */
+.save-template-button {
+    background-color: #ffc107; /* 黃色 */
+    color: #333;
+    box-shadow: 0 4px 10px rgba(255, 193, 7, 0.2);
+}
+
+.save-template-button:hover {
+    background-color: #e0a800;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(255, 193, 7, 0.3);
+}
+
+.save-template-button:active {
+    background-color: #cc9500;
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(255, 193, 7, 0.2);
+}
+
+.cancel-button {
+    background-color: #6c757d; /* 灰色 */
+    color: white;
+    box-shadow: 0 4px 10px rgba(108, 117, 125, 0.2);
+}
+
+.cancel-button:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(108, 117, 125, 0.3);
+}
+
+.cancel-button:active {
+    background-color: #4e555b;
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(108, 117, 125, 0.2);
+}
+
+.button-group { /* 編輯頁面的按鈕組 (儲存/取消) */
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.button-group .send-button,
+.button-group .cancel-button {
+    width: auto;
+    flex-grow: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+
+
+/* --- 響應式設計調整 --- */
+@media (max-width: 900px) { /* 在較小的寬度下，左右佈局可能不適用，改為垂直堆疊 */
+    body {
+        margin: 10px; /* 減小 body 的外邊距 */
+    }
+
+    .main-layout-container {
+        flex-direction: column; /* 改為垂直堆疊 */
+        box-shadow: none; /* 移除整體陰影，讓子容器有各自陰影 */
+        margin-top: 20px; /* 減小與頂部主菜單的距離 */
+    }
+
+    .left-template-list {
+        width: 100%; /* 佔滿寬度 */
+        border-right: none; /* 移除右側邊框 */
+        border-bottom: 1px solid #e0e0e0; /* 增加底部邊框作為分隔 */
+        border-top-left-radius: 12px; /* 恢復圓角 */
+        border-top-right-radius: 12px; /* 恢復圓角 */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* 自己的陰影 */
+        padding-bottom: 15px; /* 調整內邊距 */
+    }
+
+    .left-template-list h2 {
+        margin-bottom: 15px;
+    }
+
+    .template-list-scrollable {
+        max-height: 250px; /* 限制列表高度，使其可滾動 */
+    }
+
+    .right-editor-container {
+        width: 100%; /* 佔滿寬度 */
+        border-bottom-left-radius: 12px; /* 恢復圓角 */
+        border-bottom-right-radius: 12px; /* 恢復圓角 */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* 自己的陰影 */
+        margin-top: 20px; /* 與上方列表間隔 */
+        margin-left: 20px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    .form-group label {
+        font-size: 1em;
+    }
+
+    .email-form input[type="text"],
+    .email-form input[type="email"] {
+        padding: 10px;
+        font-size: 15px;
+    }
+
+    #editor-container, #templateEditor {
+        height: 250px;
+    }
+
+    /* 確保所有主操作按鈕在小螢幕下垂直堆疊 */
+    .send-button, .save-template-button, .cancel-button, .clear-template-button {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    .action-buttons-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .action-buttons-group .save-template-button,
+    .action-buttons-group .send-button {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    /* 調整 label 和選擇模板按鈕在小螢幕下的佈局 */
+    .label-with-button {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .label-with-button label {
+        margin-bottom: 0;
+    }
+
+    .select-template-button {
+        width: auto;
+        font-size: 13px; /* 較小螢幕再縮小一點 */
+        padding: 6px 10px;
+    }
+
+    .input-with-button input {
+        padding-right: 40px;
+    }
+
+    .icon-button {
+        width: 30px;
+        height: 30px;
+        font-size: 20px;
+    }
+
+    .menu-button {
+        top: 15px;
+        left: 15px;
+        width: 35px;
+        height: 35px;
+        padding: 6px;
+    }
+
+    .menu-button .bar {
+        width: 20px;
+        height: 2px;
+    }
+
+    .side-menu {
+        width: 200px;
+        left: -220px;
+    }
+
+    .side-menu h2 {
+        font-size: 20px;
+    }
+
+    .side-menu nav ul li a {
+        font-size: 16px;
+        padding: 10px 12px;
+    }
+
+    .button-group { /* 編輯頁面的按鈕組 */
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* 模態視窗樣式 (僅用於 index.html) */
+    .modal-content {
+        width: 95%;
+        padding: 20px;
+        max-height: 90vh;
+    }
+
+    .close-button {
+        font-size: 30px;
+        top: 5px;
+        right: 15px;
+    }
+
+    .template-list-item-modal {
+        padding: 10px;
+    }
+
+    .template-list-item-modal h4 {
+        font-size: 1em;
+    }
+
+    .template-list-item-modal p {
+        font-size: 0.8em;
+    }
+
+    /* 信箱管理頁面的響應式調整 */
+    .group-item {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .group-header {
+        flex-direction: column; /* 在小螢幕上標題和按鈕垂直堆疊 */
+        align-items: flex-start;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+    }
+
+    .group-header strong {
+        font-size: 1.3em;
+        margin-bottom: 10px; /* 與刪除分組按鈕的間距 */
+    }
+
+    /* 小螢幕下，次要按鈕也需要適應 */
+    .template-list-item .template-actions button,
+    .add-group-form .save-template-button,
+    .add-email-form .save-template-button,
+    .group-item .delete-btn,
+    .email-item .delete-btn {
+        width: 100%; /* 佔滿寬度 */
+        text-align: center;
+        padding: 10px; /* 稍微增大內邊距 */
+        font-size: 15px; /* 統一字體大小 */
+    }
+
+    .add-email-form {
+        flex-direction: column; /* 新增信箱表單垂直堆疊 */
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .add-email-form input[type="email"] {
+        width: 100%;
+    }
+
+    .email-item {
+        flex-direction: column; /* 郵箱項目垂直堆疊 */
+        align-items: flex-start;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+    }
+
+    .email-item span {
+        margin-bottom: 5px; /* 與刪除按鈕的間距 */
+        margin-right: 0;
+        width: 100%;
+    }
+}
+
+/* 更小的螢幕 (例如 iPhone SE 寬度) */
+@media (max-width: 360px) {
+    .main-layout-container {
+        margin: 10px;
+    }
+
+    .left-template-list, .right-editor-container {
+        padding: 15px;
+    }
+
+    h1 {
+        font-size: 1.8em;
+    }
+
+    .form-group label {
+        font-size: 0.95em;
+    }
+
+    /* 主要按鈕在極小螢幕下稍作調整 */
+    .send-button, .save-template-button, .cancel-button, .clear-template-button {
+        font-size: 15px;
+        padding: 10px;
+    }
+
+    .select-template-button {
+        font-size: 13px;
+        padding: 5px 8px;
+    }
+
+    .side-menu {
+        width: 180px;
+        left: -200px;
+    }
+    .side-menu nav ul li a {
+        font-size: 15px;
+        padding: 8px 10px;
+    }
+    /* 次要按鈕在極小螢幕下也調整 */
+    .template-list-item .template-actions button,
+    .add-group-form .save-template-button,
+    .add-email-form .save-template-button,
+    .group-item .delete-btn,
+    .email-item .delete-btn {
+        padding: 8px 12px; /* 稍微縮小內邊距 */
+        font-size: 14px; /* 稍微縮小字體 */
+    }
+}

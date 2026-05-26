@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPC 帳號管理</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/contact.css') }}">
+</head>
+<body>
+    <button id="menuButton" class="menu-button" aria-label="開啟選單">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </button>
+
+    <div id="sideMenu" class="side-menu">
+        <button id="closeMenuButton" class="close-menu-button">&times;</button>
+        <h2>功能選單</h2>
+        <nav>
+            <ul>
+                <li><a href="/" class="menu-item">📨 寄送郵件</a></li>
+                <li><a href="/edit-templates" class="menu-item">📝 編輯模板</a></li>
+                <li><a href="/hpc-usage" class="menu-item">📊 HPC 用量通知</a></li>
+                <li><a href="/hpc-contact" class="menu-item active">👥 HPC帳號管理</a></li>
+                <li><a href="/mailbox-manager" class="menu-item">📬 信箱管理</a></li>
+                <li><a href="/setting" class="menu-item">⚙️ 設定</a></li>
+            </ul>
+        </nav>
+    </div>
+    <div class="main-content-wrapper">
+        <div class="container-card">
+            
+            <div class="header-section">
+                <h1>👥 HPC 帳號管理清單</h1>
+                <div class="action-tools">
+                    <select id="yearFilter" class="filter-select">
+                    <option value="">所有年份</option>
+                    </select>
+
+                    <div class="search-container">
+                        <div class="search-wrapper">
+                            <input type="text" id="searchInput" placeholder="搜尋申請人或團隊名稱..." onkeyup="if(event.key==='Enter') loadData(1)">
+                            
+                            <button type="button" class="btn-filter-dropdown" onclick="toggleFilterMenu(event)">
+                                ▼
+                            </button>
+
+                            <div id="filterDropdown" class="filter-dropdown-content">
+                                <label><input type="checkbox" id="filterCourse"> 課程帳號</label>
+                                <label><input type="checkbox" id="filterFormal"> 正式帳號</label>
+                                <label><input type="checkbox" id="filterTrial"> 測試帳號</label>
+                            </div>
+                        </div>
+                    </div>      
+                    <button onclick="loadData(1)" class="btn-search">🔍 搜尋</button>
+                    <button onclick="exportToCsv()" class="text-button btn-export">📥 匯出 CSV</button>
+                    <button onclick="openModal()" class="add-contact-button">＋ 新增聯絡人</button>
+                </div>
+            </div>
+
+            <div class="table-responsive-wrapper">
+                <table class="contact-table">
+                    <thead>
+                        <tr>
+                            <th class="col-team">申請團隊 / 單位(課程)</th>
+                            <th class="col-name">申請人</th>
+                            <th class="col-trail-acc">測試帳號</th>
+                            <th class="col-trail-acc-password">密碼</th>
+                            <th class="col-acc">正式帳號</th>
+                            <th class="col-host">使用主機</th>
+                            <th class="col-date">申請時間/測試期限</th>
+                            <th class="col-other-data">其他資訊</th>
+                            <th class="col-quota-discount">剩餘優惠額度</th>
+                            <th class="col-other-data">剩餘總額度</th>
+                            <th class="col-quota-total">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contactTableBody">
+                        </tbody>
+                </table>
+            </div>
+
+            <div id="pagination" class="pagination-container"></div>
+        </div>
+    </div>
+
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <input type="hidden" id="editId" value="">
+            <h2 id="modalTitle" style="margin-top:0;">新增聯絡人</h2>
+            <form id="contactForm">
+                <input type="hidden" id="editId">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>申請團隊</label>
+                        <input type="text" id="team_name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>一級單位(課程名稱)</label>
+                        <input type="text" id="dept_level1" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>申請人</label>
+                        <input type="text" id="applicant" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>申請日期</label>
+                        <input type="date" id="apply_date" class="form-input">
+                    </div>
+                </div>
+
+                <div class="section-title">🖥️ 帳號配置與主機</div>
+                <div class="form-grid" style="margin-top:15px;">
+                    <div class="form-group">
+                        <label>測試帳號(課程帳號)</label>
+                        <input type="text" id="trial_account" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>測試帳號密碼(課程帳號密碼)</label>
+                        <input type="text" id="trail_account_password" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>正式帳號</label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="account_search" class="form-input" placeholder="輸入關鍵字..." autocomplete="off">
+                            
+                            <input type="hidden" id="formal_account_id" name="user_id">
+                            
+                            <div id="search-results" class="autocomplete-results"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>測試期限</label>
+                        <input type="date" id="test_deadline" class="form-input">
+                    </div>
+                </div>
+
+                <div style="margin-top:20px;">
+                    <label class="form-label">開通主機</label>
+                    <div id="hostContainer" class="host-selection-box">
+                        <span style="color: #a0aec0; font-size: 12px;">載入主機列表中...</span>
+                    </div>
+                </div>
+
+                <div class="modal-section-title" style="margin-top: 25px;">📊 其他資訊</div>
+                <div class="form-group full-width">
+                    <label>研究內容</label>
+                    <textarea id="research_content" rows="3" placeholder="請簡述研究方向..."></textarea>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>使用軟體</label>
+                    <input type="text" id="used_software" placeholder="例如: VASP, LAMMPS, Gaussian...">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>計算資源</label>
+                    <input type="text" id="calc_resource" placeholder="例如: GPU 節點, 高記憶體節點...">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>備註</label>
+                    <textarea id="notes" rows="2" placeholder="其他需要說明的事項...(輸入逗號顯示可自動分行)"></textarea>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group checkbox-group-inline">
+                        <input type="checkbox" id="is_course_account" name="is_course_account">
+                        <label for="is_course_account">是否為課程帳號</label>
+                    </div>
+                </div>
+
+                <div id="courseAccountSection" style="display: none; margin-top: 15px;">
+                    <div class="hpc-modal-header" style="background: #eef2f7; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        <h5 style="margin:0; color: #2c3e50;"><i class="fas fa-users-class"></i> 學生帳號清單</h5>
+                        <button type="button" class="btn-add-row-student" onclick="addCourseRow()">+ 新增學生</button>
+                    </div>
+                    <table class="hpc-table" id="courseAccountTable">
+                        <thead>
+                            <tr>
+                                <th>學生帳號</th>
+                                <th>密碼</th>
+                                <th style="width: 50px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="courseAccountBody">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="section-title">📋 其他聯絡人</div>
+                <div id="other-contacts-container"></div>
+                <button type="button" class="btn-add-row" onclick="addContactRow()">＋ 新增聯絡人欄位</button>
+
+                <div class="modal-footer">
+                    <button type="button" onclick="closeModal()" class="modal-btn btn-cancel">
+                        取消
+                    </button>
+                    <button type="submit" class="modal-btn btn-save">
+                        儲存提交
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="detailViewModal" class="hpc-modal">
+        <div class="hpc-modal-content modal-width-wide">
+            <div class="hpc-modal-header">
+                <h3><i class="fas fa-info-circle"></i> 詳細研究資訊</h3>
+                <span class="hpc-close" onclick="closeDetailModal()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+                <div class="display-group">
+                    <label>研究內容</label>
+                    <div id="infoContent" class="read-only-box"></div>
+                </div>
+                <div class="display-group">
+                    <label>使用軟體</label>
+                    <div id="infoSoftware" class="read-only-box"></div>
+                </div>
+                <div class="display-group">
+                    <label>計算資源</label>
+                    <div id="infoResource" class="read-only-box"></div>
+                </div>
+                <div class="display-group">
+                    <label>備註</label>
+                    <div id="infoNote" class="read-only-box"></div>
+                </div>
+            </div>
+            <div class="hpc-modal-footer">
+                <button class="btn-secondary" onclick="closeDetailModal()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="quotaEditorModal" class="hpc-modal">
+        <div class="hpc-modal-content modal-width-narrow">
+            <div class="hpc-modal-header header-edit">
+                <h3><i class="fas fa-plus-circle"></i> 管理額度: <span id="quotaTargetName"></span></h3>
+                <span class="hpc-close" onclick="closeQuotaModal()">&times;</span>
+            </div>
+            <form id="quotaForm">
+                <input type="hidden" id="quotaTargetId">
+                <div class="hpc-modal-body">
+                    
+                    <div class="quota-details-section" style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 6px;">
+                        <h4 style="margin-top: 0; margin-bottom: 12px; color: #333; font-size: 16px;">目前可用額度總計</h4>
+                        
+                        <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span class="detail-label">優惠額度總計：</span>
+                            <span class="detail-value" style="font-weight: bold; color: #0056b3;" id="current_discount_remaining">0.00</span>
+                        </div>
+                        
+                        <div id="discount_expiration_list" style="font-size: 13px; color: #666; margin-bottom: 12px; padding: 8px; background: #fff; border: 1px dashed #ccc; border-radius: 4px;">
+                            <span style="color: #999;">載入中...</span>
+                        </div>
+
+                        <div id="discount_expiration_list"></div>
+
+                        <div style="margin-top: 20px; border-top: 1px solid #edf2f7; padding-top: 15px;">
+                            <h4 style="margin-bottom: 8px; font-size: 14px; color: #4a5568; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-receipt" style="color: #718096;"></i> 歷史消費與扣款日期明細
+                            </h4>
+                            <div id="consumption_history_list" style="max-height: 160px; overflow-y: auto; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                                </div>
+                        </div>
+
+                        <div class="detail-row" style="display: flex; justify-content: space-between;">
+                            <span class="detail-label">目前剩餘總額度：</span>
+                            <span class="detail-value" style="font-weight: bold; color: #0056b3;" id="current_total_remaining">0.00</span>
+                        </div>
+                    </div>
+
+                    <div id="pending_bill_section" style="margin-top: 20px; border-top: 2px solid #cbd5e0; padding-top: 15px; background-color: #fffaf0; padding: 12px; border-radius: 6px; border: 1px solid #feebc8;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 14px; color: #dd6b20;"><i class="fas fa-file-invoice-dollar"></i> 本期運算費用核對與扣款調整</h4>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">核對/調整後扣款金額 ($)</label>
+                                <input type="number" id="pending_bill_amount" step="0.01" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-weight: bold; color: #c53030; font-size: 15px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">帳單歸屬計算日期</label>
+                                <input type="date" id="pending_bill_date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">備註說明</label>
+                            <input type="text" id="pending_bill_notes" placeholder="例如：2026年5月運算費折讓調整" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+
+                        <div style="text-align: right;">
+                            <button type="button" onclick="handleConfirmDeduct()" style="background-color: #dd6b20; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-check-circle"></i> 確認執行扣款
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 20px 0;">
+
+                    <div class="quota-add-section">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 16px;">新增購買額度</h4>
+                        
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <label for="purchase_date">購買日期</label>
+                            <input type="date" id="purchase_date" class="hpc-input">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="add_quota_amount">本次購買額度</label>
+                            <input type="number" id="add_quota_amount" class="hpc-input" step="0.01" min="0" value="0" required>
+                        </div>
+                        
+                        <p style="font-size: 12px; color: #6c757d; margin-top: 10px;">
+                            <i class="fas fa-info-circle"></i> 後端將依據「購買日期」自動計算優惠額度的到期日。未填寫則預設為當天。
+                        </p>
+                    </div>
+
+                </div>
+                <div class="hpc-modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeQuotaModal()">取消</button>
+                    <button type="submit" class="btn-save-quota">確認新增</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+    <script src="{{ url_for('static', filename='js/contact_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>

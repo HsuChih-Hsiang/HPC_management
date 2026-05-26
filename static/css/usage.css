@@ -1,0 +1,191 @@
+/* 針對此頁面的特定樣式調整 */
+.settings-section, .history-section {
+     margin-bottom: 40px;
+     }
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.history-table th, .history-table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+.history-table th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+}
+
+.history-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* 新增: 價格欄位樣式 */
+.price-column {
+    width: 10%; /* 將寬度設定為表格的10% */
+}
+
+.no-records-message {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+}
+
+.search-form {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+.search-form .form-group {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.search-form button {
+    width: auto;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* ... (style.css 的其他樣式) ... */
+
+/* 分頁容器樣式 */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+/* 分頁按鈕樣式 */
+.pagination-button {
+    padding: 10px 20px;
+    border: 1px solid #007bff;
+    background-color: #007bff;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.pagination-button:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+}
+
+.pagination-button:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    border-color: #dee2e6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 頁碼資訊樣式 */
+.page-info {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #555;
+}
+
+/* 在較小螢幕上調整佈局 */
+@media (max-width: 600px) {
+    .pagination-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .pagination-button {
+        width: 100%;
+    }
+}
+
+.prepaid-section .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.prepaid-section .toolbar .form-group {
+    margin-bottom: 0;
+}
+
+.prepaid-section .toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.prepaid-section .history-table .status-ok {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.prepaid-section .history-table .status-exceeded {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.prepaid-section .history-table .action-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.prepaid-section .history-table .action-buttons button {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+.prepaid-amount-input {
+    max-width: 120px;
+    text-align: right;
+}
+
+.toolbar-wrapper {
+    width: 100%;
+    /* 確保其內容靠左對齊 */
+    display: flex;
+    justify-content: flex-end;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPC 用量通知</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/usage.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+</head>
+<body>
+    <button id="menuButton" class="menu-button" aria-label="開啟選單">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </button>
+
+    <div id="sideMenu" class="side-menu">
+        <button id="closeMenuButton" class="close-menu-button">&times;</button>
+        <h2>功能選單</h2>
+        <nav>
+            <ul>
+                <li><a href="/" class="menu-item">📨 寄送郵件</a></li>
+                <li><a href="/edit-templates" class="menu-item">📝 編輯模板</a></li>
+                <li><a href="/hpc-usage" class="menu-item active">📊 HPC 用量通知</a></li>
+                <li><a href="/hpc-contact" class="menu-item">👥 HPC帳號管理</a></li>
+                <li><a href="/mailbox-manager" class="menu-item">📬 信箱管理</a></li>
+                <li><a href="/setting" class="menu-item">⚙️ 設定</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-layout-container">
+        <div class="right-editor-container container">
+            <h1>📊 HPC 用量通知</h1>
+            
+            <div id="messageBox" class="message-box" style="display:none;"></div>
+
+            <div class="settings-section">
+                <h2>通知設定</h2>
+                <div id="settingsForm" class="email-form">
+                    <div class="form-group">
+                        <label for="priceThreshold">價格門檻 (SU)</label>
+                        <input type="number" id="priceThreshold" class="form-control" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="checkInterval">檢查間隔 (天)</label>
+                        <input type="number" id="checkInterval" class="form-control" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="diffPriceThreshold">差值通知門檻 (SU)</label>
+                        <input type="number" id="diffPriceThreshold" class="form-control" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="checkPeriod">年度差值檢查區間 (天)</label>
+                        <input type="number" id="checkPeriod" class="form-control" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="notifyPeriod">年度差值通知冷卻區間 (天)</label>
+                        <input type="number" id="notifyPeriod" class="form-control" min="1" step="1" required>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" id="saveSettingsButton" class="send-button">儲存設定</button>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="history-section">
+                <h2>歷史通知紀錄</h2>
+                <div class="search-form">
+                    <div class="form-group">
+                        <label for="startDate">開始時間</label>
+                        <input type="date" id="startDate" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="endDate">結束時間</label>
+                        <input type="date" id="endDate" class="form-control">
+                    </div>
+                    <button type="button" id="searchButton" class="send-button">查詢</button>
+                </div>
+                
+                <div id="historyTableContainer">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>帳號</th>
+                                <th>通知訊息</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <p id="noRecordsMessage" class="no-records-message" style="display:none;">沒有找到符合條件的通知紀錄。</p>
+
+                <div id="pagination" class="pagination-container" style="display:none;">
+                    <button id="prevPageButton" class="pagination-button">上一頁</button>
+                    <span id="pageInfo" class="page-info"></span>
+                    <button id="nextPageButton" class="pagination-button">下一頁</button>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="prepaid-section">
+                <h2>預繳金額與年度用量監控</h2>
+                <div class="toolbar-wrapper">
+                    <div class="toolbar">
+                        <div class="form-group">
+                            <label for="filterExceeded">
+                                <input type="checkbox" id="filterExceeded">
+                                僅顯示用量超過預繳金額的帳號
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <button type="button" id="notifyAllButton" class="send-button">一鍵通知所有未通知帳號</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <div id="prepaidTableContainer">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>帳號</th>
+                                <th>預繳額度 (SU)</th>
+                                <th>本年度使用量 (SU)</th>
+                                <th>預繳狀態</th>
+                                <th>通知狀態</th>
+                                <th style="width: 20%;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prepaidTableBody">
+                            </tbody>
+                    </table>
+                </div>
+                <p id="noPrepaidRecordsMessage" class="no-records-message" style="display:none;">沒有找到任何帳號資料。</p>
+
+                <div id="prepaidPagination" class="pagination-container" style="display:none;">
+                    <button id="prevPrepaidPageButton" class="pagination-button">上一頁</button>
+                    <span id="prepaidPageInfo" class="page-info"></span>
+                    <button id="nextPrepaidPageButton" class="pagination-button">下一頁</button>
+                </div>
+            </div>
+            </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hpc_usage.js') }}"></script>
+</body>
+</html>

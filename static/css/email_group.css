@@ -1,0 +1,214 @@
+.email-form input[type="text"],
+.email-form input[type="email"] {
+    width: 100%; /* 確保佔滿父容器可用空間 */
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.email-form input[type="text"]:focus,
+.email-form input[type="email"]:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.group-item .delete-btn,
+.email-item .delete-btn {
+    background-color: #dc3545; 
+    color: #fff;
+}
+
+.group-item .delete-btn:hover,
+.email-item .delete-btn:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+}
+
+.group-item .delete-btn:active,
+.email-item .delete-btn:active {
+    background-color: #bd2130;
+    transform: translateY(0);
+}
+
+
+.save-template-button {
+    padding: 8px 15px; /* 內邊距左右 15px 會決定按鈕寬度 */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    
+    /* 修改這裡 */
+    width: fit-content; 
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+
+/* --- 信箱管理頁面專用樣式 --- */
+.group-list {
+    margin-top: 30px; /* 增加與上方表單的間距 */
+}
+
+.group-item {
+    background-color: #ffffff; /* 白色背景 */
+    border: 1px solid #e0e0e0;
+    border-radius: 10px; /* 更大的圓角 */
+    margin-bottom: 20px; /* 增加組之間的間距 */
+    padding: 20px; /* 增加內邊距 */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* 柔和的陰影 */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-item:hover {
+    transform: translateY(-3px); /* 懸停時輕微上浮 */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px; /* 標題與內容的間距 */
+    padding-bottom: 15px; /* 標題下方留白 */
+    border-bottom: 1px solid #f0f0f0; /* 淺灰色分隔線 */
+}
+
+.group-header strong {
+    font-size: 1.5em; /* 分組名稱字體更大 */
+    color: #0056b3;
+}
+
+.email-list {
+    margin: 15px 0 0 0; /* 調整列表上下間距 */
+    padding-left: 0; /* 移除預設的 padding-left，如果需要縮排請自行控制 */
+}
+
+.email-item {
+    display: flex;
+    justify-content: space-between; /* 郵箱和刪除按鈕分開對齊 */
+    align-items: center;
+    background-color: #f9f9f9; /* 淺灰色背景 */
+    border-radius: 6px;
+    margin-bottom: 8px; /* 郵箱項目之間的間距 */
+    padding: 10px 15px; /* 內邊距 */
+    border: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.email-item:hover {
+    background-color: #f0f0f0; /* 懸停時變更背景色 */
+}
+
+.email-item span {
+    flex: 1;
+    font-size: 1.05em;
+    color: #333;
+    word-break: break-all; /* 防止長郵箱地址溢出 */
+    margin-right: 10px; /* 與刪除按鈕的間距 */
+}
+
+/* 針對「目前沒有分組」的訊息 */
+#groupList p {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    margin-top: 30px;
+    font-size: 1.1em;
+}
+
+/* 待分組信箱的特殊樣式 */
+.unassigned-emails-section {
+    background-color: #f0f8ff; /* 淺藍色背景 */
+    border: 1px dashed #a8d6ff; /* 虛線邊框 */
+    margin-top: 30px;
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.unassigned-emails-section .group-header strong {
+    color: #007bff; /* 待分組標題顏色 */
+}
+
+/* 拖曳相關樣式 */
+.email-item[draggable="true"] {
+    cursor: grab;
+}
+
+.email-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+/* 拖曳目標提示 */
+.email-list.drag-over {
+    background-color: #e6f7ff; /* 淺藍色背景 */
+    border: 2px dashed #91d5ff; /* 藍色虛線邊框 */
+    border-radius: 8px;
+}
+/* 正在被拖曳的項目樣式 */
+.email-item.dragging {
+    opacity: 0.5; /* 半透明 */
+    border: 2px solid #007bff; /* 藍色邊框 */
+    background-color: #e0f0ff; /* 淺藍色背景 */
+}
+
+/* 統一 次要操作按鈕 的樣式 */
+.group-item .delete-btn,
+.email-item .delete-btn
+ {
+    padding: 8px 15px; /* 統一內邊距 */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px; /* 統一字體大小 */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* 針對信箱管理頁面中的新增分組和新增信箱按鈕（其實就是應用了 save-template-button 樣式，這裡統一為次要按鈕大小） */
+.add-group-form .save-template-button,
+.add-email-form .save-template-button {
+    background-color: #ffc107; /* 黃色 */
+    color: #333;
+    /* 這裡不再需要 box-shadow，因為它不是主按鈕，且會被上面的統一樣式覆蓋 */
+}
+
+.add-group-form .save-template-button:hover,
+.add-email-form .save-template-button:hover {
+    background-color: #e0a800;
+    transform: translateY(-1px);
+}
+
+
+
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .email-tag {
+        font-size: 12px;
+        padding: 4px 8px;
+        max-width: 150px;
+    }
+    
+    .email-text {
+        max-width: 100px;
+    }
+    
+    .remove-email-btn {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+    }
+    
+    .email-input {
+        min-width: 150px;
+    }
+}
+
+
