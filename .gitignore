@@ -3,3 +3,7 @@
 data/
 log/
 venv/
+__pycache__
+utils/__pycache__/
+server_route/__pycache__/
+database/__pycache__/
