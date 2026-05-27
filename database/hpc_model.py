@@ -66,6 +66,17 @@ class PrepaidAmount(db.Model):
 
     def __repr__(self):
         return f'<PrepaidAmount (id={self.id}, username={self.username}, year={self.year}, amount=${self.amount})>'
+    
+class Bill(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'))
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='unpaid') # unpaid, paid, cancelled
+    created_at = db.Column(db.DateTime, default=datetime.now())
+    notes = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<Bill(id={self.id}, contact_id={self.contact_id}, amount={self.amount}, status='{self.status}')>"
 
 class NotificationHistory(db.Model):
     __tablename__ = 'notification_history'

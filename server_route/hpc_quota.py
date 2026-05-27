@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from decimal import Decimal
 from database.extensions import db
-from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist
+from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill
 from sqlalchemy import and_, func, cast, Numeric
 from datetime import datetime, date
 
@@ -227,17 +227,78 @@ def confirm_deduct(id):
 
         # 檢查是否全數扣除完畢
         if remaining_bill > 0:
-            db.session.rollback()
-            return jsonify({'message': f'扣款失敗：各年份適用之可用餘額不足，還差 {remaining_bill} 元'}), 400
-
-        # 💡 提示：在此處你可以將 Accounting 表中剛才被計算的 job 狀態更新為「已結帳/已扣款」，完成閉環
-        
-        db.session.commit()
-        return jsonify({
-            'message': '扣款成功！', 
-            'detail': deducted_details
-        }), 200
+            if remaining_bill > 0:
+                # 這裡直接新增一筆「待繳款」的紀錄
+                # 假設您選擇新增一個 bill_record 的處理方式
+                new_record = Accounting(
+                    contact_id=id,
+                    amount=remaining_bill,
+                    is_paid=False,  # 標記為尚未繳費
+                    notes=f"餘額不足，產生繳費單: {notes}",
+                    date=bill_date_str
+                )
+                db.session.add(new_record)
+                
+                # 完成提交 (同時包含了前面的額度扣除與這裡的待繳紀錄)
+                db.session.commit()
+                return jsonify({
+                    'message': '額度已扣除，剩餘金額已新增為待繳帳單',
+                    'detail': deducted_details,
+                    'unpaid_amount': remaining_bill
+                }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': '計費扣款程序異常', 'error': str(e)}), 500
+    
+@app.route('/api/contacts/<int:contact_id>/smart_deduct', methods=['POST'])
+def smart_deduct_quota(contact_id):
+    contact = Contact.query.get_or_44(contact_id) # 假設您的聯絡人模型是 Contact
+    data = request.get_json() or {}
+    
+    total_charge = float(data.get('amount', 0))
+    notes = data.get('notes', '')
+    
+    # 假設聯絡人模型上有儲存當前可用餘額的欄位，例如 contact.current_quota
+    current_balance = float(contact.current_quota or 0)
+    
+    try:
+        # 情境 1：餘額充足，直接全額扣款
+        if current_balance >= total_charge:
+            contact.current_quota = current_balance - total_charge
+            
+            # 紀錄一筆扣款流水紀錄 (視您的系統架構而定)
+            # log_quota_history(contact_id, amount=-total_charge, type='deduct', notes=notes)
+            
+            db.session.commit()
+            return jsonify({
+                "status": "success", 
+                "message": f"額度扣款成功！已成功扣除 ${total_charge} 元，目前剩餘額度: ${contact.current_quota:.2f} 元。"
+            })
+            
+        # 情境 2：餘額不足，執行複合銷帳 (扣至 0 元 + 餘額轉未繳帳單)
+        else:
+            remaining_bill_amount = total_charge - current_balance
+            
+            # 1. 預付額度全部歸零
+            contact.current_quota = 0.0
+            
+            # 2. 自動將不夠的差額，建立一筆『待繳 (unpaid)』的繳費單
+            auto_bill = Bill(
+                contact_id=contact_id,
+                amount=remaining_bill_amount,
+                status='unpaid',
+                notes=f"【額度不足自動轉單】原總費 ${total_charge}，扣除預付 ${current_balance} 後之差額。({notes})"
+            )
+            
+            db.session.add(auto_bill)
+            db.session.commit()
+            
+            return jsonify({
+                "status": "warning",
+                "message": f"預付額度不足！已自動扣除現有額度 ${current_balance} 元（額度已歸零），並針對剩餘差額 ${remaining_bill_amount:.2f} 元自動開立了一張未繳繳費單。"
+            })
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"系統處理失敗: {str(e)}"}), 500

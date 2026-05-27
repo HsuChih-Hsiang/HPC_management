@@ -1113,6 +1113,10 @@ body {
     border-radius: 12px !important;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2) !important;
     
+    /* 🎯 這裡新增：強制將寬度加大，並加上 RWD 響應式安全鎖 */
+    width: 750px !important;           /* 💡 讓彈窗有感變寬（可依需求微調如 700px ~ 800px） */
+    max-width: 95% !important;         /* 💡 防止在小螢幕或平板上寬度死板而爆出螢幕 */
+
     /* 💡 關鍵複製：跟聯絡人一樣，最多只佔螢幕高度的 80% */
     max-height: 80vh !important; 
     
@@ -1193,4 +1197,64 @@ body {
     font-weight: bold !important;
 }
 
+/* 歷史明細表格外層滾動容器：高度自適應，多於 150px 自動觸發原有的自訂滑動條 */
+.quota-section .table-responsive {
+    max-height: 150px !important;
+    overflow-y: auto !important;
+}
 
+/* 直接開立繳費單 按鈕樣式 (優雅的橘色空心線框) */
+.btn-outline-bill {
+    background-color: transparent !important;
+    color: #e67e22 !important;
+    border: 1px solid #e67e22 !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease-in-out !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+
+.btn-outline-bill:hover {
+    background-color: #e67e22 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(230, 126, 34, 0.2) !important;
+}
+
+
+/* ============================================================
+   🎯 強制彈窗 Footer 完美貼緊下邊框且不留白
+   ============================================================ */
+
+/* 1. 確保彈窗本體不會因為內邊距把 footer 推開 */
+#quotaEditorModal .hpc-modal-content {
+    padding-bottom: 0 !important; /* 清除內容物下方的留白 */
+    overflow: hidden !important;   /* 確保 footer 的圓角能與外框完美重合 */
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 2. 控制 body 區塊，讓它與 footer 劃分乾淨 */
+#quotaEditorModal .hpc-modal-body {
+    padding-bottom: 15px !important; /* 讓內容物與 footer 之間有舒適的呼吸空間 */
+    margin-bottom: 0 !important;
+}
+
+/* 3. 強制讓 footer 滿版貼框 */
+#quotaEditorModal .hpc-modal-footer {
+    width: 100% !important;
+    margin: 0 !important;               /* 清除任何可能的外邊距 */
+    padding: 15px 24px !important;       /* 給予左右按鈕安全的內邊距 */
+    border-top: 1px solid #e2e8f0 !important; /* 優雅的頂部分隔線 */
+    background-color: #f8fafc !important; /* 淡淡的灰色底，呈現貼框的高級設計感 */
+    text-align: right !important;         /* 按鈕靠右對齊 */
+    box-sizing: border-box !important;   /* 防止寬度爆開 */
+    
+    /* 確保在最下方，沒有任何縫隙 */
+    display: flex !important;
+    justify-content: flex-end !important;
+}

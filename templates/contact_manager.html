@@ -274,35 +274,7 @@
                         </div>
                     </div>
 
-                    <div id="pending_bill_section" style="margin-top: 20px; border-top: 2px solid #cbd5e0; padding-top: 15px; background-color: #fffaf0; padding: 12px; border-radius: 6px; border: 1px solid #feebc8;">
-                        <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 14px; color: #dd6b20;"><i class="fas fa-file-invoice-dollar"></i> 本期運算費用核對與扣款調整</h4>
-                        
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-                            <div style="flex: 1;">
-                                <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">核對/調整後扣款金額 ($)</label>
-                                <input type="number" id="pending_bill_amount" step="0.01" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-weight: bold; color: #c53030; font-size: 15px;">
-                            </div>
-                            <div style="flex: 1;">
-                                <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">帳單歸屬計算日期</label>
-                                <input type="date" id="pending_bill_date" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px;">
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom: 10px;">
-                            <label style="font-size: 12px; color: #718096; display: block; margin-bottom: 4px;">備註說明</label>
-                            <input type="text" id="pending_bill_notes" placeholder="例如：2026年5月運算費折讓調整" style="width: 100%; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; box-sizing: border-box;">
-                        </div>
-
-                        <div style="text-align: right;">
-                            <button type="button" onclick="handleConfirmDeduct()" style="background-color: #dd6b20; color: white; border: none; padding: 6px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                                <i class="fas fa-check-circle"></i> 確認執行扣款
-                            </button>
-                        </div>
-                    </div>
-
-                    <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 20px 0;">
-
-                    <div class="quota-add-section">
+                    <div class="quota-section">
                         <h4 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 16px;">新增購買額度</h4>
                         
                         <div class="input-group" style="margin-bottom: 15px;">
@@ -310,21 +282,80 @@
                             <input type="date" id="purchase_date" class="hpc-input">
                         </div>
 
-                        <div class="input-group">
+                        <div class="input-group" style="margin-bottom: 15px;">
                             <label for="add_quota_amount">本次購買額度</label>
                             <input type="number" id="add_quota_amount" class="hpc-input" step="0.01" min="0" value="0" required>
                         </div>
                         
-                        <p style="font-size: 12px; color: #6c757d; margin-top: 10px;">
-                            <i class="fas fa-info-circle"></i> 後端將依據「購買日期」自動計算優惠額度的到期日。未填寫則預設為當天。
-                        </p>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px;">
+                            <p style="font-size: 12px; color: #6c757d; margin: 0; flex: 1; padding-right: 10px;">
+                                <i class="fas fa-info-circle"></i> 後端將依據「購買日期」自動計算優惠到期日。未填寫預設為當天。
+                            </p>
+                            <button type="submit" class="btn-save-quota" style="padding: 8px 20px; border-radius: 4px; white-space: nowrap;">
+                                <i class="fas fa-plus"></i> 確認新增額度
+                            </button>
+                        </div>
                     </div>
 
-                </div>
+                    <div id="pending_bill_section" class="quota-section" style="margin-top: 15px;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 16px;">
+                            <i class="fas fa-file-invoice-dollar"></i> 本期費用核對與帳務管理
+                        </h4>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">本期應收總金額 ($)</label>
+                                <input type="number" id="pending_bill_amount" class="hpc-input" step="0.01" style="font-weight: bold; color: #c53030;" placeholder="請輸入核對後的金額">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">帳單/扣款歸屬日期</label>
+                                <input type="date" id="pending_bill_date" class="hpc-input">
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <label for="pending_bill_notes">核對備註說明</label>
+                            <input type="text" id="pending_bill_notes" class="hpc-input" placeholder="例如：115年度第二季運算費 / 專案核銷">
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button type="button" class="btn-save-quota" style="flex: 1; padding: 9px 0; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 4px;" onclick="handleConfirmDeduct()">
+                                <i class="fas fa-calculator"></i> 執行額度扣款
+                            </button>
+                            <button type="button" class="btn-outline-bill" style="flex: 1; padding: 9px 0; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 4px;" onclick="submitDirectBill()">
+                                <i class="fas fa-file-invoice"></i> 開立繳費單
+                            </button>
+                        </div>
+
+                        <div style="border-top: 1px dashed #eee; padding-top: 12px;">
+                            <h5 style="margin-top: 0; margin-bottom: 8px; color: #555; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-history"></i> 繳費單紀錄明細與銷帳
+                            </h5>
+                            
+                            <div class="table-responsive" style="max-height: 150px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">
+                                <table class="hpc-table" style="width: 100%; font-size: 12px; margin: 0; border-collapse: collapse;">
+                                    <thead style="position: sticky; top: 0; background-color: #f8f9fa; z-index: 1; box-shadow: 0 1px 1px rgba(0,0,0,0.05);">
+                                        <tr>
+                                            <th style="padding: 6px; text-align: left;">日期</th>
+                                            <th style="padding: 6px; text-align: right;">金額</th>
+                                            <th style="padding: 6px; text-align: center;">狀態</th>
+                                            <th style="padding: 6px; text-align: left;">備註</th>
+                                            <th style="padding: 6px; text-align: center;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="billsTableBody">
+                                        <tr>
+                                            <td colspan="5" style="text-align: center; color: #999; padding: 12px;">載入中或無紀錄...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 <div class="hpc-modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeQuotaModal()">取消</button>
-                    <button type="submit" class="btn-save-quota">確認新增</button>
+                    <button type="button" class="btn-secondary" style="padding: 8px 24px;" onclick="closeQuotaModal()">關閉視窗</button>
                 </div>
+
             </form>
         </div>
     </div>

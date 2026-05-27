@@ -918,3 +918,74 @@ function getCourseData() {
     });
     return data;
 }
+
+/**
+ * 💡 處理情境 1 & 2：智慧扣款控制 (額度足夠直接扣，不足則扣完後將差額轉開單)
+ */
+function handleSmartDeduct() {
+    const contactId = document.getElementById('current_contact_id').value;
+    const amount = document.getElementById('pending_bill_amount').value;
+    const date = document.getElementById('pending_bill_date').value;
+    const notes = document.getElementById('pending_bill_notes').value || '系統計算扣款';
+
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('請輸入核對後的本期應收總金額');
+        return;
+    }
+
+    if (!confirm(`【確認執行額度扣款？】\n\n系統將自動核對此用戶的預付餘額：\n1. 若餘額充足：直接扣款銷帳。\n2. 若餘額不足：扣至 0 元後，自動將「剩餘差額」轉為待繳繳費單。`)) {
+        return;
+    }
+
+    // 發送給智慧扣款 API
+    fetch(`/api/contacts/${contactId}/smart_deduct`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            amount: parseFloat(amount), 
+            date: date, 
+            notes: notes 
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message || '操作成功');
+        // 清空輸入框
+        document.getElementById('pending_bill_amount').value = '';
+        document.getElementById('pending_bill_notes').value = '';
+        if (typeof reloadQuotaPanel === 'function') reloadQuotaPanel(contactId);
+    })
+    .catch(err => alert('智慧扣款失敗: ' + err));
+}
+
+/**
+ * 💡 處理情境 3：直接開立繳費單 (不驚動預付額度)
+ */
+function submitDirectBill() {
+    const contactId = document.getElementById('current_contact_id').value;
+    const amount = document.getElementById('pending_bill_amount').value;
+    const notes = document.getElementById('pending_bill_notes').value || '管理員手動直接開單';
+
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('請輸入要開立的繳費單金額');
+        return;
+    }
+
+    if (!confirm(`【確認直接開立繳費單？】\n\n系統將跳過預付額度扣款，直接建立一筆 $${amount} 元的未繳帳單。`)) {
+        return;
+    }
+
+    fetch(`/api/contacts/${contactId}/create_bill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parseFloat(amount), notes: notes })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message || '繳費單直接開立成功！');
+        document.getElementById('pending_bill_amount').value = '';
+        document.getElementById('pending_bill_notes').value = '';
+        if (typeof reloadQuotaPanel === 'function') reloadQuotaPanel(contactId);
+    })
+    .catch(err => alert('直接開單失敗: ' + err));
+}
