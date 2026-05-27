@@ -251,7 +251,7 @@ def confirm_deduct(id):
         db.session.rollback()
         return jsonify({'message': '計費扣款程序異常', 'error': str(e)}), 500
     
-@app.route('/api/contacts/<int:contact_id>/smart_deduct', methods=['POST'])
+@quota_bp.route('/api/contacts/<int:contact_id>/smart_deduct', methods=['POST'])
 def smart_deduct_quota(contact_id):
     contact = Contact.query.get_or_44(contact_id) # 假設您的聯絡人模型是 Contact
     data = request.get_json() or {}
