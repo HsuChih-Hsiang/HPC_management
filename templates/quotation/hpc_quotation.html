@@ -19,6 +19,21 @@
 </o:DocumentProperties>
 </xml><![endif]-->
 <style>
+/* 1. 定義源流明體 */
+@font-face {
+    font-family: 'GenRyuMin';
+    src: url('/usr/share/fonts/truetype/custom/GenRyuMin2TW-R.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* 2. 定義台北黑體 */
+@font-face {
+    font-family: 'TaipeiSans';
+    src: url('/usr/share/fonts/truetype/custom/TaipeiSansTCBeta-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
 <!--table
 
 a{
@@ -46,21 +61,21 @@ ruby
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
 .font12
  {
  color:#000000;
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif; }
+ font-family:'TaipeiSans', sans-serif; }
 .font13
  {
  color:#000000;
  font-size:14pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif; }
+ font-family:'TaipeiSans', sans-serif; }
 td
  text-align:general;
  vertical-align:middle;
@@ -70,7 +85,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
  padding:0px;
  }
 .x15
@@ -83,7 +98,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
  }
 .x30
  {
@@ -95,7 +110,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'GenRyuMin', serif;
  }
 .x31
  {
@@ -107,19 +122,20 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x32
  {
  text-align:general;
  vertical-align:middle;
  white-space:nowrap;
+
  background:auto;
  color:#000000;
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -135,7 +151,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -151,7 +167,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x35
  {
@@ -163,7 +179,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:none;
@@ -179,7 +195,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -195,7 +211,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -211,7 +227,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -227,7 +243,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -243,7 +259,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -259,7 +275,7 @@ td
  font-size:16pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x42
  {
@@ -271,7 +287,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x43
  {
@@ -283,7 +299,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -299,7 +315,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -315,7 +331,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -331,7 +347,7 @@ td
  font-size:16pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -347,7 +363,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -363,7 +379,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -379,7 +395,7 @@ td
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:none;
@@ -395,7 +411,7 @@ td
  font-size:14pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:none;
  border-bottom:none;
@@ -411,7 +427,7 @@ td
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:none;
@@ -427,7 +443,7 @@ td
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:none;
@@ -443,7 +459,7 @@ td
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x54
  {
@@ -455,7 +471,7 @@ td
  font-size:16pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:none;
  border-bottom:1px solid windowtext;
@@ -471,7 +487,7 @@ td
  font-size:16pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:none;
  border-bottom:2px solid windowtext;
@@ -487,7 +503,7 @@ td
  font-size:12pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:2px solid windowtext;
  border-bottom:none;
@@ -503,7 +519,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x58
  {
@@ -515,7 +531,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x59
  {
@@ -527,7 +543,7 @@ td
  font-size:16pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x60
  {
@@ -539,7 +555,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x61
  {
@@ -551,7 +567,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x62
  {
@@ -563,7 +579,7 @@ td
  font-size:14pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:none;
  border-bottom:none;
@@ -579,7 +595,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -595,7 +611,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -611,7 +627,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:none;
@@ -627,7 +643,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:none;
  border-right:2px solid windowtext;
  border-bottom:none;
@@ -643,7 +659,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
  }
 .x68
  {
@@ -656,7 +672,7 @@ td
  font-weight:400;
  font-style:normal;
  text-decoration:underline;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
  }
 .x69
  {
@@ -668,7 +684,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -684,7 +700,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -700,7 +716,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:none;
  border-bottom:none;
@@ -716,7 +732,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:none;
@@ -732,7 +748,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:1px solid windowtext;
@@ -748,7 +764,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -764,7 +780,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  }
 .x76
  {
@@ -776,7 +792,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:none;
  border-bottom:1px solid windowtext;
@@ -792,7 +808,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -808,7 +824,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:none;
  border-bottom:2px solid windowtext;
@@ -824,7 +840,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -840,7 +856,7 @@ td
  font-size:24pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:none;
@@ -856,7 +872,7 @@ td
  font-size:24pt;
  font-weight:700;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:none;
@@ -872,7 +888,7 @@ td
  font-size:20pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:none;
@@ -888,7 +904,7 @@ td
  font-size:20pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:2px solid windowtext;
  border-bottom:none;
@@ -904,7 +920,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:1px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:1px solid windowtext;
@@ -920,7 +936,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:none;
  border-bottom:2px solid windowtext;
@@ -936,7 +952,7 @@ td
  font-size:16pt;
  font-weight:400;
  font-style:normal;
- font-family:微軟正黑體,sans-serif;
+ font-family:'TaipeiSans', sans-serif;
  border-top:2px solid windowtext;
  border-right:1px solid windowtext;
  border-bottom:2px solid windowtext;
@@ -952,7 +968,7 @@ td
  font-size:12pt;
  font-weight:400;
  font-style:normal;
- font-family:新細明體,serif;
+ font-family:'GenRyuMin', serif;
  }
 -->
 </style>
@@ -1026,7 +1042,7 @@ td
  <tr style='height:24.75pt'>
 <td style='height:24.75pt;'></td>
 <td class='x62'>電子信箱：</td>
-<td class='x68'><a href="mailto:pakhunglam@ntu.edu.tw" target="_parent"><span style='font-size:12pt;color:#0000FF;font-weight:400;text-decoration: underline;text-underline-style:single;font-family:新細明體,serif;'>pakhunglam@ntu.edu.tw</span></a></td>
+<td class='x68'><a href="mailto:pakhunglam@ntu.edu.tw" target="_parent"><span style='font-size:12pt;color:#0000FF;font-weight:400;text-decoration: underline;text-underline-style:single;font-family:'GenRyuMin', serif;'>pakhunglam@ntu.edu.tw</span></a></td>
 <td colspan='3' class='x31' style='border-right:2px solid windowtext;'></td>
  </tr>
  <tr style='height:34.5pt'>
