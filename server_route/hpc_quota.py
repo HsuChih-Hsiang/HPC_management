@@ -146,8 +146,7 @@ def calculate_pending_bill(id):
             Serverlist, Accounting.host == Serverlist.server
         ).filter(
             Accounting.username == username,
-            func.extract('year', Accounting.endtime) == last_year,
-            Accounting.status == 1  # 確保只計算成功完成的任務
+            func.extract('year', Accounting.endtime) == last_year
         ).first()
 
         # 4. 解析結果

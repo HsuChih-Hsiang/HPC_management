@@ -8,6 +8,9 @@ from email.mime.multipart import MIMEMultipart
 from flask import current_app
 from database.extensions import db
 from database.hpc_model import MailboxGroup, MailboxEmail
+from jinja2 import Environment, FileSystemLoader
+from xhtml2pdf import pisa
+import datetime
 
 def load_mailboxes(username):
     """根據使用者名稱加載其專屬的信箱分組"""
@@ -109,3 +112,40 @@ def get_user_email_from_db(username):
     if user:
         return user.email
     return None
+
+def generate_ntuspace_invoice():
+    invoice_data = {
+        "buyer_name": "國立臺灣大學 財務管理處",
+        "date": datetime.date.today().strftime("%Y-%m-%d"),
+        "invoice_number": "NTUSpace-2026-05001",
+        "vendor_name": "國立臺灣大學 計算機及資訊網路中心",
+        "vendor_contact": "許智翔", 
+        "items": [
+            {
+                "name": "NTU Space 雲端空間擴充租用 (100GB) - 年租",
+                "unit": "式",
+                "quantity": 1,
+                "unit_price": 1200
+            }
+        ],
+        "memo": "1. 本報價單報價金額已含 5% 營業稅。\n2. 空間擴充將於費用核銷確認後，3 個工作天內於 NTU Space 系統開通。\n3. 如有任何技術問題，請聯繫計資中心。"
+    }
+
+    total_amount = sum(item['quantity'] * item['unit_price'] for item in invoice_data['items'])
+    invoice_data['total_amount'] = total_amount
+
+    env = Environment(loader=FileSystemLoader('.'))
+    template = env.get_template('ntuspace_template.html')
+    rendered_html = template.render(invoice_data)
+
+    # 改用 xhtml2pdf 輸出檔案
+    output_filename = "NTU_Space雲端儲存空間報價單_財務管理處.pdf"
+    print("正在使用 xhtml2pdf 產生報價單 PDF...")
+    
+    with open(output_filename, "wb") as result_file:
+        pisa_status = pisa.CreatePDF(rendered_html, dest=result_file)
+        
+    if not pisa_status.err:
+        print(f"✅ 成功產生報價單：{output_filename}")
+    else:
+        print("❌ PDF 產生失敗")

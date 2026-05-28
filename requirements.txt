@@ -3,3 +3,5 @@ python-dotenv
 Flask-SQLAlchemy
 APScheduler
 gunicorn
+Jinja2
+xhtml2pdf
