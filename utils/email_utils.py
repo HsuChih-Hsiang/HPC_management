@@ -4,13 +4,12 @@ from database.extensions import db
 from database.hpc_model import Accounting
 from utils import params
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from email.mime.multipart import MIMEMultipart
 from flask import current_app
 from database.extensions import db
 from database.hpc_model import MailboxGroup, MailboxEmail
-from jinja2 import Environment, FileSystemLoader
-from xhtml2pdf import pisa
-import datetime
 
 def load_mailboxes(username):
     """根據使用者名稱加載其專屬的信箱分組"""
@@ -113,39 +112,34 @@ def get_user_email_from_db(username):
         return user.email
     return None
 
-def generate_ntuspace_invoice():
-    invoice_data = {
-        "buyer_name": "國立臺灣大學 財務管理處",
-        "date": datetime.date.today().strftime("%Y-%m-%d"),
-        "invoice_number": "NTUSpace-2026-05001",
-        "vendor_name": "國立臺灣大學 計算機及資訊網路中心",
-        "vendor_contact": "許智翔", 
-        "items": [
-            {
-                "name": "NTU Space 雲端空間擴充租用 (100GB) - 年租",
-                "unit": "式",
-                "quantity": 1,
-                "unit_price": 1200
-            }
-        ],
-        "memo": "1. 本報價單報價金額已含 5% 營業稅。\n2. 空間擴充將於費用核銷確認後，3 個工作天內於 NTU Space 系統開通。\n3. 如有任何技術問題，請聯繫計資中心。"
-    }
 
-    total_amount = sum(item['quantity'] * item['unit_price'] for item in invoice_data['items'])
-    invoice_data['total_amount'] = total_amount
+def send_pdf_email(recipient_email, subject, body_text, pdf_bytes, filename="report.pdf"):
+    # 建立多部分郵件物件
+    msg = MIMEMultipart()
+    msg['From'] = params.SENDER_EMAIL
+    msg['To'] = recipient_email
+    msg['Subject'] = subject
 
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('ntuspace_template.html')
-    rendered_html = template.render(invoice_data)
+    # 附加信件純文字內文
+    msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
 
-    # 改用 xhtml2pdf 輸出檔案
-    output_filename = "NTU_Space雲端儲存空間報價單_財務管理處.pdf"
-    print("正在使用 xhtml2pdf 產生報價單 PDF...")
+    # 建立 PDF 附件物件 (直接讀取記憶體中的 bytes)
+    part = MIMEBase('application', 'octet-stream')
+    part.set_payload(pdf_bytes)
     
-    with open(output_filename, "wb") as result_file:
-        pisa_status = pisa.CreatePDF(rendered_html, dest=result_file)
-        
-    if not pisa_status.err:
-        print(f"✅ 成功產生報價單：{output_filename}")
-    else:
-        print("❌ PDF 產生失敗")
+    # 使用 Base64 編碼附件
+    encoders.encode_base64(part)
+    
+    # 設定附件檔名
+    part.add_header(
+        'Content-Disposition',
+        f'attachment; filename="{filename}"'
+    )
+    msg.attach(part)
+
+    # 透過 SMTP 發送信件
+    with smtplib.SMTP(params.SMTP_SERVER, params.SMTP_PORT) as server:
+        server.starttls()  # 啟用安全傳輸
+        server.login(params.SENDER_EMAIL, params.SENDER_PASSWORD)
+        server.sendmail(params.SENDER_EMAIL, recipient_email, msg.as_string())
+

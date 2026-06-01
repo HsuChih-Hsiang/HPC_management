@@ -106,7 +106,6 @@ async function loadData(page = 1) {
 
                     <td class="col-quota-total">
                         <span>${isQuotaDisabled ? '-' : (r.total_remaining || 0)}</span>
-                        ${isQuotaDisabled ? '' : `<button class="detail-button" onclick="toggleQuotaDetail(this, ${r.id})">ⓘ</button>`}
                         <div class="quota-popover">明細內容預留位置</div>
                     </td>
 
@@ -627,260 +626,6 @@ function closeDetailModal() {
     if (modal) modal.style.display = 'none';
 }
 
-/**
- * 切換顯示餘額明細懸浮窗
- */
-function toggleQuotaDetail(btn, id) {
-    const popover = btn.nextElementSibling;
-    const isVisible = popover.style.display === 'block';
-    
-    // 先關閉所有其他的 popover
-    document.querySelectorAll('.quota-popover').forEach(p => p.style.display = 'none');
-    
-    popover.style.display = isVisible ? 'none' : 'block';
-}
-
-/**
- * 取得今天日期的 YYYY-MM-DD 字串 (考量在地時區)
- */
-function getTodayDateString() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-}
-
-/**
- * 打開額度編輯彈窗
- */
-async function openQuotaModal(id, name) {
-    // 強制轉換為整數數字，確保符合後端 Flask <int:id> 的嚴格規範
-    const targetId = parseInt(id, 10);
-    if (isNaN(targetId)) {
-        console.error("致命錯誤：無法解析聯絡人 ID");
-        alert("無法讀取該聯絡人的識別 ID，請重新整理網頁再試。");
-        return;
-    }
-
-    // 1. 立即將確認無誤的 ID 與姓名更新至 Modal 欄位上
-    document.getElementById('quotaTargetId').value = targetId;
-    document.getElementById('quotaTargetName').innerText = name || '選擇的帳號';
-    
-    // 💡 核心修復：在發送任何請求前，不管三七二十一，先把所有輸入框強制清空/重設！
-    document.getElementById('current_discount_remaining').innerText = '載入中...';
-    document.getElementById('current_total_remaining').innerText = '載入中...';
-    
-    const expirationList = document.getElementById('discount_expiration_list');
-    if (expirationList) expirationList.innerHTML = '<div style="color: #999; padding: 10px;">資料載入中...</div>';
-    
-    // 抓出待確認帳單的三個欄位
-    const billAmountInput = document.getElementById('pending_bill_amount');
-    const billDateInput = document.getElementById('pending_bill_date');
-    const billNotesInput = document.getElementById('pending_bill_notes');
-    
-    // 強制清空舊資料，顯示 placeholder
-    if (billAmountInput) {
-        billAmountInput.value = ''; 
-        billAmountInput.placeholder = '計算建議金額中...';
-    }
-    if (billDateInput) billDateInput.value = '';
-    if (billNotesInput) billNotesInput.value = '';
-
-    // 將新增購買額度區塊也同步重設
-    const addQuotaInput = document.getElementById('add_quota_amount');
-    const purchaseDateInput = document.getElementById('purchase_date');
-    if (addQuotaInput) addQuotaInput.value = 0;
-    if (purchaseDateInput) purchaseDateInput.value = getTodayDateString();
-    
-    // 立即顯示 Modal 框架
-    document.getElementById('quotaEditorModal').style.display = 'block';
-    
-    // 2. 平行發送非同步請求，避免其中一個卡死導致另一個不更新
-    try {
-        // 請求 A：聯絡人基本額度
-        fetch(`/api/contacts/${targetId}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('current_discount_remaining').innerText = data.discount_remaining || 0;
-                document.getElementById('current_total_remaining').innerText = data.total_remaining || 0;
-                
-                if (expirationList) {
-                    expirationList.innerHTML = '';
-                    if (data.discount_details && data.discount_details.length > 0) {
-                        data.discount_details.forEach(item => {
-                            const row = document.createElement('div');
-                            row.style.marginBottom = '12px';
-                            row.style.padding = '8px';
-                            row.style.borderRadius = '4px';
-                            row.style.backgroundColor = item.is_expired ? '#fcf8e3' : '#f7fafc';
-                            row.style.borderLeft = item.is_expired ? '4px solid #dc3545' : '4px solid #28a745';
-                            
-                            row.innerHTML = item.is_expired ? `
-                                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #dc3545; margin-bottom: 4px;">
-                                    <span><i class="fas fa-exclamation-circle"></i> ${item.purchase_year} 年額度 [已過期]</span>
-                                    <span style="text-decoration: line-through;">剩餘總額: ${item.total_amount}</span>
-                                </div>
-                                <div style="font-size: 13px; color: #718096; padding-left: 18px; display: flex; gap: 15px;">
-                                    <span>購買餘額: <span style="text-decoration: line-through;">${item.purchase_amount}</span></span>
-                                    <span>優惠餘額: <span style="text-decoration: line-through;">${item.discount_amount}</span></span>
-                                    <span>截止日: ${item.expire_date}</span>
-                                </div>
-                            ` : `
-                                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #2d3748; margin-bottom: 4px;">
-                                    <span><i class="far fa-calendar-alt"></i> ${item.purchase_year} 年額度</span>
-                                    <span style="color: #2b6cb0; font-weight: bold;">剩餘總額: ${item.total_amount}</span>
-                                </div>
-                                <div style="font-size: 13px; color: #4a5568; padding-left: 18px; display: flex; gap: 15px;">
-                                    <span>購買餘額: <strong>${item.purchase_amount}</strong></span>
-                                    <span>優惠餘額: <span style="color: #28a745; font-weight: bold;">${item.discount_amount}</span></span>
-                                    <span>將於 ${item.expire_date} 截止</span>
-                                </div>
-                            `;
-                            expirationList.appendChild(row);
-                        });
-                    } else {
-                        expirationList.innerHTML = '<span style="color: #999;">目前無任何年度額度儲值資訊</span>';
-                    }
-                }
-            })
-            .catch(err => console.error("基本額度載入失敗:", err));
-
-        // 請求 B：核心修正點 ➔ 拿掉外層 pending_bill_section 的限制，強制直接回填金額輸入框！
-        fetch(`/api/contacts/${targetId}/calculate_pending_bill`)
-            .then(res => {
-                if (res.status === 404) throw new Error("後端找不到對帳路由 404");
-                return res.json();
-            })
-            .then(billData => {
-                // 💡 繞過任何外層 div 的 id 判斷，直接精確指定值給 input 元素
-                if (billAmountInput) {
-                    billAmountInput.value = billData.suggested_amount !== undefined ? billData.suggested_amount : 0;
-                    billAmountInput.placeholder = ''; 
-                }
-                if (billDateInput) billDateInput.value = billData.bill_date || getTodayDateString();
-                if (billNotesInput) billNotesInput.value = billData.notes || '';
-                
-                console.log(`成功載入 ID: ${targetId} 的新建議扣款金額: ${billData.suggested_amount}`);
-            })
-            .catch(billErr => {
-                console.error("無法取得待確認帳單數據:", billErr);
-                if (billAmountInput) {
-                    billAmountInput.value = 0;
-                    billAmountInput.placeholder = '無法取得建議金額';
-                }
-                if (billDateInput) billDateInput.value = getTodayDateString();
-            });
-
-    } catch (err) {
-        console.error("開窗通訊異常:", err);
-    }
-}
-
-/**
- * 💡 點擊「確認執行扣款」按鈕時觸發的函數
- */
-async function handleConfirmDeduct() {
-    const id = document.getElementById('quotaTargetId').value;
-    const finalAmount = parseFloat(document.getElementById('pending_bill_amount').value);
-    const billDate = document.getElementById('pending_bill_date').value;
-    const notes = document.getElementById('pending_bill_notes').value;
-
-    if (isNaN(finalAmount) || finalAmount < 0) {
-        alert("請輸入正確的扣款金額");
-        return;
-    }
-
-    // 第二重二次防呆確認，提示管理員修改後的金額
-    if (!confirm(`確定要從此帳戶正式扣除金額 $${finalAmount} 嗎？\n(此操作將實質調整年度可用餘額)`)) {
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/contacts/${id}/confirm_deduct`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                final_amount: finalAmount,
-                bill_date: billDate,
-                notes: notes
-            })
-        });
-
-        const result = await res.json();
-        if (res.ok) {
-            alert(result.message || "扣款成功！");
-            // 重新整理 Modal 內部的金額大字與明細
-            const targetName = document.getElementById('quotaTargetName').innerText;
-            openQuotaModal(id, targetName);
-            loadData(currentPage); // 刷新外圍主表格
-        } else {
-            alert(result.message || "扣款失敗");
-        }
-    } catch (err) {
-        console.error("扣款通訊異常:", err);
-        alert("伺服器連線失敗");
-    }
-}
-
-function closeQuotaModal() {
-    document.getElementById('quotaEditorModal').style.display = 'none';
-}
-
-function handleQuotaButtonClick(event, id, applicant, isCourse, isTrial) {
-    if (isCourse || isTrial) {
-        event.preventDefault();
-        alert("課程帳號與試用帳號不適用此功能，無法開啟額度管理。");
-        return;
-    }
-    // 驗證通過，才允許呼叫原本的開啟彈窗功能
-    openQuotaModal(id, applicant);
-}
-
-// 綁定額度表單提交
-document.getElementById('quotaForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('quotaTargetId').value;
-    
-    const addAmount = parseFloat(document.getElementById('add_quota_amount').value);
-    
-    // ★ 取得購買日期，如果使用者手動清空了，就預設帶入今天
-    let purchaseDate = document.getElementById('purchase_date').value;
-    if (!purchaseDate) {
-        purchaseDate = getTodayDateString();
-    }
-
-    // 前端防呆
-    if (isNaN(addAmount) || addAmount <= 0) {
-        alert("請輸入大於 0 的購買額度");
-        return;
-    }
-
-    // Payload 包含新增額度與購買日期
-    const payload = {
-        amount: addAmount,
-        purchase_date: purchaseDate // 格式為 "YYYY-MM-DD"
-    };
-
-    try {
-        const res = await fetch(`/api/contacts/${id}/quota`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (res.ok) {
-            alert("額度新增成功");
-            closeQuotaModal();
-            loadData(currentPage);
-        } else {
-            alert("新增失敗，請檢查輸入或伺服器狀態");
-        }
-    } catch (err) {
-        alert("更新失敗");
-    }
-};
-
 // 1. 監聽勾選框變化
 document.getElementById('is_course_account').addEventListener('change', function() {
     const section = document.getElementById('courseAccountSection');
@@ -918,6 +663,350 @@ function getCourseData() {
     });
     return data;
 }
+
+/**
+ * 切換顯示餘額明細懸浮窗
+ */
+function toggleQuotaDetail(btn, id) {
+    const popover = btn.nextElementSibling;
+    const isVisible = popover.style.display === 'block';
+    
+    // 先關閉所有其他的 popover
+    document.querySelectorAll('.quota-popover').forEach(p => p.style.display = 'none');
+    
+    popover.style.display = isVisible ? 'none' : 'block';
+}
+
+/**
+ * 取得今天日期的 YYYY-MM-DD 字串 (考量在地時區)
+ */
+function getTodayDateString() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * 輔助函式：統一金額顯示格式（雙位小數）
+ */
+function formatCurrency(value) {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+}
+
+async function openQuotaModal(id, name) {
+    // 強制轉換為整數數字，確保符合後端 Flask <int:id> 的嚴格規範
+    const targetId = parseInt(id, 10);
+    if (isNaN(targetId)) {
+        console.error("致命錯誤：無法解析聯絡人 ID");
+        alert("無法讀取該聯絡人的識別 ID，請重新整理網頁再試。");
+        return;
+    }
+    
+
+    // 1. 立即將確認無誤的 ID 與姓名更新至 Modal 欄位上
+    document.getElementById('quotaTargetId').value = targetId;
+    document.getElementById('quotaTargetName').innerText = name || '選擇的帳號';
+    
+    // 💡 核心修復：在發送任何請求前，不管三七二十一，先把所有輸入框強制清空/重設！
+    document.getElementById('current_discount_remaining').innerText = '載入中...';
+    document.getElementById('current_total_remaining').innerText = '載入中...';
+    
+    const expirationList = document.getElementById('discount_expiration_list');
+    if (expirationList) expirationList.innerHTML = '<div style="color: #999; padding: 10px;">資料載入中...</div>';
+    
+    // 🌟 新增點 1：抓出儲值紀錄歷史容器，並在開窗時強制清空顯示載入中
+    const rechargeHistoryList = document.getElementById('recharge_history_list');
+    if (rechargeHistoryList) rechargeHistoryList.innerHTML = '<div style="color: #999; padding: 10px;">歷史紀錄載入中...</div>';
+    
+    // 抓出待確認帳單的三個欄位
+    const billAmountInput = document.getElementById('pending_bill_amount');
+    const billDateInput = document.getElementById('pending_bill_date');
+    const billNotesInput = document.getElementById('pending_bill_notes');
+    
+    // 強制清空舊資料，顯示 placeholder
+    if (billAmountInput) {
+        billAmountInput.value = ''; 
+        billAmountInput.placeholder = '計算建議金額中...';
+    }
+    if (billDateInput) billDateInput.value = '';
+    if (billNotesInput) billNotesInput.value = '';
+
+    // 將新增購買額度區塊也同步重設
+    const addQuotaInput = document.getElementById('add_quota_amount');
+    const purchaseDateInput = document.getElementById('purchase_date');
+    if (addQuotaInput) addQuotaInput.value = 0;
+    if (purchaseDateInput) purchaseDateInput.value = getTodayDateString();
+    
+    // 立即顯示 Modal 框架
+    document.getElementById('quotaEditorModal').style.display = 'block';
+    
+    // 2. 平行發送非同步請求，避免其中一個卡死導致另一個不更新
+    try {
+        // 請求 A：聯絡人基本額度
+        fetch(`/api/contacts/${targetId}`)
+            .then(res => res.json())
+            .then(data => {
+                // 💡 優化：呈現經後端歸戶統計、且格式化後的漂亮金額
+                document.getElementById('current_discount_remaining').innerText = formatCurrency(data.discount_remaining);
+                document.getElementById('current_total_remaining').innerText = formatCurrency(data.total_remaining);
+                
+                // 【A-1】 處理「年度可用餘額明細」（這部分後端已過濾，只包含已付款且未過期的總額）
+                if (expirationList) {
+                    expirationList.innerHTML = '';
+                    if (data.discount_details && data.discount_details.length > 0) {
+                        data.discount_details.forEach(item => {
+                            const row = document.createElement('div');
+                            row.style.marginBottom = '12px';
+                            row.style.padding = '8px';
+                            row.style.borderRadius = '4px';
+                            row.style.backgroundColor = item.is_expired ? '#fcf8e3' : '#f7fafc';
+                            row.style.borderLeft = item.is_expired ? '4px solid #dc3545' : '4px solid #28a745';
+                            
+                            row.innerHTML = item.is_expired ? `
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #dc3545; margin-bottom: 4px;">
+                                    <span><i class="fas fa-exclamation-circle"></i> ${item.purchase_year} 年額度 [已過期]</span>
+                                    <span style="text-decoration: line-through;">剩餘總額: $${formatCurrency(item.total_amount)}</span>
+                                </div>
+                                <div style="font-size: 13px; color: #718096; padding-left: 18px; display: flex; gap: 15px;">
+                                    <span>購買餘額: <span style="text-decoration: line-through;">$${formatCurrency(item.purchase_amount)}</span></span>
+                                    <span>優惠餘額: <span style="text-decoration: line-through;">$${formatCurrency(item.discount_amount)}</span></span>
+                                    <span>截止日: ${item.expire_date}</span>
+                                </div>
+                            ` : `
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #2d3748; margin-bottom: 4px;">
+                                    <span><i class="far fa-calendar-alt"></i> ${item.purchase_year} 年額度</span>
+                                    <span style="color: #2b6cb0; font-weight: bold;">剩餘總額: $${formatCurrency(item.total_amount)}</span>
+                                </div>
+                                <div style="font-size: 13px; color: #4a5568; padding-left: 18px; display: flex; gap: 15px;">
+                                    <span>購買餘額: <strong>$${formatCurrency(item.purchase_amount)}</strong></span>
+                                    <span>優惠餘額: <span style="color: #28a745; font-weight: bold;">$${formatCurrency(item.discount_amount)}</span></span>
+                                    <span>將於 ${item.expire_date} 截止</span>
+                                </div>
+                            `;
+                            expirationList.appendChild(row);
+                        });
+                    } else {
+                        expirationList.innerHTML = '<span style="color: #999;">目前無任何年度額度儲值資訊</span>';
+                    }
+                }
+
+
+                if (rechargeHistoryList) {
+                    rechargeHistoryList.innerHTML = '';
+                    if (data.recharge_history && data.recharge_history.length > 0) {
+                        data.recharge_history.forEach(item => {
+                            const row = document.createElement('div');
+                            row.style.marginBottom = '10px';
+                            row.style.padding = '10px';
+                            row.style.borderRadius = '5px';
+                            row.style.display = 'block'; // 💡 改回區塊排列，不搞左右兩側分開
+                            
+                            // 核心視覺區隔：已付款用綠底，未付款用紅/粉紅底
+                            if (item.is_paid) {
+                                row.style.backgroundColor = '#f0fff4';
+                                row.style.borderLeft = '4px solid #38a169';
+                            } else {
+                                row.style.backgroundColor = '#fff5f5';
+                                row.style.borderLeft = '4px solid #e53e3e';
+                            }
+                            
+                            // 調整標籤樣式：縮小 padding 並設定 inline-flex 確保內容不換行
+                            const statusBadge = item.is_paid 
+                                ? `<span style="background-color: #38a169; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><i class="fas fa-check-circle"></i> 已入帳</span>` 
+                                : `<span style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><i class="fas fa-times-circle"></i> 尚未付款</span>`;
+                            
+                            row.innerHTML = `
+                                <div style="font-weight: bold; color: #2d3748; margin-bottom: 6px;">
+                                    <i class="fas fa-file-invoice-dollar"></i> ${item.year} 年儲值單 
+                                    <span style="font-size: 12px; color: #718096; font-weight: normal; margin-left: 10px;">日期: ${item.payment_date || '未設定'}</span>
+                                </div>
+                                
+                                <div style="font-size: 13px; color: #4a5568; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span>自費金額: <strong>$${formatCurrency(item.amount)}</strong></span>
+                                    <span style="color: #cbd5e0;">|</span>
+                                    <span>優惠額度: <strong style="color: #38a169;">$${formatCurrency(item.discount)}</strong></span>
+                                    
+                                    <span style="margin-left: 4px; display: inline-flex;">${statusBadge}</span>
+                                </div>
+                            `;
+                            rechargeHistoryList.appendChild(row);
+                        });
+                    } else {
+                        rechargeHistoryList.innerHTML = '<span style="color: #999;">目前無任何儲值歷史紀錄</span>';
+                    }
+                }
+            })
+            .catch(err => console.error("基本額度載入失敗:", err));
+
+        // 請求 B：核心修正點 ➔ 拿掉外層 pending_bill_section 的限制，強制直接回填金額輸入框！
+        fetch(`/api/contacts/${targetId}/calculate_pending_bill`)
+            .then(res => {
+                if (res.status === 404) throw new Error("後端找不到對帳路由 404");
+                return res.json();
+            })
+            .then(billData => {
+                if (billAmountInput) {
+                    billAmountInput.value = billData.suggested_amount !== undefined ? billData.suggested_amount : 0;
+                    billAmountInput.placeholder = ''; 
+                }
+                if (billDateInput) billDateInput.value = billData.bill_date || getTodayDateString();
+                if (billNotesInput) billNotesInput.value = billData.notes || '';
+                
+                console.log(`成功載入 ID: ${targetId} 的新建議扣款金額: ${billData.suggested_amount}`);
+            })
+            .catch(billErr => {
+                console.error("無法取得待確認帳單數據:", billErr);
+                if (billAmountInput) {
+                    billAmountInput.value = 0;
+                    billAmountInput.placeholder = '無法取得建議金額';
+                }
+                if (billDateInput) billDateInput.value = getTodayDateString();
+            });
+
+    } catch (err) {
+        console.error("開窗通訊異常:", err);
+    }
+}
+
+/**
+ * 🌟 核心修改點：點擊「確認執行扣款」
+ * 扣款完若有殘額，直接將剩餘數字回填輸入框，提示管理員點擊現有的「直接開立繳費單」按鈕。
+ */
+async function handleConfirmDeduct() {
+    const id = document.getElementById('quotaTargetId').value;
+    const finalAmount = parseFloat(document.getElementById('pending_bill_amount').value);
+    const billDate = document.getElementById('pending_bill_date').value;
+    const notes = document.getElementById('pending_bill_notes').value;
+
+    if (isNaN(finalAmount) || finalAmount < 0) {
+        alert("請輸入正確的扣款金額");
+        return;
+    }
+
+    if (!confirm(`確定要從此帳戶正式扣除金額 $${finalAmount.toFixed(2)} 嗎？\n(此操作將實質調整年度可用餘額)`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/contacts/${id}/confirm_deduct`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                final_amount: finalAmount,
+                bill_date: billDate,
+                notes: notes
+            })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            // 情境 A：額度不夠扣 (後端回傳 status: 'need_bill')
+            if (result.status === 'need_bill') {
+                
+                // 1. 將後端運算出的精確「未繳餘額」與「新備註」直接覆蓋回填至目前的輸入框中！
+                document.getElementById('pending_bill_amount').value = result.unpaid_amount;
+                document.getElementById('pending_bill_notes').value = result.suggested_notes;
+                
+                // 2. 確保現有的 current_contact_id 與當前操作一致
+                if (document.getElementById('current_contact_id')) {
+                    document.getElementById('current_contact_id').value = id;
+                }
+
+                // 3. 彈出明確提示，指引管理員去點現有的按鈕
+                let alertMessage = `【第一階段：額度扣抵完畢】\n可用預付額度已全數對沖完畢！\n`;
+                if (result.detail && result.detail.length > 0) {
+                    alertMessage += `\n核銷路徑明細：\n${result.detail.join("\n")}\n`;
+                }
+                alertMessage += `\n⚠️ 尚有未繳餘額：$${formatCurrency(result.unpaid_amount)} 元。\n\n💡 系統已自動將「未繳餘額」填入上方金額框，請直接點擊旁邊的【直接開立繳費單】按鈕以完成開單程序。`;
+                alert(alertMessage);
+
+                // 4. 將 Modal 內的即時大字額度刷成 0
+                document.getElementById('current_discount_remaining').innerText = '0.00';
+                document.getElementById('current_total_remaining').innerText = '0.00';
+                
+                if (typeof loadData === 'function') loadData(currentPage); // 刷新外部主表格
+
+            } else {
+                // 情境 B：額度充足，全額對沖扣款成功
+                let alertMessage = result.message || "扣款成功！";
+                if (result.detail && result.detail.length > 0) {
+                    alertMessage += "\n\n【本次扣款核銷路徑】:\n" + result.detail.join("\n");
+                }
+                alert(alertMessage);
+                
+                const targetName = document.getElementById('quotaTargetName').innerText;
+                openQuotaModal(parseInt(id, 10), targetName);
+                if (typeof loadData === 'function') loadData(currentPage);
+            }
+        } else {
+            alert(result.message || "扣款失敗");
+        }
+    } catch (err) {
+        console.error("扣款通訊異常:", err);
+        alert("伺服器連線失敗");
+    }
+}
+
+function closeQuotaModal() {
+    document.getElementById('quotaEditorModal').style.display = 'none';
+}
+
+function handleQuotaButtonClick(event, id, applicant, isCourse, isTrial) {
+    if (isCourse || isTrial) {
+        event.preventDefault();
+        alert("課程帳號與試用帳號不適用此功能，無法開啟額度管理。");
+        return;
+    }
+    // 驗證通過，才允許呼叫原本的開啟彈窗功能
+    openQuotaModal(id, applicant);
+}
+
+// 綁定額度表單提交
+document.getElementById('quotaForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('quotaTargetId').value;
+    const addAmount = parseFloat(document.getElementById('add_quota_amount').value);
+    
+    // ★ 取得購買日期，如果使用者手動清空了，就預設帶入今天
+    let purchaseDate = document.getElementById('purchase_date').value;
+    if (!purchaseDate) {
+        purchaseDate = getTodayDateString();
+    }
+
+    // 前端防呆
+    if (isNaN(addAmount) || addAmount <= 0) {
+        alert("請輸入大於 0 的購買額度");
+        return;
+    }
+
+    // Payload 包含新增額度與購買日期
+    const payload = {
+        amount: addAmount,
+        purchase_date: purchaseDate // 格式為 "YYYY-MM-DD"
+    };
+
+    try {
+        const res = await fetch(`/api/contacts/${id}/quota`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.ok) {
+            alert("額度新增成功");
+            closeQuotaModal();
+            loadData(currentPage);
+        } else {
+            alert("新增失敗，請檢查輸入或伺服器狀態");
+        }
+    } catch (err) {
+        alert("更新失敗");
+    }
+};
 
 /**
  * 💡 處理情境 1 & 2：智慧扣款控制 (額度足夠直接扣，不足則扣完後將差額轉開單)
@@ -959,7 +1048,7 @@ function handleSmartDeduct() {
 }
 
 /**
- * 💡 處理情境 3：直接開立繳費單 (不驚動預付額度)
+ * 💡 處理情境 3：直接開立繳費單 (維持您原本的完整邏輯，完美對接！)
  */
 function submitDirectBill() {
     const contactId = document.getElementById('current_contact_id').value;
@@ -985,7 +1074,14 @@ function submitDirectBill() {
         alert(data.message || '繳費單直接開立成功！');
         document.getElementById('pending_bill_amount').value = '';
         document.getElementById('pending_bill_notes').value = '';
+        
+        // 成功開單後，重新載入面板與外圍表格
         if (typeof reloadQuotaPanel === 'function') reloadQuotaPanel(contactId);
+        else {
+            const targetName = document.getElementById('quotaTargetName').innerText;
+            openQuotaModal(parseInt(contactId, 10), targetName);
+        }
+        if (typeof loadData === 'function') loadData(currentPage);
     })
     .catch(err => alert('直接開單失敗: ' + err));
 }

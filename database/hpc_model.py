@@ -53,26 +53,33 @@ class PrepaidAmount(db.Model):
     __tablename__ = 'prepaid_amounts'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False) 
+    username = db.Column(db.String(80), nullable=False) 
     amount = db.Column(db.Float(precision=53), nullable=False, default=0.0) 
+    discount = db.Column(db.Float(precision=53), nullable=False, default=0.0)
     year = db.Column(db.Integer, nullable=True)                      # 儲值所屬年份
     payment_date = db.Column(db.DateTime, nullable=True)
+    is_paid = db.Column(db.Boolean, default=False, nullable=False)
+    is_history = db.Column(db.Boolean, default=False, nullable=False)
+    source_id = db.Column(db.String(36), nullable=False)
 
     # 💡 注意：因為現在要允許一個 username 有多個年份的紀錄，
     # 必須將原本的唯一索引 (unique=True) 拔除，改為 username + year 的聯合唯一索引
     __table_args__ = (
-        db.Index('ix_prepaid_amounts_username_year', username, year, unique=True),
+        db.Index('ix_prepaid_amounts_username_year', username, year, unique=False),
+        db.Index('ix_prepaid_amounts_source_id', source_id, unique=False),
     )
 
     def __repr__(self):
         return f'<PrepaidAmount (id={self.id}, username={self.username}, year={self.year}, amount=${self.amount})>'
     
 class Bill(db.Model):
+    __tablename__ = 'bills'
+
     id = db.Column(db.Integer, primary_key=True)
-    contact_id = db.Column(db.Integer, db.ForeignKey('contact.id'))
+    contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id'))
     amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='unpaid') # unpaid, paid, cancelled
-    created_at = db.Column(db.DateTime, default=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
     notes = db.Column(db.String(255))
 
     def __repr__(self):
@@ -152,6 +159,7 @@ class EmailTemplate(db.Model):
     
 class Contact(db.Model):
     __tablename__ = 'contacts'
+    
     id = db.Column(db.Integer, primary_key=True)
     team_name = db.Column(db.String(100)) 
     dept_level1 = db.Column(db.String(100))
@@ -172,6 +180,7 @@ class Contact(db.Model):
     secondaries = db.relationship('SecondaryContact', backref='main', cascade="all, delete-orphan")
     course_students = db.relationship('CourseStudent', backref='main_contact', cascade="all, delete-orphan")
     account_mapping = db.relationship('ContactAccountMapping', backref='contact', uselist=False, cascade="all, delete-orphan")
+    bills = db.relationship('Bill', backref='contact', cascade="all, delete-orphan")
 
     def get_formal_account(self):
         """輔助函式：動態取得此聯絡人的正式帳號"""
@@ -185,50 +194,85 @@ class Contact(db.Model):
     def to_dict(self):
         formal_account = self.get_formal_account()
 
-        total_remaining = 0.0          # 所有可用年份的總剩餘額度累加
-        discount_remaining = 0.0       # 所有「未過期」年份的可用總額度累加
-        discount_details = []          # 按年份拆解的儲值明細陣列
-        consumption_history = []       # 結合原本 Accounting 的消費扣款紀錄
+        total_remaining = 0.0          # 所有可用年份的總剩餘額度累加（自費 + 優惠）
+        discount_remaining = 0.0       # 🌟 修正註解：所有「未過期」年份的可用【優惠額度】累加
+        discount_details = []          # 按年份拆解的儲值明細陣列（僅包含用於計算的活耀額度）
+        consumption_history = []       # 結合 Bill 的消費扣款紀錄
+        recharge_history = []          # 僅包含歷史存檔 (is_history=True) 的完整清單
 
         if formal_account:
-            # 1. 撈出該帳號所有的儲值紀錄（實進實出，此時的 amount 是扣掉消費後的餘額）
+            # 1. 撈出該帳號所有的儲值紀錄（由舊到新排序）
             prepaids = PrepaidAmount.query.filter_by(username=formal_account).order_by(PrepaidAmount.year.asc()).all()
             today_str = date.today().isoformat()
 
+            yearly_data = {}
             for p in prepaids:
-                # 依據 p.year 推算該年額度的固定截止日
-                expire_year = p.year + 2
-                expire_date_str = f"{expire_year}-01-31"
+                is_p_paid = getattr(p, 'is_paid', False)
+                is_p_history = getattr(p, 'is_history', False)
+
+                # 🌟 修正點 1：只將真正的歷史資料 (is_history=True) 塞入「儲值歷史紀錄」
+                if is_p_history:
+                    recharge_history.append({
+                        'id': p.id,
+                        'year': p.year if p.year is not None else 0,
+                        'amount': round(float(p.amount or 0), 2),
+                        'discount': round(float(p.discount or 0), 2),
+                        'payment_date': p.payment_date.strftime('%Y-%m-%d') if p.payment_date else '',
+                        'is_paid': is_p_paid,
+                        'is_history': True,
+                        'source_id': getattr(p, 'source_id', '')  # 順手補上來源 ID 方便前端對帳
+                    })
+                
+                # 🌟 修正點 2：非歷史資料 (is_history=False) 走這裏，且只有「已付款」才納入活躍額度基算
+                else:
+                    if is_p_paid:
+                        y = p.year if p.year is not None else 0
+                        if y not in yearly_data:
+                            yearly_data[y] = {'purchase': 0.0, 'discount': 0.0}
+                        
+                        yearly_data[y]['purchase'] += float(p.amount or 0)
+                        yearly_data[y]['discount'] += float(p.discount or 0)
+
+            # 將歸戶後的活耀年份資料依序處理
+            for y, v in sorted(yearly_data.items()):
+                expire_year = y + 2
+                expire_date_str = f"{expire_year}-12-31"
                 is_expired = today_str > expire_date_str
                 
-                # 動態反推該年份「目前剩餘」的自費與優惠 (按 1:0.2 比例，優惠佔總額 1/6)
-                discount_amt = round(p.amount * (0.20 / 1.20), 2)
-                purchase_amt = round(p.amount - discount_amt, 2)
+                # 該活耀年份的剩餘總額 = 實付剩餘 + 優惠剩餘
+                year_total = v['purchase'] + v['discount']
                 
-                total_remaining += p.amount
+                total_remaining += year_total
+                
+                # 🌟 核心修正點：如果是未過期年份，改為「只累加優惠額度 (discount)」而非總額 (year_total)
                 if not is_expired:
-                    discount_remaining += p.amount
+                    discount_remaining += v['discount']
 
                 discount_details.append({
-                    'purchase_year': p.year,
-                    'total_amount': round(p.amount, 2),        # 該年目前剩餘總額度
-                    'purchase_amount': purchase_amt,           # 該年目前剩餘購買額度
-                    'discount_amount': discount_amt,           # 該年目前剩餘優惠額度
+                    'purchase_year': y,
+                    'total_amount': round(year_total, 2),        
+                    'purchase_amount': round(v['purchase'], 2),   
+                    'discount_amount': round(v['discount'], 2),   
                     'expire_date': expire_date_str,
                     'is_expired': is_expired
                 })
 
-            # 2. 💡 活用現有資料：從 Accounting 撈出該使用者的歷史計算紀錄，作為消費日期與消費額度參考
-            # 此處假設你已有計算好的帳單。若有獨立的 Bill 表更好；若無，可透過 Accounting 動態加總或撈取月結單
-            # 以下示範：捞取該使用者在 Accounting 的工作紀錄（按月份或日期排序），提供管理員對帳
-            # 實務上通常會配合一個「已出帳扣款」的紀錄欄位，這裡回傳格式供前端直接渲染：
-            from database.extensions import db
-            from sqlalchemy import text
-            
-            # 這裡提供一個標準對帳結構，可根據你實際的出帳規則（如按月、按件）取得消費日期與金額
-            # 範例：從資料庫查詢該帳號的扣款日誌或歷史工作花費
-            # consumption_history 格式：{'amount': 500, 'bill_date': '2026-04-30', 'notes': '2026年04月 Hpc 運算扣款'}
-            
+            # 將儲值歷史紀錄按照日期由新到舊排序
+            recharge_history.sort(key=lambda x: x['payment_date'] or '', reverse=True)
+
+        # 2. 整合 Bill 表的邏輯，填入消費歷史
+        for b in self.bills:
+            if b.status != 'cancelled':
+                consumption_history.append({
+                    'id': b.id,
+                    'amount': round(b.amount, 2),
+                    'bill_date': b.created_at.strftime('%Y-%m-%d') if b.created_at else '',
+                    'notes': b.notes or '',
+                    'status': b.status  
+                })
+        
+        consumption_history.sort(key=lambda x: x['bill_date'], reverse=True)
+
         return {
             'id': self.id,
             'team_name': self.team_name,
@@ -249,11 +293,12 @@ class Contact(db.Model):
             'course_students': [{'account': s.student_account, 'password': s.student_password} for s in self.course_students],
             'secondary_contacts': [{'name': s.name, 'info': s.info} for s in self.secondaries],
             
-            # 核心額度資料
-            'total_remaining': round(total_remaining, 2),          # 實質剩餘總計
-            'discount_remaining': round(discount_remaining, 2),    # 目前可用額度總計（排除過期）
-            'discount_details': discount_details,                  # 按年份列出的自費、優惠、總額
-            'consumption_history': consumption_history             # 歷史消費與日期明細
+            # 🌟 核心數據分流輸出結果
+            'total_remaining': round(total_remaining, 2),          # 僅加總：已付款且非歷史紀錄
+            'discount_remaining': round(discount_remaining, 2),    # 🌟 僅加總：已付款、非歷史紀錄且【未過期的優惠額度】
+            'discount_details': discount_details,                  # 僅包含當前有效的扣減路徑明細
+            'recharge_history': recharge_history,                  # 歷史紀錄總表（僅限 is_history=True）
+            'consumption_history': consumption_history 
         }
 
 class SecondaryContact(db.Model):
