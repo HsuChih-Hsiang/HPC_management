@@ -871,86 +871,6 @@ async function openQuotaModal(id, name) {
     }
 }
 
-/**
- * 🌟 核心修改點：點擊「確認執行扣款」
- * 扣款完若有殘額，直接將剩餘數字回填輸入框，提示管理員點擊現有的「直接開立繳費單」按鈕。
- */
-async function handleConfirmDeduct() {
-    const id = document.getElementById('quotaTargetId').value;
-    const finalAmount = parseFloat(document.getElementById('pending_bill_amount').value);
-    const billDate = document.getElementById('pending_bill_date').value;
-    const notes = document.getElementById('pending_bill_notes').value;
-
-    if (isNaN(finalAmount) || finalAmount < 0) {
-        alert("請輸入正確的扣款金額");
-        return;
-    }
-
-    if (!confirm(`確定要從此帳戶正式扣除金額 $${finalAmount.toFixed(2)} 嗎？\n(此操作將實質調整年度可用餘額)`)) {
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/contacts/${id}/confirm_deduct`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                final_amount: finalAmount,
-                bill_date: billDate,
-                notes: notes
-            })
-        });
-
-        const result = await res.json();
-
-        if (res.ok) {
-            // 情境 A：額度不夠扣 (後端回傳 status: 'need_bill')
-            if (result.status === 'need_bill') {
-                
-                // 1. 將後端運算出的精確「未繳餘額」與「新備註」直接覆蓋回填至目前的輸入框中！
-                document.getElementById('pending_bill_amount').value = result.unpaid_amount;
-                document.getElementById('pending_bill_notes').value = result.suggested_notes;
-                
-                // 2. 確保現有的 current_contact_id 與當前操作一致
-                if (document.getElementById('current_contact_id')) {
-                    document.getElementById('current_contact_id').value = id;
-                }
-
-                // 3. 彈出明確提示，指引管理員去點現有的按鈕
-                let alertMessage = `【第一階段：額度扣抵完畢】\n可用預付額度已全數對沖完畢！\n`;
-                if (result.detail && result.detail.length > 0) {
-                    alertMessage += `\n核銷路徑明細：\n${result.detail.join("\n")}\n`;
-                }
-                alertMessage += `\n⚠️ 尚有未繳餘額：$${formatCurrency(result.unpaid_amount)} 元。\n\n💡 系統已自動將「未繳餘額」填入上方金額框，請直接點擊旁邊的【直接開立繳費單】按鈕以完成開單程序。`;
-                alert(alertMessage);
-
-                // 4. 將 Modal 內的即時大字額度刷成 0
-                document.getElementById('current_discount_remaining').innerText = '0.00';
-                document.getElementById('current_total_remaining').innerText = '0.00';
-                
-                if (typeof loadData === 'function') loadData(currentPage); // 刷新外部主表格
-
-            } else {
-                // 情境 B：額度充足，全額對沖扣款成功
-                let alertMessage = result.message || "扣款成功！";
-                if (result.detail && result.detail.length > 0) {
-                    alertMessage += "\n\n【本次扣款核銷路徑】:\n" + result.detail.join("\n");
-                }
-                alert(alertMessage);
-                
-                const targetName = document.getElementById('quotaTargetName').innerText;
-                openQuotaModal(parseInt(id, 10), targetName);
-                if (typeof loadData === 'function') loadData(currentPage);
-            }
-        } else {
-            alert(result.message || "扣款失敗");
-        }
-    } catch (err) {
-        console.error("扣款通訊異常:", err);
-        alert("伺服器連線失敗");
-    }
-}
-
 function closeQuotaModal() {
     document.getElementById('quotaEditorModal').style.display = 'none';
 }
@@ -971,7 +891,7 @@ document.getElementById('quotaForm').onsubmit = async (e) => {
     const id = document.getElementById('quotaTargetId').value;
     const addAmount = parseFloat(document.getElementById('add_quota_amount').value);
     
-    // ★ 取得購買日期，如果使用者手動清空了，就預設帶入今天
+    // 取得購買日期，如果使用者手動清空了，就預設帶入今天
     let purchaseDate = document.getElementById('purchase_date').value;
     if (!purchaseDate) {
         purchaseDate = getTodayDateString();
@@ -1008,52 +928,27 @@ document.getElementById('quotaForm').onsubmit = async (e) => {
     }
 };
 
-/**
- * 💡 處理情境 1 & 2：智慧扣款控制 (額度足夠直接扣，不足則扣完後將差額轉開單)
- */
-function handleSmartDeduct() {
-    const contactId = document.getElementById('current_contact_id').value;
-    const amount = document.getElementById('pending_bill_amount').value;
-    const date = document.getElementById('pending_bill_date').value;
-    const notes = document.getElementById('pending_bill_notes').value || '系統計算扣款';
-
-    if (!amount || parseFloat(amount) <= 0) {
-        alert('請輸入核對後的本期應收總金額');
-        return;
-    }
-
-    if (!confirm(`【確認執行額度扣款？】\n\n系統將自動核對此用戶的預付餘額：\n1. 若餘額充足：直接扣款銷帳。\n2. 若餘額不足：扣至 0 元後，自動將「剩餘差額」轉為待繳繳費單。`)) {
-        return;
-    }
-
-    // 發送給智慧扣款 API
-    fetch(`/api/contacts/${contactId}/smart_deduct`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            amount: parseFloat(amount), 
-            date: date, 
-            notes: notes 
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        alert(data.message || '操作成功');
-        // 清空輸入框
-        document.getElementById('pending_bill_amount').value = '';
-        document.getElementById('pending_bill_notes').value = '';
-        if (typeof reloadQuotaPanel === 'function') reloadQuotaPanel(contactId);
-    })
-    .catch(err => alert('智慧扣款失敗: ' + err));
-}
 
 /**
- * 💡 處理情境 3：直接開立繳費單 (維持您原本的完整邏輯，完美對接！)
+ * 處理情境：直接開立繳費單 (已修正 ID)
  */
 function submitDirectBill() {
-    const contactId = document.getElementById('current_contact_id').value;
-    const amount = document.getElementById('pending_bill_amount').value;
-    const notes = document.getElementById('pending_bill_notes').value || '管理員手動直接開單';
+    console.log("🚀 submitDirectBill 被點擊了！");
+
+    // 🛠️ 修正點：將 'current_contact_id' 改為 'quotaTargetId'
+    const elContactId = document.getElementById('quotaTargetId'); 
+    const elAmount = document.getElementById('pending_bill_amount');
+    const elNotes = document.getElementById('pending_bill_notes');
+
+    // 🛡️ 安全防護：避免找不到元素時程式直接當掉
+    if (!elContactId || !elAmount) {
+        alert('🛑 前端錯誤：找不到必要的網頁元素！請確認 HTML 欄位是否完整。');
+        return;
+    }
+
+    const contactId = elContactId.value;
+    const amount = elAmount.value;
+    const notes = elNotes ? elNotes.value : '管理員手動直接開單';
 
     if (!amount || parseFloat(amount) <= 0) {
         alert('請輸入要開立的繳費單金額');
@@ -1064,7 +959,7 @@ function submitDirectBill() {
         return;
     }
 
-    fetch(`/api/contacts/${contactId}/create_bill`, {
+    fetch(`/api/contacts/${contactId}/direct_create_bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: parseFloat(amount), notes: notes })
@@ -1072,16 +967,211 @@ function submitDirectBill() {
     .then(res => res.json())
     .then(data => {
         alert(data.message || '繳費單直接開立成功！');
-        document.getElementById('pending_bill_amount').value = '';
-        document.getElementById('pending_bill_notes').value = '';
+        elAmount.value = '';
+        if (elNotes) elNotes.value = '';
         
         // 成功開單後，重新載入面板與外圍表格
-        if (typeof reloadQuotaPanel === 'function') reloadQuotaPanel(contactId);
-        else {
-            const targetName = document.getElementById('quotaTargetName').innerText;
-            openQuotaModal(parseInt(contactId, 10), targetName);
+        if (typeof reloadQuotaPanel === 'function') {
+            reloadQuotaPanel(contactId);
+        } else {
+            const elTargetName = document.getElementById('quotaTargetName');
+            const targetName = elTargetName ? elTargetName.innerText : '';
+            if (typeof openQuotaModal === 'function') openQuotaModal(parseInt(contactId, 10), targetName);
         }
-        if (typeof loadData === 'function') loadData(currentPage);
+
+        if (typeof loadData === 'function') {
+            const page = (typeof currentPage !== 'undefined') ? currentPage : 1;
+            loadData(page);
+        }
     })
     .catch(err => alert('直接開單失敗: ' + err));
+}
+
+/**
+ * 處理情境：額度扣款後，開立繳費單 (已修正 ID)
+ */
+function handleConfirmDeduct() {
+    console.log("🚀 handleConfirmDeduct 被點擊了！");
+
+    // 🛠️ 修正點：將 'current_contact_id' 改為 'quotaTargetId'
+    const elContactId = document.getElementById('quotaTargetId'); 
+    const elAmount = document.getElementById('pending_bill_amount');
+    const elBillDate = document.getElementById('pending_bill_date');
+    const elNotes = document.getElementById('pending_bill_notes');
+
+    if (!elContactId || !elAmount) {
+        alert('🛑 前端錯誤：找不到必要的網頁元素！');
+        return;
+    }
+
+    const contactId = elContactId.value;
+    const amount = elAmount.value;
+    const billDate = elBillDate ? elBillDate.value : '';
+    const notes = elNotes ? elNotes.value : '管理員核定扣款';
+
+    // 1. 前端基本驗證
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('請輸入有效的扣款金額');
+        return;
+    }
+
+    // 2. 執行前二次確認
+    if (!confirm(`【確認執行額度扣款？】\n\n系統將優先扣除該帳號的預付優惠額度。\n若額度不足，將自動就剩餘差額生成未繳繳費單。`)) {
+        return;
+    }
+
+    // 3. 發送請求至後端 confirm_deduct 路由
+    fetch(`/api/contacts/${contactId}/confirm_deduct`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            final_amount: parseFloat(amount),
+            bill_date: billDate, // 若留空，後端會自動預設為今天
+            notes: notes
+        })
+    })
+    .then(res => {
+        // 💡 關鍵連動：如果後端回傳 400 (防呆阻擋)，將錯誤訊息丟給 catch 處理
+        return res.json().then(data => {
+            if (!res.ok) {
+                throw new Error(data.message || '計費扣款程序異常');
+            }
+            return data;
+        });
+    })
+    .then(data => {
+        // 4. 根據後端回傳的 status 狀態進行客製化提示
+        if (data.status === 'need_bill') {
+            alert(`⚠️ 提示：${data.message}\n\n執行明細：\n${data.detail.join('\n')}`);
+        } else {
+            alert(`✅ 成功：${data.message}`);
+        }
+
+        // 5. 清空輸入表單
+        elAmount.value = '';
+        if (elNotes) elNotes.value = '';
+        if (elBillDate) elBillDate.value = '';
+
+        // 6. 重新載入 UI 面板與外圍表格資料
+        if (typeof reloadQuotaPanel === 'function') {
+            reloadQuotaPanel(contactId);
+        } else {
+            const elTargetName = document.getElementById('quotaTargetName');
+            const targetName = elTargetName ? elTargetName.innerText : '';
+            if (typeof openQuotaModal === 'function') openQuotaModal(parseInt(contactId, 10), targetName);
+        }
+        
+        if (typeof loadData === 'function') {
+            const page = (typeof currentPage !== 'undefined') ? currentPage : 1;
+            loadData(page);
+        }
+    })
+    .catch(err => {
+        alert(err.message);
+    });
+}
+
+/**
+ * 處理情境：兩階段驗證——先檢視 PDF 繳費單，確認無誤後再執行郵件寄送 (已修正 ID)
+ */
+function handlePreviewAndSend() {
+    console.log("🚀 handlePreviewAndSend 被點擊了！");
+
+    // 🛠️ 修正點：將 'current_contact_id' 改為 'quotaTargetId'
+    const elContactId = document.getElementById('quotaTargetId'); 
+    const elAmount = document.getElementById('pending_bill_amount');
+    const elBillDate = document.getElementById('pending_bill_date');
+    const elNotes = document.getElementById('pending_bill_notes');
+    
+    // 💡 提示：Modal 內部沒有 Email 欄位，此處維持從外圍畫面的 'current_contact_email' 取得
+    const elEmail = document.getElementById('current_contact_email'); 
+
+    if (!elContactId || !elAmount) {
+        alert('🛑 前端錯誤：找不到必要的網頁元素！');
+        return;
+    }
+
+    const contactId = elContactId.value;
+    const amount = elAmount.value;
+    const billDate = elBillDate ? elBillDate.value : '';
+    const notes = elNotes ? elNotes.value : '管理員手動直接開單';
+    const recipientEmail = elEmail ? elEmail.value : '';
+
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('請輸入有效的繳費單金額以產生帳單項目');
+        return;
+    }
+
+    if (!recipientEmail) {
+        alert('無法取得客戶電子郵件，請確認外圍畫面的 Email 欄位設定正確');
+        return;
+    }
+
+    // 封裝準備傳送給 Jinja2 模板的資料結構
+    const payloadData = {
+        recipient: recipientEmail,
+        title: `HPC 運算服務繳費通知單`,
+        executor: "系統管理員",
+        date: billDate,
+        items: [
+            { 
+                name: notes, 
+                amount: parseFloat(amount) 
+            }
+        ]
+    };
+
+    // ==========================================
+    // 階段一：發送預覽請求並開啟新分頁檢視
+    // ==========================================
+    alert('系統即將產生繳費單 PDF 預覽，請在即將開啟的新分頁中進行核對。');
+
+    fetch('/api/contacts/send-quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payloadData, preview: true }) // 帶入預覽標記
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(data => { throw new Error(data.message || '無法生成預覽檔'); });
+        }
+        return res.blob(); // 接收二進位檔案流
+    })
+    .then(blob => {
+        const pdfUrl = URL.createObjectURL(blob);
+        const previewWindow = window.open(pdfUrl, '_blank');
+        
+        if (!previewWindow) {
+            alert('偵測到瀏覽器封鎖了彈出視窗，請允許彈出視窗以檢視 PDF 帳單！');
+        }
+
+        // ==========================================
+        // 階段二：留在原分頁等待管理員核對並點擊確認發信
+        // ==========================================
+        setTimeout(() => {
+            if (confirm(`【繳費單檢視確認】\n\n請確認新分頁中的 PDF 帳單明細。\n\n金額：$${amount} 元\n收件人：${recipientEmail}\n\n確認內容完全無誤並現在寄出信件嗎？`)) {
+                
+                // 執行真正寄信
+                fetch('/api/contacts/send-quotation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...payloadData, preview: false }) // 關閉預覽，正式寄發
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        alert(`✅ 信件發送成功：${result.message}`);
+                        elAmount.value = '';
+                        if (elNotes) elNotes.value = '';
+                    } else {
+                        alert(`❌ 寄送失敗：${result.message}`);
+                    }
+                })
+                .catch(err => alert('發送郵件時發生連線異常: ' + err.message));
+            }
+        }, 800); 
+    })
+    .catch(err => {
+        alert('系統無法產生預覽: ' + err.message);
+    });
 }

@@ -1,5 +1,5 @@
 import io
-from flask import request, jsonify, Blueprint, render_template
+from flask import request, jsonify, Blueprint, render_template, send_file
 from xhtml2pdf import pisa
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill
@@ -103,10 +103,10 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str):
         return True, 0.0, [], "扣款金額小於或等於 0，無需執行"
 
     # 撈出該帳號所有有餘額的年度紀錄，由舊到新排序
-    # 🌟 核心修正點：強制加上 PrepaidAmount.is_paid == True，沒付款的紀錄絕對不可以扣抵！
     prepaids = PrepaidAmount.query.filter(
         PrepaidAmount.username == formal_account,
         PrepaidAmount.is_paid == True,  
+        PrepaidAmount.is_history == False,  # 👈 確保只扣除活躍可用額度
         (PrepaidAmount.amount > 0) | (PrepaidAmount.discount > 0)
     ).order_by(PrepaidAmount.year.asc()).all()
 
@@ -120,7 +120,7 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str):
 
     deducted_details = []
 
-    # 🌟 階段一：優先扣除「優惠額度 (discount)」
+    # 階段一：優先扣除「優惠額度 (discount)」
     for p in valid_prepaids:
         if remaining_bill <= 0:
             break
@@ -134,7 +134,7 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str):
                 remaining_bill = round(remaining_bill - p.discount, 2)
                 p.discount = 0.0
 
-    # 🌟 階段二：若還有殘額，才扣除「自費金額 (amount)」
+    # 階段二：若還有殘額，才扣除「自費金額 (amount)」
     for p in valid_prepaids:
         if remaining_bill <= 0:
             break
@@ -166,6 +166,35 @@ def calculate_pending_bill(id):
     last_year = datetime.now().year - 1
     
     try:
+        # 核心新增：優先判斷之前有沒有開過「扣款後因額度不足自動補開」的帳單
+        # 透過關鍵字『額度不足自動補開單』與『特定年份』進行精準比對
+        existing_bill = Bill.query.filter(
+            Bill.contact_id == id,
+            Bill.notes.like('%額度不足自動補開單%'),
+            Bill.notes.like(f'%{last_year}%'),  # 👈 確保是針對同一個計算年份
+            Bill.status.in_(['unpaid', 'paid']) # 排除已取消 (cancelled) 的帳單
+        ).order_by(Bill.created_at.desc()).first()
+
+        if existing_bill:
+            # 1. 若該帳單為「未繳費」，直接改成顯示該帳單剩餘金額
+            if existing_bill.status == 'unpaid':
+                return jsonify({
+                    'suggested_amount': round(float(existing_bill.amount), 2),
+                    'bill_date': existing_bill.created_at.strftime('%Y-%m-%d'),
+                    'notes': f"⚠️ 系統提示：該帳號先前已執行過扣款，此金額為【未繳費】的差額帳單內容 (帳單 ID: {existing_bill.id})。"
+                }), 200
+            
+            # 2. 若該帳單「已繳費」，直接顯示 0.0 元
+            elif existing_bill.status == 'paid':
+                return jsonify({
+                    'suggested_amount': 0.0,
+                    'bill_date': datetime.now().strftime('%Y-%m-%d'),
+                    'notes': f"✅ 系統提示：該年度扣款後補開的差額帳單 (帳單 ID: {existing_bill.id}) 【已完成繳費】，此年度無需再執行扣款。"
+                }), 200
+
+        # -----------------------------------------------------------------
+        # 若先前「沒有」開過相關帳單，才執行原本的 HPC 使用量動態計算邏輯
+        # -----------------------------------------------------------------
         result = db.session.query(
             func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
             func.count(Accounting.jobid).label('job_count')
@@ -197,7 +226,7 @@ def calculate_pending_bill(id):
 @quota_bp.route('/api/contacts/<int:id>/confirm_deduct', methods=['POST'])
 def confirm_deduct(id):
     """
-    [API] 第一階段：只執行額度扣減，若餘額不足不自動開單，而是回傳未繳餘額
+    [API] 執行額度扣減，若餘額不足時，自動建立並持久化未繳帳單 (Bill)，防止數據丟失
     """
     data = request.get_json() or {}
     final_amount = data.get('final_amount')
@@ -209,30 +238,69 @@ def confirm_deduct(id):
     if final_amount == 0:
         return jsonify({'message': '扣款金額為 0，無需執行'}), 200
 
+    last_year = datetime.now().year - 1
+
     try:
-        # 執行額度扣減（扣到 0 元為止）
+        # 核心新增【防呆機制】：檢查該聯絡人是否已經有該年度的扣款或開單紀錄
+        existing_bill = Bill.query.filter(
+            Bill.contact_id == id,
+            Bill.status.in_(['unpaid', 'paid']),
+            Bill.notes.like(f'%{last_year}%')
+        ).first()
+
+        if existing_bill:
+            return jsonify({
+                'message': f'系統防呆：該帳號先前已執行過 {last_year} 年度的帳務處理 (帳單 ID: {existing_bill.id}，目前狀態: {existing_bill.status})，無法重複執行扣款！'
+            }), 400
+
+        # 1. 執行記憶體中的額度扣減運算
         success, remaining_bill, details, msg = execute_quota_deduction(id, final_amount, bill_date_str)
         
         if not success:
             return jsonify({'message': msg}), 400
 
-        # 🌟 核心修改：不論有沒有扣光，都先提交(Commit)這一次的額度變更
+        new_bill = None
+        
+        # 2. 如果額度不夠扣（remaining_bill > 0），立刻自動建立 Bill 物件
+        if remaining_bill > 0:
+            bill_notes = f"【額度不足自動補開單】原總費 ${final_amount}，扣除可用已付款預付額度後之差額。({last_year}年度 - {notes})"
+            new_bill = Bill(
+                contact_id=id,
+                amount=remaining_bill,
+                status='unpaid',
+                notes=bill_notes
+            )
+            db.session.add(new_bill)
+            details.append(f"因預付額度不足，系統已自動生成補繳繳費單：${remaining_bill} 元")
+        
+        # 核心優化：若全額扣除成功 (remaining_bill == 0)，也建立一筆 $0 已付帳單作為歷史憑證與防呆錨點
+        else:
+            bill_notes = f"【額度全額扣款成功】原總費 ${final_amount} 已由預付額度全額抵扣完畢。({last_year}年度 - {notes})"
+            new_bill = Bill(
+                contact_id=id,
+                amount=0.0,
+                status='paid',
+                notes=bill_notes
+            )
+            db.session.add(new_bill)
+
+        # 3. 統一提交（PrepaidAmount 的扣減與新 Bill 的建立/憑證，會同時成功或同時失敗）
         db.session.commit()
 
-        # 🌟 如果額度不夠扣，不自動建單，而是回傳 need_bill 狀態與剩餘金額給前端顯示
+        # 如果有產生差額繳費單
         if remaining_bill > 0:
             return jsonify({
                 'status': 'need_bill',
-                'message': f'可用預付額度已扣光！尚有未繳餘額 ${remaining_bill} 元。',
+                'message': f'可用預付額度已扣光！系統已自動將未繳餘額 ${remaining_bill} 元開立未繳繳費單。',
                 'detail': details,
                 'unpaid_amount': remaining_bill,
-                'suggested_notes': f"【額度不足補開單】原總費 ${final_amount}，扣除可用已付款預付額度後之差額。({notes})"
+                'bill_id': new_bill.id
             }), 200
 
         # 若全額扣除成功
         return jsonify({
             'status': 'success',
-            'message': f"額度全額扣款成功！已成功扣除 ${final_amount} 元。",
+            'message': f"額度全額扣款成功！已成功扣除 ${final_amount} 元，並已寫入扣款歷史紀錄。",
             'detail': details
         }), 200
 
@@ -241,10 +309,10 @@ def confirm_deduct(id):
         return jsonify({'message': '計費扣款程序異常', 'error': str(e)}), 500
 
 
-@quota_bp.route('/api/contacts/<int:id>/create_bill', methods=['POST'])
+@quota_bp.route('/api/contacts/<int:id>/direct_create_bill', methods=['POST'])
 def create_bill(id):
     """
-    [API] 第二階段：當管理員在前端點擊「正式開立繳費單」時，才建立 Bill 紀錄
+    [API] 第二階段：當管理員在前端直接點擊「正式開立繳費單」時，建立 Bill 紀錄
     """
     data = request.get_json() or {}
     amount = data.get('amount')
@@ -253,7 +321,25 @@ def create_bill(id):
     if amount is None or float(amount) <= 0:
         return jsonify({'message': '請輸入有效的開單金額'}), 400
 
+    last_year = datetime.now().year - 1
+
     try:
+        # 核心新增【防呆機制】：手動直接開單前，同樣檢查是否已有該年度帳單
+        existing_bill = Bill.query.filter(
+            Bill.contact_id == id,
+            Bill.status.in_(['unpaid', 'paid']),
+            Bill.notes.like(f'%{last_year}%')
+        ).first()
+
+        if existing_bill:
+            return jsonify({
+                'message': f'系統防呆：該帳號已存在 {last_year} 年度的帳務或扣款紀錄 (帳單 ID: {existing_bill.id})，無法重複手動開單。'
+            }), 400
+
+        # 自動在備註中加上年度標籤，確保未來的 API 能夠精準識別
+        if f"{last_year}" not in notes:
+            notes = f"({last_year}年度) {notes}"
+
         new_bill = Bill(
             contact_id=id,
             amount=round(float(amount), 2),
@@ -262,57 +348,16 @@ def create_bill(id):
         )
         db.session.add(new_bill)
         db.session.commit()
+        
         return jsonify({
             'status': 'success',
             'message': f'成功開立未繳繳費單，金額: ${round(float(amount), 2)} 元！'
         }), 200
+        
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': '開立繳費單失敗', 'error': str(e)}), 500
 
-
-# =========================================================================
-# 3. 智慧直接扣款 (多用於系統排程自動扣、或是快速簡易扣款)
-# =========================================================================
-@quota_bp.route('/api/contacts/<int:contact_id>/smart_deduct', methods=['POST'])
-def smart_deduct_quota(contact_id):
-    """
-    [API] 系統智慧直接扣款 (餘額不足時不開立帳單，直接阻擋並提示)
-    """
-    Contact.query.get_or_404(contact_id) 
-    data = request.get_json() or {}
-    total_charge = float(data.get('amount', 0))
-    bill_date_str = date.today().isoformat()
-
-    if total_charge <= 0:
-        return jsonify({"status": "success", "message": "金額不大於 0，無需扣款"}), 200
-
-    try:
-        # 執行額度扣減
-        success, remaining_bill, details, msg = execute_quota_deduction(contact_id, total_charge, bill_date_str)
-        
-        if not success:
-            return jsonify({'status': 'error', 'message': msg}), 400
-
-        # 🌟 保持與前一版一樣：自動扣款「不允許自動開立帳單」
-        if remaining_bill > 0:
-            db.session.rollback()  # 把剛剛扣掉的預算吐回去，不予執行
-            return jsonify({
-                "status": "error",
-                "message": f"自動扣款失敗：現有可用預付額度不足以支付總額 ${total_charge} 元。請至管理後台由管理員核對並手動確認開單。"
-            }), 400
-
-        # 額度足夠，扣款成功才提交
-        db.session.commit()
-        return jsonify({
-            "status": "success",
-            "message": f"智慧扣款成功！已成功扣除 ${total_charge} 元。",
-            "detail": details
-        }), 200
-            
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"status": "error", "message": f"系統處理失敗: {str(e)}"}), 500
 
 @quota_bp.route('/api/contacts/send-quotation', methods=['POST'])
 def send_hpc_quotation():
@@ -328,15 +373,18 @@ def send_hpc_quotation():
 
         title = post_data.get("title", "自動生成報告")
         executor = post_data.get("executor", "系統管理員")
-        date = post_data.get("date", "2026-05-28")
+        bill_date = post_data.get("date") or date.today().isoformat()
         items = post_data.get("items", [])
+        
+        # 🌟 新增控制參數：是否僅為預覽模式 (預設為 False)
+        preview_only = post_data.get("preview", False)
 
         # Step 1: Jinja2 渲染 HTML
         rendered_html = render_template(
             'quotation/quotation.html', 
             title=title, 
             executor=executor, 
-            date=date, 
+            date=bill_date, 
             items=items
         )
 
@@ -350,9 +398,19 @@ def send_hpc_quotation():
         if pisa_status.err:
             return jsonify({"status": "error", "message": "PDF 轉換失敗"}), 500
 
+        pdf_buffer.seek(0)
         pdf_bytes = pdf_buffer.getvalue()
 
-        # Step 3: 呼叫寄信函式
+        # 🌟 核心新增：如果是預覽模式，直接將 PDF 檔案流回傳給前端瀏覽器
+        if preview_only:
+            return send_file(
+                io.BytesIO(pdf_bytes),
+                mimetype='application/pdf',
+                as_attachment=False,  # False 表示讓瀏覽器直接線上開啟，而非強制下載
+                download_name=f"preview_{bill_date}.pdf"
+            )
+
+        # Step 3: 呼叫寄信函式 (非預覽模式，執行真正寄信)
         email_subject = f"【系統自動通知】{title}"
         email_body = f"您好：\n\n附件為系統自動產生的「{title}」，請查收。\n\n此信件為系統自動發送，請勿直接回信。"
         

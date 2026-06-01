@@ -899,8 +899,6 @@ body {
 .hpc-modal-footer { padding: 16px 24px; background: #f8f9fa; text-align: right; border-top: 1px solid #eee; }
 
 .btn-secondary { background: #95a5a6; color: white; border: none; padding: 8px 18px; border-radius: 5px; cursor: pointer; margin-right: 8px; }
-.btn-save-quota { background: #27ae60; color: white; border: none; padding: 8px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-.btn-save-quota:hover { background: #2ecc71; }
 
 /* 讓勾選框與文字並排且對齊 */
 .checkbox-group-inline {
@@ -1156,7 +1154,7 @@ body {
     background-color: #f8f9fa !important; /* 讓頁尾有淡淡的灰色底，呈現貼框的高級感 */
 }
 
-/* 3. 調整費用核對與儲值區塊的間距，使其緊湊省空間 */
+/* 調整費用核對與儲值區塊的間距，使其緊湊省空間 */
 #pending_bill_section {
     margin-top: 12px !important;
     padding: 10px !important;
@@ -1167,7 +1165,7 @@ body {
     margin-bottom: 2px !important;
 }
 
-/* 4. 強制讓核對金額與日期輸入框的高度、內邊距、盒模型完全統一 */
+/* 強制讓核對金額與日期輸入框的高度、內邊距、盒模型完全統一 */
 #pending_bill_section input[type="number"], 
 #pending_bill_section input[type="date"],
 #pending_bill_section input[type="text"] {
@@ -1184,14 +1182,14 @@ body {
     box-sizing: border-box !important;  /* 💡 關鍵：確保 padding 不會額外撐大高度 */
 }
 
-/* 5. 針對 Chrome / Edge 等瀏覽器中的日期控制項內部邊距進行微調防禦 */
+/* 針對 Chrome / Edge 等瀏覽器中的日期控制項內部邊距進行微調防禦 */
 #pending_bill_section input[type="date"]::-webkit-calendar-picker-indicator {
     margin: 0 !important;
     padding: 0 !important;
     cursor: pointer;
 }
 
-/* 6. 個別微調金額輸入框的文字顏色（維持管理員醒目對帳用） */
+/* 個別微調金額輸入框的文字顏色（維持管理員醒目對帳用） */
 #pending_bill_amount {
     color: #c53030 !important;          /* 保持醒目的深紅色數字 */
     font-weight: bold !important;
@@ -1203,29 +1201,273 @@ body {
     overflow-y: auto !important;
 }
 
-/* 直接開立繳費單 按鈕樣式 (優雅的橘色空心線框) */
-.btn-outline-bill {
-    background-color: transparent !important;
-    color: #e67e22 !important;
-    border: 1px solid #e67e22 !important;
+/* --- 區塊外層容器佈局 --- */
+.quota-details-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+}
+
+.quota-section {
+    margin-top: 15px;
+}
+
+.consumption-history-wrapper {
+    margin-top: 20px;
+    border-top: 1px solid #edf2f7;
+    padding-top: 15px;
+}
+
+.bill-record-wrapper {
+    border-top: 1px dashed #eee;
+    padding-top: 12px;
+}
+
+/* --- 文字與標題排版 --- */
+.quota-details-section .section-title,
+.quota-section .section-title {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 16px;
+}
+
+.quota-details-section .section-title {
+    margin-bottom: 12px; /* 詳情區標題間距微調 */
+}
+
+.sub-section-title {
+    margin-top: 20px;
+    font-size: 15px;
+    color: #4a5568;
+}
+
+.sub-section-title-flex {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #4a5568;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bill-record-title {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* --- 表單、輸入框格網與標籤 --- */
+.input-group {
+    margin-bottom: 15px;
+}
+
+.flex-input-grid {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.input-sub-label {
+    font-size: 12px;
+    color: #666;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.quota-info-tip {
+    font-size: 12px;
+    color: #6c757d;
+    margin: 0;
+    flex: 1;
+    padding-right: 10px;
+}
+
+/* --- 資料橫列與高亮顏色 --- */
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.detail-row:not(:last-child) {
+    margin-bottom: 4px;
+}
+
+.margin-top-sm {
+    margin-top: 20px;
+}
+
+.text-primary-bold {
+    font-weight: bold;
+    color: #0056b3;
+}
+
+.text-danger-bold {
+    font-weight: bold;
+    color: #c53030 !important;
+}
+
+.text-muted-light {
+    color: #999;
+}
+
+/* --- 滾動明細視窗群組 --- */
+.discount-expiration-box {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #fff;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+}
+
+.scroll-history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.scroll-consumption-list {
+    max-height: 160px;
+    overflow-y: auto;
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+}
+
+.table-responsive-scroll {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+/* --- 精簡版歷史資料表格 (Compact Table Style) --- */
+.hpc-table-compact {
+    width: 100%;
+    font-size: 12px;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.hpc-table-compact thead {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 1;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+}
+
+.hpc-table-compact th {
+    padding: 6px;
+    font-weight: bold;
+    background-color: #f8f9fa;
+}
+
+.hpc-table-compact td {
+    padding: 6px;
+}
+
+/* 表格對齊輔助類別 */
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+
+.table-placeholder {
+    text-align: center;
+    color: #999;
+    padding: 12px !important;
+}
+
+/* --- 按鈕佈局與彈性排版 --- */
+.quota-action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 15px;
+}
+
+.btn-action-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* 按鈕專屬間距微調 */
+.btn-padding-fixed {
+    padding: 8px 20px !important;
+    white-space: nowrap;
+}
+
+.footer-btn-spacing {
+    padding: 8px 24px !important;
+}
+
+/* 🌟 核心按鈕統一樣式基礎線 */
+.btn-save-quota, 
+.btn-outline-bill, 
+.btn-send-bill {
+    flex: 1 !important;
+    padding: 9px 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
     border-radius: 4px !important;
     font-size: 13px !important;
     font-weight: bold !important;
     cursor: pointer !important;
     transition: all 0.2s ease-in-out !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
+    border: 1px solid transparent !important;
 }
 
+/* 🟢 按鈕 1: 實心安全綠 */
+.btn-save-quota {
+    background-color: #27ae60 !important;
+    color: #ffffff !important;
+}
+.btn-save-quota:hover {
+    background-color: #219653 !important;
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3) !important;
+}
+
+/* 🟠 按鈕 2: 空心優雅橘 */
+.btn-outline-bill {
+    background-color: transparent !important;
+    color: #e67e22 !important;
+    border: 1px solid #e67e22 !important;
+}
 .btn-outline-bill:hover {
     background-color: #e67e22 !important;
     color: #ffffff !important;
     box-shadow: 0 2px 4px rgba(230, 126, 34, 0.2) !important;
 }
 
-
+/* 🔵 按鈕 3: 空心商務藍 */
+.btn-send-bill {
+    background-color: transparent !important;
+    color: #2980b9 !important;
+    border: 1px solid #2980b9 !important;
+}
+.btn-send-bill:hover {
+    background-color: #2980b9 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(41, 128, 185, 0.2) !important;
+}
 /* ============================================================
    🎯 強制彈窗 Footer 完美貼緊下邊框且不留白
    ============================================================ */

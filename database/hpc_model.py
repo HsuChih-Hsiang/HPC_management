@@ -62,7 +62,7 @@ class PrepaidAmount(db.Model):
     is_history = db.Column(db.Boolean, default=False, nullable=False)
     source_id = db.Column(db.String(36), nullable=False)
 
-    # 💡 注意：因為現在要允許一個 username 有多個年份的紀錄，
+    # 注意：因為現在要允許一個 username 有多個年份的紀錄，
     # 必須將原本的唯一索引 (unique=True) 拔除，改為 username + year 的聯合唯一索引
     __table_args__ = (
         db.Index('ix_prepaid_amounts_username_year', username, year, unique=False),
@@ -210,7 +210,7 @@ class Contact(db.Model):
                 is_p_paid = getattr(p, 'is_paid', False)
                 is_p_history = getattr(p, 'is_history', False)
 
-                # 🌟 修正點 1：只將真正的歷史資料 (is_history=True) 塞入「儲值歷史紀錄」
+                # 修正點 1：只將真正的歷史資料 (is_history=True) 塞入「儲值歷史紀錄」
                 if is_p_history:
                     recharge_history.append({
                         'id': p.id,
@@ -223,7 +223,7 @@ class Contact(db.Model):
                         'source_id': getattr(p, 'source_id', '')  # 順手補上來源 ID 方便前端對帳
                     })
                 
-                # 🌟 修正點 2：非歷史資料 (is_history=False) 走這裏，且只有「已付款」才納入活躍額度基算
+                # 修正點 2：非歷史資料 (is_history=False) 走這裏，且只有「已付款」才納入活躍額度基算
                 else:
                     if is_p_paid:
                         y = p.year if p.year is not None else 0
@@ -244,7 +244,7 @@ class Contact(db.Model):
                 
                 total_remaining += year_total
                 
-                # 🌟 核心修正點：如果是未過期年份，改為「只累加優惠額度 (discount)」而非總額 (year_total)
+                # 核心修正點：如果是未過期年份，改為「只累加優惠額度 (discount)」而非總額 (year_total)
                 if not is_expired:
                     discount_remaining += v['discount']
 
@@ -293,9 +293,9 @@ class Contact(db.Model):
             'course_students': [{'account': s.student_account, 'password': s.student_password} for s in self.course_students],
             'secondary_contacts': [{'name': s.name, 'info': s.info} for s in self.secondaries],
             
-            # 🌟 核心數據分流輸出結果
+            # 核心數據分流輸出結果
             'total_remaining': round(total_remaining, 2),          # 僅加總：已付款且非歷史紀錄
-            'discount_remaining': round(discount_remaining, 2),    # 🌟 僅加總：已付款、非歷史紀錄且【未過期的優惠額度】
+            'discount_remaining': round(discount_remaining, 2),    # 僅加總：已付款、非歷史紀錄且【未過期的優惠額度】
             'discount_details': discount_details,                  # 僅包含當前有效的扣減路徑明細
             'recharge_history': recharge_history,                  # 歷史紀錄總表（僅限 is_history=True）
             'consumption_history': consumption_history 
