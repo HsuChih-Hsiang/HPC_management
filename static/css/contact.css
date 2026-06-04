@@ -1430,6 +1430,7 @@ body {
 }
 
 /* 核心按鈕統一樣式基礎線 */
+.btn-send-quotamail,
 .btn-research-quota,
 .btn-save-quota, 
 .btn-outline-bill, 
@@ -1449,13 +1450,27 @@ body {
 }
 
 /* 🟢 按鈕 1: 實心安全綠 */
+.btn-send-quotamail,
 .btn-save-quota {
     background-color: #27ae60 !important;
     color: #ffffff !important;
 }
+.btn-send-quotamail:hover,
 .btn-save-quota:hover {
     background-color: #219653 !important;
     box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3) !important;
+}
+
+/* 🟢 按鈕: 空心優雅綠 */
+.btn-save-quota {
+    background-color: transparent !important;
+    color: #27ae60 !important;
+    border: 1px solid #27ae60 !important;
+}
+.btn-save-quota:hover {
+    background-color: #27ae60 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2) !important;
 }
 
 /* 🟠 按鈕 2: 空心優雅橘 */
