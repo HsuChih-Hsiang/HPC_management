@@ -54,7 +54,7 @@
                         </div>
                     </div>      
                     <button onclick="loadData(1)" class="btn-search">🔍 搜尋</button>
-                    <button onclick="exportToCsv()" class="text-button btn-export">📥 匯出 CSV</button>
+                    <button onclick="exportToCsv()" class="text-button btn-statistics">📊 HPC 統計資料</button>
                     <button onclick="openModal()" class="add-contact-button">＋ 新增聯絡人</button>
                 </div>
             </div>
@@ -252,8 +252,8 @@
                     <h4 class="section-title">目前可用額度總計</h4>
                     
                     <div class="detail-row">
-                        <span class="detail-label">優惠額度總計：</span>
-                        <span class="detail-value text-primary-bold" id="current_discount_remaining">0.00</span>
+                        <span class="detail-label">額度總計：</span>
+                        <span class="detail-value text-primary-bold" id="current_total_remaining">0.00</span>
                     </div>
                     
                     <div id="discount_expiration_list" class="discount-expiration-box">
@@ -268,11 +268,6 @@
                             <i class="fas fa-receipt"></i> 歷史消費與扣款日期明細
                         </h4>
                         <div id="consumption_history_list" class="scroll-consumption-list"></div>
-                    </div>
-
-                    <div class="detail-row margin-top-sm">
-                        <span class="detail-label">目前剩餘總額度：</span>
-                        <span class="detail-value text-primary-bold" id="current_total_remaining">0.00</span>
                     </div>
                 </div>
 
@@ -294,7 +289,10 @@
                             <i class="fas fa-info-circle"></i> 後端將依據「購買日期」自動計算優惠到期日。未填寫預設為當天。
                         </p>
                         <button type="submit" class="btn-save-quota btn-padding-fixed">
-                            <i class="fas fa-plus"></i> 確認新增額度
+                            <i class="fas fa-plus"></i> 新增額度
+                        </button>
+                        <button type="button" class="btn-research-quota btn-padding-fixed" id="btn-open-reward-modal">
+                            <i class="fas fa-gift"></i> 新增學術獎勵額度
                         </button>
                     </div>
                 </div>
@@ -354,6 +352,39 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div id="rewardQuotaModal" class="hpc-modal">
+                        <div class="hpc-modal-content">
+                            <div class="hpc-modal-header">
+                                <h4>選擇學術獎勵額度 (可複選)</h4>
+                                <span class="close-modal" id="btn-close-modal">&times;</span>
+                            </div>
+                            
+                            <div class="hpc-modal-body">
+                                <div class="input-group">
+                                    <label>額度類型</label>
+                                    <div class="hpc-reward-options">
+                                        
+                                        <label class="hpc-reward-label">
+                                            <input type="checkbox" id="chk-reward-free" value="free"> 免費額度 (10,000)
+                                        </label>
+                                        
+                                        <label class="hpc-reward-label hpc-reward-inline-label">
+                                            <input type="checkbox" id="chk-reward-academic" value="academic"> 
+                                            <span>學術額度 (1,000)</span>
+                                            <input type="number" id="reward_quantity" class="hpc-input hpc-reward-inline-input" min="1" value="1" step="1" style="display: none;">
+                                        </label>
+                                        
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="hpc-modal-footer">
+                                <button type="button" class="btn-secondary btn-padding-fixed" id="btn-cancel-modal">取消</button>
+                                <button type="button" class="btn-save-quota btn-padding-fixed" id="btn-confirm-reward">確認新增</button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -704,22 +704,27 @@ async function openQuotaModal(id, name) {
         alert("無法讀取該聯絡人的識別 ID，請重新整理網頁再試。");
         return;
     }
-    
 
     // 1. 立即將確認無誤的 ID 與姓名更新至 Modal 欄位上
     document.getElementById('quotaTargetId').value = targetId;
     document.getElementById('quotaTargetName').innerText = name || '選擇的帳號';
     
-    // 💡 核心修復：在發送任何請求前，不管三七二十一，先把所有輸入框強制清空/重設！
-    document.getElementById('current_discount_remaining').innerText = '載入中...';
+    // 💡 核心修復：在發送任何請求前，先把所有顯示區塊強制清空/重設！
     document.getElementById('current_total_remaining').innerText = '載入中...';
     
     const expirationList = document.getElementById('discount_expiration_list');
     if (expirationList) expirationList.innerHTML = '<div style="color: #999; padding: 10px;">資料載入中...</div>';
     
-    // 🌟 新增點 1：抓出儲值紀錄歷史容器，並在開窗時強制清空顯示載入中
     const rechargeHistoryList = document.getElementById('recharge_history_list');
     if (rechargeHistoryList) rechargeHistoryList.innerHTML = '<div style="color: #999; padding: 10px;">歷史紀錄載入中...</div>';
+    
+    // 🌟 新增點：初始化歷史消費與扣款明細容器
+    const consumptionHistoryList = document.getElementById('consumption_history_list');
+    if (consumptionHistoryList) consumptionHistoryList.innerHTML = '<div style="color: #999; padding: 10px;">消費與扣款明細載入中...</div>';
+
+    // 🌟 新增點：初始化底部的繳費單明細表格
+    const billsTableBody = document.getElementById('billsTableBody');
+    if (billsTableBody) billsTableBody.innerHTML = '<tr><td colspan="5" class="table-placeholder" style="text-align:center; color:#999; padding:12px;">帳單紀錄載入中...</td></tr>';
     
     // 抓出待確認帳單的三個欄位
     const billAmountInput = document.getElementById('pending_bill_amount');
@@ -745,15 +750,14 @@ async function openQuotaModal(id, name) {
     
     // 2. 平行發送非同步請求，避免其中一個卡死導致另一個不更新
     try {
-        // 請求 A：聯絡人基本額度
+        // 請求 A：聯絡人基本額度與完整歷史軌跡
         fetch(`/api/contacts/${targetId}`)
             .then(res => res.json())
             .then(data => {
-                // 💡 優化：呈現經後端歸戶統計、且格式化後的漂亮金額
-                document.getElementById('current_discount_remaining').innerText = formatCurrency(data.discount_remaining);
+                //呈現經後端歸戶統計、且格式化後的漂亮金額
                 document.getElementById('current_total_remaining').innerText = formatCurrency(data.total_remaining);
                 
-                // 【A-1】 處理「年度可用餘額明細」（這部分後端已過濾，只包含已付款且未過期的總額）
+                // 【A-1】 處理「年度可用餘額明細」
                 if (expirationList) {
                     expirationList.innerHTML = '';
                     if (data.discount_details && data.discount_details.length > 0) {
@@ -793,7 +797,7 @@ async function openQuotaModal(id, name) {
                     }
                 }
 
-
+                // 【A-2】 處理「儲值紀錄明細」
                 if (rechargeHistoryList) {
                     rechargeHistoryList.innerHTML = '';
                     if (data.recharge_history && data.recharge_history.length > 0) {
@@ -802,9 +806,8 @@ async function openQuotaModal(id, name) {
                             row.style.marginBottom = '10px';
                             row.style.padding = '10px';
                             row.style.borderRadius = '5px';
-                            row.style.display = 'block'; // 💡 改回區塊排列，不搞左右兩側分開
+                            row.style.display = 'block';
                             
-                            // 核心視覺區隔：已付款用綠底，未付款用紅/粉紅底
                             if (item.is_paid) {
                                 row.style.backgroundColor = '#f0fff4';
                                 row.style.borderLeft = '4px solid #38a169';
@@ -813,22 +816,22 @@ async function openQuotaModal(id, name) {
                                 row.style.borderLeft = '4px solid #e53e3e';
                             }
                             
-                            // 調整標籤樣式：縮小 padding 並設定 inline-flex 確保內容不換行
                             const statusBadge = item.is_paid 
                                 ? `<span style="background-color: #38a169; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><i class="fas fa-check-circle"></i> 已入帳</span>` 
                                 : `<span style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><i class="fas fa-times-circle"></i> 尚未付款</span>`;
                             
+                            const isBonus = item.amount === 0;
+                            const titleText = isBonus ? `${item.year} 年學術獎勵額度` : `${item.year} 年儲值單`;
+
                             row.innerHTML = `
                                 <div style="font-weight: bold; color: #2d3748; margin-bottom: 6px;">
-                                    <i class="fas fa-file-invoice-dollar"></i> ${item.year} 年儲值單 
+                                    <i class="fas fa-file-invoice-dollar"></i> ${titleText}
                                     <span style="font-size: 12px; color: #718096; font-weight: normal; margin-left: 10px;">日期: ${item.payment_date || '未設定'}</span>
                                 </div>
-                                
                                 <div style="font-size: 13px; color: #4a5568; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <span>自費金額: <strong>$${formatCurrency(item.amount)}</strong></span>
                                     <span style="color: #cbd5e0;">|</span>
                                     <span>優惠額度: <strong style="color: #38a169;">$${formatCurrency(item.discount)}</strong></span>
-                                    
                                     <span style="margin-left: 4px; display: inline-flex;">${statusBadge}</span>
                                 </div>
                             `;
@@ -838,10 +841,109 @@ async function openQuotaModal(id, name) {
                         rechargeHistoryList.innerHTML = '<span style="color: #999;">目前無任何儲值歷史紀錄</span>';
                     }
                 }
-            })
-            .catch(err => console.error("基本額度載入失敗:", err));
+                // 🌟 【A-3】 核心變更：動態渲染「歷史消費與扣款日期明細」 (對應 QuotaTransaction)
+                if (consumptionHistoryList) {
+                    consumptionHistoryList.innerHTML = '';
+                    if (data.consumption_history && data.consumption_history.length > 0) {
+                        data.consumption_history.forEach(tx => {
+                            const row = document.createElement('div');
+                            row.style.marginBottom = '10px';
+                            row.style.padding = '10px';
+                            row.style.borderRadius = '5px';
+                            row.style.backgroundColor = '#f7fafc';
+                            
+                            let badgeColor = '#718096';
+                            let badgeText = tx.tx_type;
+                            let amountDetail = [];
 
-        // 請求 B：核心修正點 ➔ 拿掉外層 pending_bill_section 的限制，強制直接回填金額輸入框！
+                            // 根據後端 tx_type 劃分精細的 UI 樣式
+                            if (tx.tx_type === 'deduct') {
+                                row.style.borderLeft = '4px solid #e53e3e';
+                                row.style.backgroundColor = '#fff5f5';
+                                badgeColor = '#e53e3e';
+                                badgeText = '帳單扣款';
+                                if (tx.amount_changed < 0) amountDetail.push(`自費: <strong style="color:#e53e3e;">-$${formatCurrency(Math.abs(tx.amount_changed))}</strong>`);
+                                if (tx.discount_changed < 0) amountDetail.push(`優惠: <strong style="color:#e53e3e;">-$${formatCurrency(Math.abs(tx.discount_changed))}</strong>`);
+                            } else if (tx.tx_type === 'charge' || tx.tx_type === 'bonus') {
+                                row.style.borderLeft = '4px solid #38a169';
+                                row.style.backgroundColor = '#f0fff4';
+                                badgeColor = '#38a169';
+                                // 🛠️ 修正原先「儲值儲值」贅字，並精準對應學術獎勵 (Bonus)
+                                badgeText = tx.tx_type === 'charge' ? '線上儲值' : '學術獎勵';
+                                if (tx.amount_changed > 0) amountDetail.push(`自費: <strong style="color:#38a169;">+$${formatCurrency(tx.amount_changed)}</strong>`);
+                                if (tx.discount_changed > 0) amountDetail.push(`優惠: <strong style="color:#38a169;">+$${formatCurrency(tx.discount_changed)}</strong>`);
+                            } else if (tx.tx_type === 'refund') {
+                                row.style.borderLeft = '4px solid #3182ce';
+                                row.style.backgroundColor = '#ebf8ff';
+                                badgeColor = '#3182ce';
+                                badgeText = '退款返還';
+                                if (tx.amount_changed > 0) amountDetail.push(`自費: <strong style="color:#3182ce;">+$${formatCurrency(tx.amount_changed)}</strong>`);
+                                if (tx.discount_changed > 0) amountDetail.push(`優惠: <strong style="color:#3182ce;">+$${formatCurrency(tx.discount_changed)}</strong>`);
+                            }
+
+                            const typeBadge = `<span style="background-color: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 6px; display: inline-block; vertical-align: middle;">${badgeText}</span>`;
+                            const billAnchor = tx.bill_id ? `<span style="color: #718096; font-size: 11px; margin-left: 8px;">(關聯帳單 #${tx.bill_id})</span>` : '';
+
+                            row.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                                    <div style="font-weight: bold; color: #2d3748; font-size: 13px;">
+                                        ${typeBadge} ${tx.description || ''} ${billAnchor}
+                                    </div>
+                                    <div style="font-size: 12px; color: #a0aec0; white-space: nowrap;">${tx.created_at || ''}</div>
+                                </div>
+                                <div style="font-size: 12px; color: #4a5568;">
+                                    額度異動：${amountDetail.length > 0 ? amountDetail.join(' | ') : '$0.00'}
+                                </div>
+                            `;
+                            consumptionHistoryList.appendChild(row);
+                        });
+                    } else {
+                        consumptionHistoryList.innerHTML = '<span style="color: #999; padding: 10px; display: block;">目前無任何消費與扣款明細紀錄</span>';
+                    }
+                }
+
+                // 🌟 【A-4】 核心新增：動態渲染底部「繳費單紀錄明細與銷帳」表格 (Bills Table Body)
+                if (billsTableBody) {
+                    billsTableBody.innerHTML = '';
+                    if (data.bills && data.bills.length > 0) {
+                        data.bills.forEach(bill => {
+                            const tr = document.createElement('tr');
+                            
+                            // 狀態標籤判定
+                            let statusBadge = '';
+                            if (bill.status === 'paid') {
+                                statusBadge = '<span style="background-color: #38a169; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">已繳費</span>';
+                            } else if (bill.status === 'unpaid') {
+                                statusBadge = '<span style="background-color: #e53e3e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">未繳費</span>';
+                            } else {
+                                statusBadge = `<span style="background-color: #718096; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">${bill.status}</span>`;
+                            }
+
+                            // 動作按鈕防呆
+                            let actionHtml = '';
+                            if (bill.status === 'unpaid') {
+                                actionHtml = `<button type="button" onclick="triggerManualWriteOff(${bill.id}, ${bill.amount})" style="background-color: #3182ce; color: white; border: none; padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;"><i class="fas fa-check"></i> 銷帳</button>`;
+                            } else {
+                                actionHtml = '<span style="color: #cbd5e0; font-size: 11px;">無</span>';
+                            }
+
+                            tr.innerHTML = `
+                                <td class="text-left" style="padding: 10px; font-size: 13px; color:#4a5568;">${bill.created_at || '---'}</td>
+                                <td class="text-right" style="padding: 10px; font-size: 13px; font-weight: bold; color: ${bill.amount > 0 ? '#e53e3e' : '#2d3748'}">$${formatCurrency(bill.amount)}</td>
+                                <td class="text-center" style="padding: 10px;">${statusBadge}</td>
+                                <td class="text-left" style="padding: 10px; font-size: 12px; color: #718096; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${bill.notes || ''}">${bill.notes || '---'}</td>
+                                <td class="text-center" style="padding: 10px;">${actionHtml}</td>
+                            `;
+                            billsTableBody.appendChild(tr);
+                        });
+                    } else {
+                        billsTableBody.innerHTML = '<tr><td colspan="5" class="table-placeholder" style="text-align: center; color: #999; padding: 20px;">該聯絡人查無歷史繳費單紀錄。</td></tr>';
+                    }
+                }
+            })
+            .catch(err => console.error("基本額度與流水帳明細載入失敗:", err));
+
+        // 請求 B：動態試算建議扣款金額
         fetch(`/api/contacts/${targetId}/calculate_pending_bill`)
             .then(res => {
                 if (res.status === 404) throw new Error("後端找不到對帳路由 404");
@@ -855,6 +957,12 @@ async function openQuotaModal(id, name) {
                 if (billDateInput) billDateInput.value = billData.bill_date || getTodayDateString();
                 if (billNotesInput) billNotesInput.value = billData.notes || '';
                 
+                // 💡 優化：若備註包含警告標籤(⚠️)或成功標籤(✅)，可調整輸入框提示顏色或禁用按鈕防呆
+                if (billNotesInput && (billData.notes.includes('⚠️') || billData.notes.includes('✅'))) {
+                    billNotesInput.style.color = billData.notes.includes('⚠️') ? '#e53e3e' : '#38a169';
+                    billNotesInput.style.fontWeight = 'bold';
+                }
+
                 console.log(`成功載入 ID: ${targetId} 的新建議扣款金額: ${billData.suggested_amount}`);
             })
             .catch(billErr => {
@@ -870,7 +978,6 @@ async function openQuotaModal(id, name) {
         console.error("開窗通訊異常:", err);
     }
 }
-
 function closeQuotaModal() {
     document.getElementById('quotaEditorModal').style.display = 'none';
 }
@@ -886,49 +993,109 @@ function handleQuotaButtonClick(event, id, applicant, isCourse, isTrial) {
 }
 
 // 綁定額度表單提交
-document.getElementById('quotaForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('quotaTargetId').value;
-    const addAmount = parseFloat(document.getElementById('add_quota_amount').value);
+document.addEventListener('DOMContentLoaded', function() {
+    // ==========================================
+    // 宣告小視窗所需的 DOM 物件（已改為複選結構）
+    // ==========================================
+    const modal = document.getElementById('rewardQuotaModal');
+    const openBtn = document.getElementById('btn-open-reward-modal');
+    const closeBtn = document.getElementById('btn-close-modal');
+    const cancelBtn = document.getElementById('btn-cancel-modal');
+    const confirmBtn = document.getElementById('btn-confirm-reward');
     
-    // 取得購買日期，如果使用者手動清空了，就預設帶入今天
-    let purchaseDate = document.getElementById('purchase_date').value;
-    if (!purchaseDate) {
-        purchaseDate = getTodayDateString();
+    // 🌟 改為獲取對應的 Checkbox 與數量輸入框
+    const chkFree = document.getElementById('chk-reward-free');
+    const chkAcademic = document.getElementById('chk-reward-academic');
+    const quantityInput = document.getElementById('reward_quantity');
+
+    // ==========================================
+    // 1. 小視窗開關與重置邏輯
+    // ==========================================
+    openBtn.addEventListener('click', () => modal.style.display = 'block');
+
+    function closeModal() {
+        modal.style.display = 'none';
+        // 🌟 關閉時重置複選框狀態與行內輸入框
+        chkFree.checked = false;
+        chkAcademic.checked = false;
+        quantityInput.style.display = 'none';
+        quantityInput.value = 1;
     }
 
-    // 前端防呆
-    if (isNaN(addAmount) || addAmount <= 0) {
-        alert("請輸入大於 0 的購買額度");
-        return;
-    }
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    window.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
-    // Payload 包含新增額度與購買日期
-    const payload = {
-        amount: addAmount,
-        purchase_date: purchaseDate // 格式為 "YYYY-MM-DD"
-    };
-
-    try {
-        const res = await fetch(`/api/contacts/${id}/quota`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (res.ok) {
-            alert("額度新增成功");
-            closeQuotaModal();
-            loadData(currentPage);
+    // 🌟 監聽學術額度勾選狀態：勾選才顯示行內的數量輸入框
+    chkAcademic.addEventListener('change', function() {
+        if (this.checked) {
+            quantityInput.style.display = 'inline-block';
+            quantityInput.focus();
         } else {
-            alert("新增失敗，請檢查輸入或伺服器狀態");
+            quantityInput.style.display = 'none';
         }
-    } catch (err) {
-        alert("更新失敗");
-    }
-};
+    });
 
+    // ==========================================
+    // 分流一：小視窗【確認發放獎勵額度】點擊事件（優化：單次 API 批量送出）
+    // ==========================================
+    confirmBtn.addEventListener('click', async () => {
+        const id = document.getElementById('quotaTargetId').value; // 取得當前對象 ID
+        
+        // 蒐集被勾選的任務與確認訊息
+        let selectedItems = [];
+        let confirmDetails = [];
 
+        if (chkFree.checked) {
+            selectedItems.push({ type: 'free', quantity: 1 });
+            confirmDetails.push("・免費額度 $10,000 元 (限今年度帳單折抵)");
+        }
+
+        if (chkAcademic.checked) {
+            const qty = parseInt(quantityInput.value) || 1;
+            if (qty <= 0) { 
+                alert("學術額度數量必須大於 0"); 
+                return; 
+            }
+            selectedItems.push({ type: 'academic', quantity: qty });
+            confirmDetails.push(`・學術額度 $1,000 × ${qty} 份 = $${1000 * qty} 元`);
+        }
+
+        // 防呆：什麼都沒勾選
+        if (selectedItems.length === 0) {
+            alert("請至少選擇一種額度類型");
+            return;
+        }
+
+        // 組裝統一的確認提示視窗
+        const confirmMsg = `【確認發放以下研究獎勵？】\n\n${confirmDetails.join('\n')}`;
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            // 🌟 關鍵改動：整包 items 一次打包送過去
+            const res = await fetch(`/api/contacts/${id}/research_bonus`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: selectedItems }) 
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                // 顯示後端組合好、帶有精美換行與千分位的成功訊息
+                alert(data.message);
+                closeModal();          // 關閉小視窗
+                closeQuotaModal();     // 關閉原本的分配額度大彈窗
+                if (typeof loadData === 'function') loadData(currentPage);
+            } else {
+                alert(`發放失敗：${data.message || '伺服器錯誤'}`);
+            }
+        } catch (err) {
+            alert("連線失敗，無法完成獎勵額度發放");
+        }
+    });
+});
+    
 /**
  * 處理情境：直接開立繳費單 (已修正 ID)
  */
@@ -1016,7 +1183,7 @@ function handleConfirmDeduct() {
     }
 
     // 2. 執行前二次確認
-    if (!confirm(`【確認執行額度扣款？】\n\n系統將優先扣除該帳號的預付優惠額度。\n若額度不足，將自動就剩餘差額生成未繳繳費單。`)) {
+    if (!confirm(`【確認執行額度扣款？】\n系統將優先扣除該帳號的預付優惠額度。\n若額度不足，將自動就剩餘差額生成未繳繳費單。 \n學術獎勵要先點選才折抵。`)) {
         return;
     }
 
@@ -1074,16 +1241,13 @@ function handleConfirmDeduct() {
 /**
  * 處理情境：兩階段驗證——先檢視 PDF 繳費單，確認無誤後再執行郵件寄送 (已修正 ID)
  */
-function handlePreviewAndSend() {
+async function handlePreviewAndSend() {
     console.log("🚀 handlePreviewAndSend 被點擊了！");
 
-    // 🛠️ 修正點：將 'current_contact_id' 改為 'quotaTargetId'
     const elContactId = document.getElementById('quotaTargetId'); 
     const elAmount = document.getElementById('pending_bill_amount');
     const elBillDate = document.getElementById('pending_bill_date');
     const elNotes = document.getElementById('pending_bill_notes');
-    
-    // 💡 提示：Modal 內部沒有 Email 欄位，此處維持從外圍畫面的 'current_contact_email' 取得
     const elEmail = document.getElementById('current_contact_email'); 
 
     if (!elContactId || !elAmount) {
@@ -1107,37 +1271,32 @@ function handlePreviewAndSend() {
         return;
     }
 
-    // 封裝準備傳送給 Jinja2 模板的資料結構
     const payloadData = {
         recipient: recipientEmail,
         title: `HPC 運算服務繳費通知單`,
         executor: "系統管理員",
         date: billDate,
-        items: [
-            { 
-                name: notes, 
-                amount: parseFloat(amount) 
-            }
-        ]
+        items: [{ name: notes, amount: parseFloat(amount) }]
     };
 
-    // ==========================================
-    // 階段一：發送預覽請求並開啟新分頁檢視
-    // ==========================================
     alert('系統即將產生繳費單 PDF 預覽，請在即將開啟的新分頁中進行核對。');
 
-    fetch('/api/contacts/send-quotation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payloadData, preview: true }) // 帶入預覽標記
-    })
-    .then(res => {
+    try {
+        // ==========================================
+        // 階段一：發送預覽請求並開啟新分頁檢視
+        // ==========================================
+        const res = await fetch('/api/contacts/send-quotation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payloadData, preview: true })
+        });
+
         if (!res.ok) {
-            return res.json().then(data => { throw new Error(data.message || '無法生成預覽檔'); });
+            const data = await res.json();
+            throw new Error(data.message || '無法生成預覽檔');
         }
-        return res.blob(); // 接收二進位檔案流
-    })
-    .then(blob => {
+
+        const blob = await res.blob();
         const pdfUrl = URL.createObjectURL(blob);
         const previewWindow = window.open(pdfUrl, '_blank');
         
@@ -1146,32 +1305,32 @@ function handlePreviewAndSend() {
         }
 
         // ==========================================
-        // 階段二：留在原分頁等待管理員核對並點擊確認發信
+        // 階段二：留在原分頁等待管理員核對（優化：用 Promise 替代 setTimeout 嵌套）
         // ==========================================
-        setTimeout(() => {
-            if (confirm(`【繳費單檢視確認】\n\n請確認新分頁中的 PDF 帳單明細。\n\n金額：$${amount} 元\n收件人：${recipientEmail}\n\n確認內容完全無誤並現在寄出信件嗎？`)) {
-                
-                // 執行真正寄信
-                fetch('/api/contacts/send-quotation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...payloadData, preview: false }) // 關閉預覽，正式寄發
-                })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.status === 'success') {
-                        alert(`✅ 信件發送成功：${result.message}`);
-                        elAmount.value = '';
-                        if (elNotes) elNotes.value = '';
-                    } else {
-                        alert(`❌ 寄送失敗：${result.message}`);
-                    }
-                })
-                .catch(err => alert('發送郵件時發生連線異常: ' + err.message));
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        const isConfirmed = confirm(`【繳費單檢視確認】\n\n請確認新分頁中的 PDF 帳單明細。\n\n金額：$${amount} 元\n收件人：${recipientEmail}\n\n確認內容完全無誤並現在寄出信件嗎？`);
+        
+        if (isConfirmed) {
+            const response = await fetch('/api/contacts/send-quotation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payloadData, preview: false })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                alert(`✅ 信件發送成功：${result.message}`);
+                elAmount.value = '';
+                if (elNotes) elNotes.value = '';
+            } else {
+                alert(`❌ 寄送失敗：${result.message}`);
             }
-        }, 800); 
-    })
-    .catch(err => {
-        alert('系統無法產生預覽: ' + err.message);
-    });
+        }
+
+    } catch (err) {
+        // 統一捕捉階段一與階段二的所有連線與系統異常
+        alert('系統發生異常: ' + err.message);
+    }
 }

@@ -2,7 +2,7 @@ import io
 from flask import request, jsonify, Blueprint, render_template, send_file
 from xhtml2pdf import pisa
 from database.extensions import db
-from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill
+from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
 from sqlalchemy import and_, func, cast, Numeric
 from datetime import datetime, date
 from  utils.email_utils import send_pdf_email
@@ -85,10 +85,10 @@ def add_contact_quota(id):
 # 3. 核心計費扣款邏輯 (Deduct Logic)
 # =========================================================================
 
-def execute_quota_deduction(contact_id, total_charge, bill_date_str):
+def execute_quota_deduction(contact_id, total_charge, bill_date_str, bill_id=None):
     """
     核心扣款邏輯（純運算與額度扣減，不進行 db.session.commit()）
-    回傳: (is_success, remaining_bill, deducted_details, message)
+    支援：年度研究更新 10,000 元「限當年帳單折抵」與「到期日優先排序」機制
     """
     contact = Contact.query.get(contact_id)
     if not contact:
@@ -102,54 +102,102 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str):
     if remaining_bill <= 0:
         return True, 0.0, [], "扣款金額小於或等於 0，無需執行"
 
-    # 撈出該帳號所有有餘額的年度紀錄，由舊到新排序
+    # 撈出該帳號所有有餘額的活躍年度紀錄
     prepaids = PrepaidAmount.query.filter(
         PrepaidAmount.username == formal_account,
         PrepaidAmount.is_paid == True,  
-        PrepaidAmount.is_history == False,  # 👈 確保只扣除活躍可用額度
+        PrepaidAmount.is_history == False,  
         (PrepaidAmount.amount > 0) | (PrepaidAmount.discount > 0)
     ).order_by(PrepaidAmount.year.asc()).all()
 
-    # 篩選出未過期的儲值紀錄 (購買年 + 2 的 12-31 之前)
     valid_prepaids = []
+    
+    # 階段一：過濾有效額度並動態計算過期日
     for p in prepaids:
+        # 新增規則：如果是「研究資料更新」的特別折抵額度
+        if p.source_id and p.source_id.startswith('RESEARCH_BONUS_'):
+            # 嚴格限制：只能折抵「同一年」拿到的帳單 (比對帳單開立年份)
+            if bill_date_str.startswith(str(p.year)):
+                p._calculated_expire = f"{p.year}-12-31"  # 限當年度年底過期
+                valid_prepaids.append(p)
+            continue # 處理完畢，跳過下方常規儲值邏輯
+
+        # 🛠️ 標準儲值紀錄過期邏輯 (購買年 + 2 的 12-31 之前)
         expire_year = p.year + 2 if p.year else datetime.now().year
         expire_date_str = f"{expire_year}-12-31"
         if expire_date_str >= bill_date_str:
+            p._calculated_expire = expire_date_str  # 快遞綁定動態屬性
             valid_prepaids.append(p)
 
-    deducted_details = []
+    # 核心優化：重新按「過期日早晚」排序！
+    # 舉例：2026年的研究紅利(2026過期) 會被排在 2025年的標準自費(2027過期) 前面優先扣除！
+    valid_prepaids.sort(key=lambda x: x._calculated_expire)
 
-    # 階段一：優先扣除「優惠額度 (discount)」
+    deducted_details = []
+    tx_logs = [] # 🌟 新增：用來收集要寫入資料庫的流水帳物件
+    
+    # 階段二：優先扣除「優惠額度 (discount)」
     for p in valid_prepaids:
         if remaining_bill <= 0:
             break
         if p.discount > 0:
+            is_research = "研究更新" if p.source_id and p.source_id.startswith('RESEARCH_BONUS_') else "儲值"
+            
             if p.discount >= remaining_bill:
-                deducted_details.append(f"從 {p.year} 年優惠額度扣除 ${remaining_bill} 元")
+                deducted_details.append(f"從 {p.year} 年[{is_research}]優惠額度扣除 ${remaining_bill} 元")
+                
+                # 🌟 紀錄流水帳：扣除多少優惠就記負數
+                tx_logs.append(QuotaTransaction(
+                    username=formal_account, bill_id=bill_id, prepaid_id=p.id,
+                    tx_type='deduct', discount_changed=-remaining_bill, amount_changed=0.0,
+                    description=f"折抵帳單：從 {p.year} 年[{is_research}]優惠額度扣除"
+                ))
+                
                 p.discount = round(p.discount - remaining_bill, 2)
                 remaining_bill = 0.0
             else:
-                deducted_details.append(f"從 {p.year} 年優惠額度扣除 ${p.discount} 元 (已扣完)")
+                deducted_details.append(f"從 {p.year} 年[{is_research}]優惠額度扣除 ${p.discount} 元 (已扣完)")
+                
+                tx_logs.append(QuotaTransaction(
+                    username=formal_account, bill_id=bill_id, prepaid_id=p.id,
+                    tx_type='deduct', discount_changed=-p.discount, amount_changed=0.0,
+                    description=f"折抵帳單：{p.year} 年[{is_research}]優惠額度扣光"
+                ))
+                
                 remaining_bill = round(remaining_bill - p.discount, 2)
                 p.discount = 0.0
 
-    # 階段二：若還有殘額，才扣除「自費金額 (amount)」
+    # 階段三：扣除「自費金額 (amount)」
     for p in valid_prepaids:
         if remaining_bill <= 0:
             break
         if p.amount > 0:
             if p.amount >= remaining_bill:
                 deducted_details.append(f"從 {p.year} 年自費金額扣除 ${remaining_bill} 元")
+                
+                # 🌟 紀錄流水帳
+                tx_logs.append(QuotaTransaction(
+                    username=formal_account, bill_id=bill_id, prepaid_id=p.id,
+                    tx_type='deduct', discount_changed=0.0, amount_changed=-remaining_bill,
+                    description=f"折抵帳單：從 {p.year} 年自費金額扣除"
+                ))
+                
                 p.amount = round(p.amount - remaining_bill, 2)
                 remaining_bill = 0.0
             else:
                 deducted_details.append(f"從 {p.year} 年自費金額扣除 ${p.amount} 元 (已扣完)")
+                
+                tx_logs.append(QuotaTransaction(
+                    username=formal_account, bill_id=bill_id, prepaid_id=p.id,
+                    tx_type='deduct', discount_changed=0.0, amount_changed=-p.amount,
+                    description=f"折抵帳單：{p.year} 年自費金額扣光"
+                ))
+                
                 remaining_bill = round(remaining_bill - p.amount, 2)
                 p.amount = 0.0
 
-    return True, remaining_bill, deducted_details, "額度扣減運算完成"
-    
+    # 🌟 修改回傳值：把流水帳物件一起丟回去給 Controller 寫入
+    return True, remaining_bill, deducted_details, "額度扣減運算完成", tx_logs
 
 # =========================================================================
 # 1. 動態計算該帳號尚未扣款的「建議帳單金額」 (供管理員核對)
@@ -241,7 +289,7 @@ def confirm_deduct(id):
     last_year = datetime.now().year - 1
 
     try:
-        # 核心新增【防呆機制】：檢查該聯絡人是否已經有該年度的扣款或開單紀錄
+        # 核心防呆機制：檢查該聯絡人是否已經有該年度的扣款或開單紀錄
         existing_bill = Bill.query.filter(
             Bill.contact_id == id,
             Bill.status.in_(['unpaid', 'paid']),
@@ -253,15 +301,15 @@ def confirm_deduct(id):
                 'message': f'系統防呆：該帳號先前已執行過 {last_year} 年度的帳務處理 (帳單 ID: {existing_bill.id}，目前狀態: {existing_bill.status})，無法重複執行扣款！'
             }), 400
 
-        # 1. 執行記憶體中的額度扣減運算
-        success, remaining_bill, details, msg = execute_quota_deduction(id, final_amount, bill_date_str)
+        # 🌟 1. 執行記憶體中的額度扣減運算（正確解包 5 個回傳值）
+        success, remaining_bill, details, msg, tx_logs = execute_quota_deduction(id, final_amount, bill_date_str)
         
         if not success:
             return jsonify({'message': msg}), 400
 
         new_bill = None
         
-        # 2. 如果額度不夠扣（remaining_bill > 0），立刻自動建立 Bill 物件
+        # 2. 根據扣除結果，建立對應的 Bill 物件
         if remaining_bill > 0:
             bill_notes = f"【額度不足自動補開單】原總費 ${final_amount}，扣除可用已付款預付額度後之差額。({last_year}年度 - {notes})"
             new_bill = Bill(
@@ -270,10 +318,6 @@ def confirm_deduct(id):
                 status='unpaid',
                 notes=bill_notes
             )
-            db.session.add(new_bill)
-            details.append(f"因預付額度不足，系統已自動生成補繳繳費單：${remaining_bill} 元")
-        
-        # 核心優化：若全額扣除成功 (remaining_bill == 0)，也建立一筆 $0 已付帳單作為歷史憑證與防呆錨點
         else:
             bill_notes = f"【額度全額扣款成功】原總費 ${final_amount} 已由預付額度全額抵扣完畢。({last_year}年度 - {notes})"
             new_bill = Bill(
@@ -282,9 +326,18 @@ def confirm_deduct(id):
                 status='paid',
                 notes=bill_notes
             )
-            db.session.add(new_bill)
-
-        # 3. 統一提交（PrepaidAmount 的扣減與新 Bill 的建立/憑證，會同時成功或同時失敗）
+            
+        db.session.add(new_bill)
+        
+        # 🌟 3. 核心魔法：先 flush 逼出 new_bill.id，此時尚未真正 commit 進入資料庫
+        db.session.flush() 
+        
+        # 🌟 4. 將每一筆扣款流水帳補上剛出爐的 bill_id，並加入 session
+        for tx in tx_logs:
+            tx.bill_id = new_bill.id
+            db.session.add(tx)
+            
+        # 5. 統一提交（Bill、PrepaidAmount 的扣減、QuotaTransaction 流水帳會封裝在同一個交易中）
         db.session.commit()
 
         # 如果有產生差額繳費單
@@ -426,3 +479,112 @@ def send_hpc_quotation():
 
     except Exception as e:
         return jsonify({"status": "error", "message": f"伺服器錯誤: {str(e)}"}), 500
+    
+@quota_bp.route('/api/contacts/<int:id>/research_bonus', methods=['POST'])
+def grant_research_bonus(id):
+    """管理員後台連動：合併為單一 API，支援單次批次發放多種類型額度"""
+    contact = Contact.query.get_or_404(id)
+    formal_account = contact.get_formal_account()
+    if not formal_account:
+        return jsonify({'message': '該對象尚未對應正式帳號，無法發放額度'}), 400
+
+    # 解析前端傳入的批次資料
+    data = request.get_json() or {}
+    items = data.get('items', [])
+    
+    if not items:
+        return jsonify({'message': '未偵測到任何發放項目'}), 400
+
+    current_year = datetime.now().year 
+    amount = 0.0  # 實收金額維持 0.0
+    
+    # 統一配置管理
+    bonus_configs = {
+        'free': {'label': '免費研究折抵', 'base_amount': 10000.0, 'use_quantity': False},
+        'academic': {'label': '學術獎勵', 'base_amount': 1000.0, 'use_quantity': True}
+    }
+
+    records_to_add = []
+    success_details = []
+
+    try:
+        for item in items:
+            bonus_type = item.get('type')
+            if bonus_type not in bonus_configs:
+                return jsonify({'message': f'未知的獎勵額度類型: {bonus_type}'}), 400
+                
+            cfg = bonus_configs[bonus_type]
+            
+            # 數量解析與防呆
+            try:
+                quantity = int(item.get('quantity', 1))
+            except (ValueError, TypeError):
+                return jsonify({'message': f'【{cfg["label"]}】發放數量格式不正確'}), 400
+
+            if quantity <= 0:
+                return jsonify({'message': f'【{cfg["label"]}】發放數量必須大於 0'}), 400
+
+            # 計算動態金額與前綴
+            discount = cfg['base_amount'] * quantity if cfg['use_quantity'] else cfg['base_amount']
+            bonus_prefix = f"RESEARCH_{bonus_type.upper()}_{current_year}_"
+
+            # 防呆機制：檢查今年是否領過
+            existing_bonus = PrepaidAmount.query.filter(
+                PrepaidAmount.username == formal_account,
+                PrepaidAmount.year == current_year,
+                PrepaidAmount.is_history == False,
+                PrepaidAmount.source_id.like(f"{bonus_prefix}%")
+            ).first()
+            
+            if existing_bonus:
+                return jsonify({'message': f'該帳號在 {current_year} 年度已領取過【{cfg["label"]}】額度，不可重複發放'}), 400
+
+            # 產生此項目的唯一交易追蹤碼
+            current_source_id = f"{bonus_prefix}{uuid.uuid4()}"
+
+            # 建立活躍可用額度
+            prepaid_active = PrepaidAmount(
+                username=formal_account,
+                amount=amount,
+                discount=discount,
+                year=current_year,
+                payment_date=datetime.now(),
+                is_paid=True,  
+                is_history=False,
+                source_id=current_source_id
+            )
+            
+            # 建立歷史備份存檔
+            prepaid_history = PrepaidAmount(
+                username=formal_account,
+                amount=amount,
+                discount=discount,
+                year=current_year,
+                payment_date=datetime.now(),
+                is_paid=True,
+                is_history=True,
+                source_id=current_source_id
+            )
+            
+            records_to_add.extend([prepaid_active, prepaid_history])
+
+            # 收集成功訊息文本
+            if cfg['use_quantity']:
+                detail_msg = f"{int(cfg['base_amount']):,} 元 × {quantity} = 共 {int(discount):,} 元"
+            else:
+                detail_msg = f"{int(discount):,} 元"
+            success_details.append(f"・{cfg['label']}額度: {detail_msg}")
+
+        # 🚀 通過所有防呆後，整批塞入資料庫
+        for record in records_to_add:
+            db.session.add(record)
+        
+        db.session.commit()
+        
+        # 組合最終回傳訊息
+        success_message = f"成功匯入 {current_year} 年度研究獎勵額度！\n" + "\n".join(success_details)
+        return jsonify({'message': success_message}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': '資料庫儲存失敗，請聯繫系統管理員', 'error': str(e)}), 500

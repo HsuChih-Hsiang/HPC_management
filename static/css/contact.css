@@ -245,8 +245,8 @@ body {
 }
 
 /* 按鈕顏色強化 */
-.btn-export { background-color: #38a169 !important; border-color: #38a169 !important; }
-.btn-export:hover { background-color: #2f855a !important; }
+.btn-statistics { background-color: #38a169 !important; border-color: #38a169 !important; }
+.btn-statistics:hover { background-color: #2f855a !important; }
 
 .btn-delete { background-color: #e53e3e !important; border-color: #e53e3e !important; }
 .btn-delete:hover { background-color: #c53030 !important; }
@@ -1417,7 +1417,20 @@ body {
     padding: 8px 24px !important;
 }
 
-/* 🌟 核心按鈕統一樣式基礎線 */
+.quota-action-row {
+    display: flex;
+    align-items: center; /* 讓文字和按鈕在水平線上垂直居中對齊 */
+    gap: 12px;           /* 🌟 核心：直接設定元素與元素之間的間距（可依喜好調整，如 10px ~ 15px） */
+    flex-wrap: wrap;     /* 防呆：遇到極端小螢幕時會自動安全換行，不咬死畫面 */
+}
+
+/* 稍微優化一下提示文字的原生外距，避免干擾排版 */
+.quota-info-tip {
+    margin: 0; 
+}
+
+/* 核心按鈕統一樣式基礎線 */
+.btn-research-quota,
 .btn-save-quota, 
 .btn-outline-bill, 
 .btn-send-bill {
@@ -1446,11 +1459,13 @@ body {
 }
 
 /* 🟠 按鈕 2: 空心優雅橘 */
+.btn-research-quota,
 .btn-outline-bill {
     background-color: transparent !important;
     color: #e67e22 !important;
     border: 1px solid #e67e22 !important;
 }
+.btn-research-quota:hover,
 .btn-outline-bill:hover {
     background-color: #e67e22 !important;
     color: #ffffff !important;
@@ -1499,4 +1514,49 @@ body {
     /* 確保在最下方，沒有任何縫隙 */
     display: flex !important;
     justify-content: flex-end !important;
+}
+
+#rewardQuotaModal .hpc-modal-content {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important; /* 核心：完美往回推自身寬高的一半達成置中 */
+    
+    width: 320px !important;     /* 保持緊湊寬度 */
+    max-width: 90% !important;   /* 手機板安全邊距 */
+    margin: 0 !important;        /* 清除原本干擾置中的上下 margin */
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important; /* 增強置中時的立體陰影 */
+}
+
+#rewardQuotaModal .hpc-reward-inline-label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+/* 🌟 3. 強制壓縮數量輸入框，幹掉全域的 width: 100% */
+#rewardQuotaModal .hpc-input.hpc-reward-inline-input {
+    display: inline-block !important; /* 拒絕 block 換行 */
+    width: 60px !important;          /* 限制寬度只留兩三碼空間 */
+    height: 26px !important;         /* 稍微縮小高度配合文字 */
+    padding: 2px 6px !important;
+    margin-left: 4px !important;
+    vertical-align: middle !important;
+}
+
+/* 4. 微調其餘間距 */
+#rewardQuotaModal .hpc-modal-header { padding: 12px 16px !important; }
+#rewardQuotaModal .hpc-modal-body   { padding: 16px 16px !important; }
+#rewardQuotaModal .hpc-modal-footer { padding: 12px 16px !important; }
+#rewardQuotaModal .hpc-reward-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+}
+#rewardQuotaModal .hpc-reward-label {
+    cursor: pointer;
+    font-size: 15px;
 }

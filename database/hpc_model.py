@@ -53,14 +53,14 @@ class PrepaidAmount(db.Model):
     __tablename__ = 'prepaid_amounts'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), nullable=False) 
-    amount = db.Column(db.Float(precision=53), nullable=False, default=0.0) 
+    username = db.Column(db.String(80), nullable=False)
+    amount = db.Column(db.Float(precision=53), nullable=False, default=0.0)
     discount = db.Column(db.Float(precision=53), nullable=False, default=0.0)
-    year = db.Column(db.Integer, nullable=True)                      # 儲值所屬年份
+    year = db.Column(db.Integer, nullable=True)
     payment_date = db.Column(db.DateTime, nullable=True)
     is_paid = db.Column(db.Boolean, default=False, nullable=False)
     is_history = db.Column(db.Boolean, default=False, nullable=False)
-    source_id = db.Column(db.String(36), nullable=False)
+    source_id = db.Column(db.String(100), nullable=False)
 
     # 注意：因為現在要允許一個 username 有多個年份的紀錄，
     # 必須將原本的唯一索引 (unique=True) 拔除，改為 username + year 的聯合唯一索引
@@ -84,6 +84,24 @@ class Bill(db.Model):
 
     def __repr__(self):
         return f"<Bill(id={self.id}, contact_id={self.contact_id}, amount={self.amount}, status='{self.status}')>"
+    
+class QuotaTransaction(db.Model):
+    __tablename__ = 'quota_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, index=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
+    prepaid_id = db.Column(db.Integer, db.ForeignKey('prepaid_amounts.id'), nullable=True)
+    
+    # 異動類型：'charge' (管理員儲值), 'bonus' (學術獎勵), 'deduct' (帳單扣款), 'refund' (退款)
+    tx_type = db.Column(db.String(20), nullable=False)
+    amount_changed = db.Column(db.Float, default=0.0, nullable=False)
+    discount_changed = db.Column(db.Float, default=0.0, nullable=False)
+    description = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+
+    def __repr__(self):
+        return f"<QuotaTransaction(id={self.id}, username='{self.username}', type='{self.tx_type}', bill={self.bill_id})>"
 
 class NotificationHistory(db.Model):
     __tablename__ = 'notification_history'
@@ -195,10 +213,11 @@ class Contact(db.Model):
         formal_account = self.get_formal_account()
 
         total_remaining = 0.0          # 所有可用年份的總剩餘額度累加（自費 + 優惠）
-        discount_remaining = 0.0       # 🌟 修正註解：所有「未過期」年份的可用【優惠額度】累加
+        discount_remaining = 0.0       # 所有「未過期」年份的可用【優惠額度】累加
         discount_details = []          # 按年份拆解的儲值明細陣列（僅包含用於計算的活耀額度）
-        consumption_history = []       # 結合 Bill 的消費扣款紀錄
+        consumption_history = []       # 🌟 真正對應 QuotaTransaction 的流水帳歷史紀錄
         recharge_history = []          # 僅包含歷史存檔 (is_history=True) 的完整清單
+        bills_data = []                # 🌟 新增：真正對應 Bill 表的繳費單明細紀錄
 
         if formal_account:
             # 1. 撈出該帳號所有的儲值紀錄（由舊到新排序）
@@ -220,7 +239,7 @@ class Contact(db.Model):
                         'payment_date': p.payment_date.strftime('%Y-%m-%d') if p.payment_date else '',
                         'is_paid': is_p_paid,
                         'is_history': True,
-                        'source_id': getattr(p, 'source_id', '')  # 順手補上來源 ID 方便前端對帳
+                        'source_id': getattr(p, 'source_id', '')
                     })
                 
                 # 修正點 2：非歷史資料 (is_history=False) 走這裏，且只有「已付款」才納入活躍額度基算
@@ -260,18 +279,32 @@ class Contact(db.Model):
             # 將儲值歷史紀錄按照日期由新到舊排序
             recharge_history.sort(key=lambda x: x['payment_date'] or '', reverse=True)
 
-        # 2. 整合 Bill 表的邏輯，填入消費歷史
+            # 🌟 修正點 3：從資料庫撈出該正式帳號真正的 QuotaTransaction 流水帳，給前端 【A-3】 渲染
+            txs = QuotaTransaction.query.filter_by(username=formal_account).order_by(QuotaTransaction.created_at.desc()).all()
+            for tx in txs:
+                consumption_history.append({
+                    'id': tx.id,
+                    'tx_type': tx.tx_type,  # 'deduct', 'charge', 'bonus', 'refund'
+                    'amount_changed': round(float(tx.amount_changed or 0), 2),
+                    'discount_changed': round(float(tx.discount_changed or 0), 2),
+                    'description': tx.description or '',
+                    'bill_id': tx.bill_id,
+                    'created_at': tx.created_at.strftime('%Y-%m-%d %H:%M:%S') if tx.created_at else ''
+                })
+
+        # 🌟 修正點 4：整合 Bill 表的邏輯，獨立打包成 bills_data 給前端 【A-4】 表格渲染
         for b in self.bills:
             if b.status != 'cancelled':
-                consumption_history.append({
+                bills_data.append({
                     'id': b.id,
-                    'amount': round(b.amount, 2),
-                    'bill_date': b.created_at.strftime('%Y-%m-%d') if b.created_at else '',
+                    'amount': round(float(b.amount or 0), 2),
+                    'created_at': b.created_at.strftime('%Y-%m-%d') if b.created_at else '',
                     'notes': b.notes or '',
-                    'status': b.status  
+                    'status': b.status  # 'paid', 'unpaid'
                 })
         
-        consumption_history.sort(key=lambda x: x['bill_date'], reverse=True)
+        # 繳費單按開單日期由新到舊排序
+        bills_data.sort(key=lambda x: x['created_at'], reverse=True)
 
         return {
             'id': self.id,
@@ -294,11 +327,12 @@ class Contact(db.Model):
             'secondary_contacts': [{'name': s.name, 'info': s.info} for s in self.secondaries],
             
             # 核心數據分流輸出結果
-            'total_remaining': round(total_remaining, 2),          # 僅加總：已付款且非歷史紀錄
-            'discount_remaining': round(discount_remaining, 2),    # 僅加總：已付款、非歷史紀錄且【未過期的優惠額度】
-            'discount_details': discount_details,                  # 僅包含當前有效的扣減路徑明細
-            'recharge_history': recharge_history,                  # 歷史紀錄總表（僅限 is_history=True）
-            'consumption_history': consumption_history 
+            'total_remaining': round(total_remaining, 2),          
+            'discount_remaining': round(discount_remaining, 2),    
+            'discount_details': discount_details,                  
+            'recharge_history': recharge_history,                  
+            'consumption_history': consumption_history,            # 🌟 現在這裡裝的是正確的 QuotaTransaction 清單了！
+            'bills': bills_data                                    # 🌟 新增：完美對應前端 【A-4】 billsTableBody
         }
 
 class SecondaryContact(db.Model):
