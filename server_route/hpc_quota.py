@@ -523,6 +523,9 @@ def grant_research_bonus(id):
 
             if quantity <= 0:
                 return jsonify({'message': f'【{cfg["label"]}】發放數量必須大於 0'}), 400
+            
+            if quantity > 10:
+                return jsonify({'message': f'【{cfg["label"]}】至多只能採記 10 篇'}), 400
 
             # 計算動態金額與前綴
             discount = cfg['base_amount'] * quantity if cfg['use_quantity'] else cfg['base_amount']
