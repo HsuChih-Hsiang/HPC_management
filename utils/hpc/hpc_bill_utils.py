@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from database.extensions import db
 
 
-
 def get_hpc_user_and_total_usage_with_details(check_period_days):
     """
     計算每個帳號在當年度和指定時間範圍內的總費用，並提供每個 server 的明細。

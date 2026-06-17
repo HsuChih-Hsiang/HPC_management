@@ -1,29 +1,8 @@
 
 import os
 import json
-from  utils.params import HPC_NOTIFICATIONS_DIR, HPC_NOTIFIED_EMAILS_YEARLY_FILE
+from  utils.params import HPC_NOTIFICATIONS_DIR
 from datetime import datetime
-
-
-def load_notified_emails_history():
-    """載入每年已通知信箱的歷史紀錄。"""
-    if not os.path.exists(HPC_NOTIFIED_EMAILS_YEARLY_FILE):
-        return {}
-    try:
-        with open(HPC_NOTIFIED_EMAILS_YEARLY_FILE, 'r', encoding='utf-8') as f:
-            history = json.load(f)
-            if not isinstance(history, dict):
-                raise ValueError("hpc_notified_emails_yearly.json is not a dictionary")
-            return history
-    except (json.JSONDecodeError, ValueError):
-        print(f"警告: {HPC_NOTIFIED_EMAILS_YEARLY_FILE} 檔案損壞或格式不正確，將重新創建。")
-        return {}
-
-def save_notified_emails_history_log(history):
-    """儲存每年已通知信箱的歷史紀錄。"""
-    with open(HPC_NOTIFIED_EMAILS_YEARLY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(history, f, ensure_ascii=False, indent=4)
-
 
 def save_hpc_notification_log(notification_record):
     """

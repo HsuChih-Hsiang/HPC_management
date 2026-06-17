@@ -2,6 +2,7 @@ from flask import request
 from flask import Blueprint, session
 from database.extensions import db
 from database.hpc_model import AdUser
+from utils.params import SECRET_KEY
 
 setting_bp = Blueprint('setting', __name__)
 
