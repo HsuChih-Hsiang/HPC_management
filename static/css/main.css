@@ -702,3 +702,41 @@ h1 { /* 保留，應用於 right-editor-container 內 */
         font-size: 14px; /* 稍微縮小字體 */
     }
 }
+
+/* --- 新增：側邊欄使用者資訊與登出按鈕樣式 --- */
+
+.user-profile {
+    padding: 10px 20px 20px 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+.user-name {
+    color: #ffffff;
+    font-size: 1.1em;
+    font-weight: 600;
+    word-break: break-all; /* 防止名稱過長溢出 */
+}
+
+.side-menu-footer {
+    margin-top: auto; /* 將登出按鈕推至底部 */
+    padding: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logout-button {
+    display: block;
+    padding: 12px;
+    background-color: #dc3545; /* 紅色系登出按鈕 */
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.logout-button:hover {
+    background-color: #c82333;
+}

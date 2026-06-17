@@ -17,17 +17,24 @@
 
     <div id="sideMenu" class="side-menu">
         <button id="closeMenuButton" class="close-menu-button">&times;</button>
-        <h2>功能選單</h2>
+        
+        <div class="user-profile">
+            <div class="user-name">{{ session.get('user_name', '使用者') }}</div>
+        </div>
         <nav>
             <ul>
-                <li><a href="/" class="menu-item">📨 寄送郵件</a></li>
-                <li><a href="/edit-templates" class="menu-item active">📝 編輯模板</a></li>
+                <li><a href="/batch_sending" class="menu-item active">📨 寄送郵件</a></li>
+                <li><a href="/edit-templates" class="menu-item">📝 編輯模板</a></li>
                 <li><a href="/hpc-usage" class="menu-item">📊 HPC 用量通知</a></li>
                 <li><a href="/hpc-contact" class="menu-item">👥 HPC帳號管理</a></li>
                 <li><a href="/mailbox-manager" class="menu-item">📬 信箱管理</a></li>
                 <li><a href="/setting" class="menu-item">⚙️ 設定</a></li>
             </ul>
         </nav>
+
+        <div class="side-menu-footer">
+            <a href="/logout" class="logout-button">🚪 登出</a>
+        </div>
     </div>
 
     <div class="main-layout-container">

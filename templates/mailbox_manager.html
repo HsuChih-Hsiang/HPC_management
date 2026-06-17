@@ -6,59 +6,6 @@
     <title>信箱管理</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/email_group.css') }}">
-    <style>
-        .mailbox-layout {
-            display: flex;
-            align-items: stretch;
-            gap: 32px;
-            max-width: 1200px;
-            margin: 60px auto 0 auto;
-            position: relative;
-        }
-        .unassigned-emails-section {
-            width: 260px;
-            min-height: 200px;
-            max-height: 400px;
-            position: sticky;
-            top: 60px;
-            left: unset;
-            z-index: 10;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-            padding: 20px 16px 16px 16px;
-            display: flex;
-            flex-direction: column;
-        }
-        .main-mailbox-content {
-            flex: 1;
-        }
-        .unassigned-emails-section .email-list {
-            flex: 1 1 auto;
-            overflow-y: auto;
-            margin-top: 12px;
-            max-height: 100%;
-        }
-        .container {
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-            border-radius: 10px;
-            background: #fff;
-            padding: 32px 28px;
-        }
-        @media (max-width: 900px) {
-            .mailbox-layout { flex-direction: column; gap: 0; }
-            .unassigned-emails-section {
-                width: 100%;
-                position: static;
-                margin-bottom: 24px;
-                height: auto;
-                left: unset;
-                top: unset;
-                z-index: unset;
-            }
-            .main-mailbox-content { margin-left: 0; }
-        }
-    </style>
 </head>
 <body>
     <button id="menuButton" class="menu-button" aria-label="開啟選單">
@@ -66,20 +13,29 @@
         <div class="bar"></div>
         <div class="bar"></div>
     </button>
+
     <div id="sideMenu" class="side-menu">
         <button id="closeMenuButton" class="close-menu-button">&times;</button>
-        <h2>功能選單</h2>
+        
+        <div class="user-profile">
+            <div class="user-name">{{ session.get('user_name', '使用者') }}</div>
+        </div>
         <nav>
             <ul>
-                <li><a href="/" class="menu-item">📨 寄送郵件</a></li>
+                <li><a href="/batch_sending" class="menu-item active">📨 寄送郵件</a></li>
                 <li><a href="/edit-templates" class="menu-item">📝 編輯模板</a></li>
                 <li><a href="/hpc-usage" class="menu-item">📊 HPC 用量通知</a></li>
                 <li><a href="/hpc-contact" class="menu-item">👥 HPC帳號管理</a></li>
-                <li><a href="/mailbox-manager" class="menu-item active">📬 信箱管理</a></li>
+                <li><a href="/mailbox-manager" class="menu-item">📬 信箱管理</a></li>
                 <li><a href="/setting" class="menu-item">⚙️ 設定</a></li>
             </ul>
         </nav>
+
+        <div class="side-menu-footer">
+            <a href="/logout" class="logout-button">🚪 登出</a>
+        </div>
     </div>
+
     <div class="mailbox-layout">
         <div class="unassigned-emails-section group-item" id="unassignedEmailsSection">
             <div class="group-header">

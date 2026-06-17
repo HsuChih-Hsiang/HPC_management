@@ -5,7 +5,8 @@ from database.extensions import db
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
-from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp
+from utils.login_utils import oauth, init_oauth
+from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp
 
 app = Flask(__name__)
 
@@ -14,6 +15,9 @@ load_dotenv()
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///hpc.db')
 db.init_app(app)
 
+app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
+init_oauth(app)
+
 app.register_blueprint(mailbox_bp)
 app.register_blueprint(hpc_bp)
 app.register_blueprint(email_bp)
@@ -21,6 +25,7 @@ app.register_blueprint(template_bp)
 app.register_blueprint(routes_bp)
 app.register_blueprint(contact_bp)
 app.register_blueprint(quota_bp)
+app.register_blueprint(login_bp)
 
 
 

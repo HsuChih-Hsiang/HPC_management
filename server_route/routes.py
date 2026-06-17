@@ -3,8 +3,8 @@ from flask import render_template
 
 routes_bp = Blueprint('routes', __name__)
 
-@routes_bp.route('/')
-def index():
+@routes_bp.route('/batch_sending')
+def batch_sending():
     return render_template('batch_sending.html')
 
 @routes_bp.route('/edit-templates')
@@ -22,3 +22,8 @@ def hpc_usage():
 @routes_bp.route('/hpc-contact')
 def hpc_contact():
     return render_template('contact_manager.html')
+
+@routes_bp.route('/')
+def login():
+    # 顯示登入頁面
+    return render_template('login.html')

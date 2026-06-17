@@ -75,7 +75,7 @@ async function loadData(page = 1) {
         if (tbody) {
             tbody.innerHTML = data.records.map(r => {
                 // ★ 1. 判斷是否為試用帳號：沒有正式帳號且有試用帳號
-                const isTrialAccount = !r.formal_account && r.trial_account;
+                const isTrialAccount = !r.formal_account && (r.trial_account || !r.trial_account);
                 // ★ 2. 判斷是否為課程帳號
                 const isCourseAccount = r.is_course_account === true;
                 // ★ 3. 課程或試用帳號皆不允許操作額度
