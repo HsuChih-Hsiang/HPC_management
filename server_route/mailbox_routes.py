@@ -3,7 +3,7 @@ from database.extensions import db
 from database.hpc_model import MailboxGroup, MailboxEmail
 from sqlalchemy.exc import IntegrityError
 from utils.email_utils import load_mailboxes
-from utils import params
+from utils.params import UNASSIGNED_GROUP_NAME
 
 mailbox_bp = Blueprint('mailbox', __name__)
 
@@ -52,13 +52,13 @@ def delete_group(group_id):
         return jsonify({'success': False, 'message': '群組未找到。'}), 404
     
     # 假設 params.UNASSIGNED_GROUP_ID 是固定保留的
-    if group.name == params.UNASSIGNED_GROUP_NAME:
+    if group.name == UNASSIGNED_GROUP_NAME:
         return jsonify({'success': False, 'message': '無法刪除待分組信箱。'}), 403
     
     
     # 獲取待分組群組，以便移動信箱
     unassigned = MailboxGroup.query.filter_by(
-        name=params.UNASSIGNED_GROUP_NAME, 
+        name=UNASSIGNED_GROUP_NAME, 
         owner_username=username
     ).first()
 

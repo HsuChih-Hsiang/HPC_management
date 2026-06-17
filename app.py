@@ -1,21 +1,19 @@
-import os
 from flask import Flask
-from dotenv import load_dotenv
 from database.extensions import db
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
 from utils.login_utils import oauth, init_oauth
 from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp
+from utils.params import SECRET_KEY, DATABASE_URI
 
 app = Flask(__name__)
 
 # 配置資料庫
-load_dotenv()
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///hpc.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 db.init_app(app)
 
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
+app.secret_key = SECRET_KEY
 init_oauth(app)
 
 app.register_blueprint(mailbox_bp)

@@ -2,7 +2,7 @@ import ssl
 import smtplib
 from database.extensions import db
 from database.hpc_model import Accounting
-from utils import params
+from utils.params import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
@@ -10,6 +10,8 @@ from email.mime.multipart import MIMEMultipart
 from flask import current_app
 from database.extensions import db
 from database.hpc_model import MailboxGroup, MailboxEmail
+
+
 
 def load_mailboxes(username):
     """根據使用者名稱加載其專屬的信箱分組"""
@@ -77,7 +79,7 @@ def send_hpc_notification_email(recipients, subject, body):
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = params.SENDER_EMAIL
+        msg["From"] = SENDER_EMAIL
         msg["To"] = ", ".join(recipients)
 
         if any(tag in body for tag in ['<p', '<div', '<h1', '<br', '<span']):
@@ -88,10 +90,10 @@ def send_hpc_notification_email(recipients, subject, body):
         msg.attach(part)
         
         context = ssl.create_default_context()
-        with smtplib.SMTP(params.SMTP_SERVER, params.SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls(context=context)
-            server.login(params.SENDER_EMAIL, params.SENDER_PASSWORD)
-            server.sendmail(params.SENDER_EMAIL, recipients, msg.as_string())
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, recipients, msg.as_string())
         
         print(f"HPC 通知郵件已成功寄出至 {recipients}。")
         return True
@@ -116,7 +118,7 @@ def get_user_email_from_db(username):
 def send_pdf_email(recipient_email, subject, body_text, pdf_bytes, filename="report.pdf"):
     # 建立多部分郵件物件
     msg = MIMEMultipart()
-    msg['From'] = params.SENDER_EMAIL
+    msg['From'] = SENDER_EMAIL
     msg['To'] = recipient_email
     msg['Subject'] = subject
 
@@ -138,8 +140,8 @@ def send_pdf_email(recipient_email, subject, body_text, pdf_bytes, filename="rep
     msg.attach(part)
 
     # 透過 SMTP 發送信件
-    with smtplib.SMTP(params.SMTP_SERVER, params.SMTP_PORT) as server:
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
         server.starttls()  # 啟用安全傳輸
-        server.login(params.SENDER_EMAIL, params.SENDER_PASSWORD)
-        server.sendmail(params.SENDER_EMAIL, recipient_email, msg.as_string())
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
 

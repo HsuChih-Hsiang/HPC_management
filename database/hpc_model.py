@@ -1,6 +1,7 @@
 import json
 from database.extensions import db
 from datetime import datetime, date
+from cryptography.fernet import Fernet
 
 class Accounting(db.Model):
     __tablename__ = 'accounting'
@@ -391,11 +392,25 @@ class AdUser(db.Model):
     google_id = db.Column(db.String(128), unique=True, nullable=False) 
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(100))
-    smtp_encrypted_token = db.Column(db.Text, nullable=True)
+    smtp_encrypted_token = db.Column(db.LargeBinary, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
         return f'<AdUser {self.email}>'
+    
+    def set_smtp_config(self, config_dict, secret_key):
+        """將 dict 加密並存入資料庫"""
+        f = Fernet(secret_key)
+        json_data = json.dumps(config_dict).encode('utf-8')
+        self.smtp_encrypted_token = f.encrypt(json_data)
+
+    def get_smtp_config(self, secret_key):
+        """從資料庫取出並解密回 dict"""
+        if not self.smtp_encrypted_token:
+            return None
+        f = Fernet(secret_key)
+        decrypted_data = f.decrypt(self.smtp_encrypted_token)
+        return json.loads(decrypted_data.decode('utf-8'))
 
 def init_db(app):
     db.init_app(app)

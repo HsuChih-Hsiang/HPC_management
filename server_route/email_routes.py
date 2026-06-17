@@ -4,7 +4,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import request, jsonify, Blueprint
 
-from utils import params
+from utils.params import UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME, SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
 from utils.email_utils import load_mailboxes, save_mailboxes
 
 email_bp = Blueprint('email', __name__)
@@ -26,11 +26,11 @@ def send_email():
     all_recipients_list = list(all_recipients_set)
 
     saved_mailboxes = load_mailboxes("admin")
-    unassigned_group = next((g for g in saved_mailboxes if g['id'] == params.UNASSIGNED_GROUP_ID), None)
+    unassigned_group = next((g for g in saved_mailboxes if g['id'] == UNASSIGNED_GROUP_ID), None)
     if not unassigned_group:
         unassigned_group = {
-            'id': params.UNASSIGNED_GROUP_ID,
-            'name': params.UNASSIGNED_GROUP_NAME,
+            'id': UNASSIGNED_GROUP_ID,
+            'name': UNASSIGNED_GROUP_NAME,
             'emails': []
         }
         saved_mailboxes.append(unassigned_group)
@@ -51,16 +51,16 @@ def send_email():
 
     try:
         context = ssl.create_default_context()
-        with smtplib.SMTP(params.SMTP_SERVER, params.SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls(context=context)
-            server.login(params.SENDER_EMAIL, params.SENDER_PASSWORD)
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
             for email in all_recipients_list:
                 if email in cc_recipients or email in bcc_recipients:
                     continue
 
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = subject
-                msg["From"] = params.SENDER_EMAIL
+                msg["From"] = SENDER_EMAIL
                 msg["To"] = email 
                 
                 if cc_recipients_str:
@@ -72,7 +72,7 @@ def send_email():
                 
                 msg.attach(part)
                 email = [email] + cc_recipients + bcc_recipients
-                server.sendmail(params.SENDER_EMAIL, email, msg.as_string())
+                server.sendmail(SENDER_EMAIL, email, msg.as_string())
         
         return jsonify({'success': True, 'message': '郵件已成功寄出！'})
     except Exception as e:

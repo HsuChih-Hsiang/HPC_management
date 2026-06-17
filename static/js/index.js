@@ -22,3 +22,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 取得當前頁面路徑，例如 "/batch_sending"
+    const currentPath = window.location.pathname;
+    
+    // 尋找選單中所有連結
+    const menuItems = document.querySelectorAll('.side-menu nav ul li a');
+    
+    menuItems.forEach(item => {
+        // 移除所有項目的 active 類別
+        item.classList.remove('active');
+        
+        // 如果連結的 href 符合當前路徑，則加上 active
+        if (item.getAttribute('href') === currentPath) {
+            item.classList.add('active');
+        }
+    });
+});
