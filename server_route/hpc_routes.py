@@ -1,10 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template
 from datetime import datetime
 from utils.hpc.hpc_setting_utils import load_hpc_settings, save_hpc_settings
-from utils.hpc.hpc_notify_utils import (
-    get_hpc_notifications_by_date, send_hpc_notification_email, 
-    save_notification_to_db, save_hpc_notification_log
-)
+from utils.hpc.hpc_notify_utils import get_hpc_notifications_by_date, send_hpc_notification_email, save_notification_to_db
+from utils.hpc.hpc_log_utils import save_hpc_notification_log
 from utils.hpc.hpc_bill_utils import get_usage_and_prepaid_data_db, update_prepaid_amount_db
 from database.extensions import db
 from database.hpc_model import Serverlist, UserAccounting

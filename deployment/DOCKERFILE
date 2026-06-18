@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# --- 第一階段：建置環境 (Builder) ---
+FROM python:3.11-slim AS builder
+
+ARG GITHUB_TOKEN
+WORKDIR /source
+
+# 安裝 Git 及編譯 Python 套件所需的系統相依工具
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 從 GitHub 克隆程式碼
+RUN git clone https://${GITHUB_TOKEN}@github.com/YOUR_USERNAME/HPCemail.git .
+
+# 安裝 Python 套件到指定目錄
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# --- 第二階段：正式運行環境 (Production) ---
+FROM python:3.11-slim
+
+# 建立非 root 使用者，提升安全性
+RUN useradd -m appuser
+USER appuser
+WORKDIR /app
+
+# 從 builder 階段複製安裝好的套件與程式碼
+COPY --from=builder /root/.local /home/appuser/.local
+COPY --from=builder /source /app
+
+# 設定環境變數，讓系統能找到 pip 安裝的套件
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+EXPOSE 8000
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
