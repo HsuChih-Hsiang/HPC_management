@@ -1,17 +1,30 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" ng-app="emailApp">
 <head>
     <meta charset="UTF-8">
     <title>系統登入</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
 </head>
-<body>
+<body ng-controller="LoginController" ng-cloak>
     <div class="auth-container">
         <h1>系統登入 / 註冊</h1>
         <p>初次使用請直接透過 Google 帳號授權，系統將自動為您建立帳號。</p>
-        <a href="/login" class="google-login-btn">使用 Google 帳號繼續</a>
+        
+        <button class="google-login-btn" 
+                ng-click="login()" 
+                ng-disabled="isLoggingIn"
+                ng-style="isLoggingIn ? {'opacity':'0.7', 'background-color':'#999', 'cursor':'wait'} : {}"
+                style="border: none; width: 100%;"
+                ng-bind="buttonText">
+        </button>
     </div>
-    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/login.ctrl.js') }}"></script>
 </body>
 </html>

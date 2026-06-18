@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # --- 第一階段：建置環境 (Builder) ---
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 ARG GITHUB_TOKEN
 WORKDIR /source
@@ -17,7 +17,7 @@ RUN git clone https://${GITHUB_TOKEN}@github.com/YOUR_USERNAME/HPCemail.git .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 # --- 第二階段：正式運行環境 (Production) ---
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # 建立非 root 使用者，提升安全性
 RUN useradd -m appuser

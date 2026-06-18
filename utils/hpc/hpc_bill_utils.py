@@ -142,7 +142,7 @@ def get_usage_and_prepaid_data_db():
     # 3. 從資料庫獲取今年已通知預繳金額超額的使用者
     notified_users_records = db.session.query(NotificationHistory.username).filter(
         NotificationHistory.year == current_year,
-        NotificationHistory.notification_type == 'prepaid'
+        NotificationHistory.notification_type == 0
     ).distinct().all()
     notified_this_year = {record.username for record in notified_users_records}
 

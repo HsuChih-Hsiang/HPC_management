@@ -1,0 +1,23 @@
+<div class="side-menu" ng-class="{'open': isMenuOpen}">
+    <button class="close-menu-button" ng-click="toggleMenu()">&times;</button>
+    
+    <div class="user-profile">
+        <div class="user-name" ng-init="userName='{{ session.get('user_name', '使用者') }}'" ng-bind="userName"></div>
+    </div>
+    <nav>
+        <ul>
+            <li><a href="/batch_sending" class="menu-item" ng-class="{'active': isActive('/batch_sending')}">📨 寄送郵件</a></li>
+            <li><a href="/edit-templates" class="menu-item" ng-class="{'active': isActive('/edit-templates')}">📝 編輯模板</a></li>
+            <li><a href="/mailbox-manager" class="menu-item" ng-class="{'active': isActive('/mailbox-manager')}">📬 信箱管理</a></li>
+            <li><a href="/hpc-contact" class="menu-item" ng-class="{'active': isActive('/hpc-contact')}">👥 HPC帳號管理</a></li>
+            <li><a href="/hpc-usage" class="menu-item" ng-class="{'active': isActive('/hpc-usage')}">📊 HPC 用量通知</a></li>
+            <li><a href="/setting" class="menu-item" ng-class="{'active': isActive('/setting')}">⚙️ 設定</a></li>
+        </ul>
+    </nav>
+
+    <div class="side-menu-footer">
+        <a href="/logout" class="logout-button">🚪 登出</a>
+    </div>
+</div>
+
+<div ng-show="isMenuOpen" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:998;" ng-click="isMenuOpen = false"></div>

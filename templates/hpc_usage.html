@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" ng-app="emailApp">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,69 +7,54 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/usage.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
 </head>
-<body>
-    <button id="menuButton" class="menu-button" aria-label="開啟選單">
+<body ng-controller="HpcUsageController" ng-cloak>
+    
+    <button class="menu-button" ng-click="toggleMenu()" aria-label="開啟選單">
         <div class="bar"></div>
         <div class="bar"></div>
         <div class="bar"></div>
     </button>
 
-    <div id="sideMenu" class="side-menu">
-        <button id="closeMenuButton" class="close-menu-button">&times;</button>
-        
-        <div class="user-profile">
-            <div class="user-name">{{ session.get('user_name', '使用者') }}</div>
-        </div>
-        <nav>
-            <ul>
-                <li><a href="/batch_sending" class="menu-item active">📨 寄送郵件</a></li>
-                <li><a href="/edit-templates" class="menu-item">📝 編輯模板</a></li>
-                <li><a href="/hpc-usage" class="menu-item">📊 HPC 用量通知</a></li>
-                <li><a href="/hpc-contact" class="menu-item">👥 HPC帳號管理</a></li>
-                <li><a href="/mailbox-manager" class="menu-item">📬 信箱管理</a></li>
-                <li><a href="/setting" class="menu-item">⚙️ 設定</a></li>
-            </ul>
-        </nav>
-
-        <div class="side-menu-footer">
-            <a href="/logout" class="logout-button">🚪 登出</a>
-        </div>
-    </div>
+    {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
         <div class="right-editor-container container">
             <h1>📊 HPC 用量通知</h1>
             
-            <div id="messageBox" class="message-box" style="display:none;"></div>
+            <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
 
             <div class="settings-section">
                 <h2>通知設定</h2>
-                <div id="settingsForm" class="email-form">
+                <form class="email-form" ng-submit="saveSettings()">
                     <div class="form-group">
                         <label for="priceThreshold">價格門檻 (SU)</label>
-                        <input type="number" id="priceThreshold" class="form-control" min="0" step="1" required>
+                        <input type="number" id="priceThreshold" ng-model="settings.price_threshold" class="form-control" min="0" step="1" required>
                     </div>
                     <div class="form-group">
                         <label for="checkInterval">檢查間隔 (天)</label>
-                        <input type="number" id="checkInterval" class="form-control" min="1" step="1" required>
+                        <input type="number" id="checkInterval" ng-model="settings.check_interval" class="form-control" min="1" step="1" required>
                     </div>
                     <div class="form-group">
                         <label for="diffPriceThreshold">差值通知門檻 (SU)</label>
-                        <input type="number" id="diffPriceThreshold" class="form-control" min="1" step="1" required>
+                        <input type="number" id="diffPriceThreshold" ng-model="settings.diff_price_threshold" class="form-control" min="1" step="1" required>
                     </div>
                     <div class="form-group">
                         <label for="checkPeriod">年度差值檢查區間 (天)</label>
-                        <input type="number" id="checkPeriod" class="form-control" min="1" step="1" required>
+                        <input type="number" id="checkPeriod" ng-model="settings.check_period" class="form-control" min="1" step="1" required>
                     </div>
                     <div class="form-group">
                         <label for="notifyPeriod">年度差值通知冷卻區間 (天)</label>
-                        <input type="number" id="notifyPeriod" class="form-control" min="1" step="1" required>
+                        <input type="number" id="notifyPeriod" ng-model="settings.notification_cooldown_days" class="form-control" min="1" step="1" required>
                     </div>
                     <div class="button-group">
-                        <button type="button" id="saveSettingsButton" class="send-button">儲存設定</button>
+                        <button type="submit" class="send-button">儲存設定</button>
                     </div>
-                </div>
+                </form>
             </div>
 
             <hr>
@@ -79,16 +64,16 @@
                 <div class="search-form">
                     <div class="form-group">
                         <label for="startDate">開始時間</label>
-                        <input type="date" id="startDate" class="form-control">
+                        <input type="text" id="startDate" ng-model="historyQuery.startDate" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="endDate">結束時間</label>
-                        <input type="date" id="endDate" class="form-control">
+                        <input type="text" id="endDate" ng-model="historyQuery.endDate" class="form-control">
                     </div>
-                    <button type="button" id="searchButton" class="send-button">查詢</button>
+                    <button type="button" class="send-button" ng-click="searchHistory()">查詢</button>
                 </div>
                 
-                <div id="historyTableContainer">
+                <div id="historyTableContainer" ng-show="historyRecords.length > 0">
                     <table class="history-table">
                         <thead>
                             <tr>
@@ -97,16 +82,23 @@
                                 <th>通知訊息</th>
                             </tr>
                         </thead>
-                        <tbody id="historyTableBody">
+                        <tbody>
+                            <tr ng-repeat="record in historyRecords">
+                                <td ng-bind="record.timestamp"></td>
+                                <td>
+                                    <span ng-bind="record.users"></span>(<span ng-bind="record.recipients"></span>)
+                                </td>
+                                <td ng-bind="record.message"></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
-                <p id="noRecordsMessage" class="no-records-message" style="display:none;">沒有找到符合條件的通知紀錄。</p>
+                <p class="no-records-message" ng-show="historyRecords.length === 0">沒有找到符合條件的通知紀錄。</p>
 
-                <div id="pagination" class="pagination-container" style="display:none;">
-                    <button id="prevPageButton" class="pagination-button">上一頁</button>
-                    <span id="pageInfo" class="page-info"></span>
-                    <button id="nextPageButton" class="pagination-button">下一頁</button>
+                <div class="pagination-container" ng-show="historyRecords.length > 0">
+                    <button class="pagination-button" ng-disabled="historyQuery.page === 1" ng-click="changeHistoryPage(-1)">上一頁</button>
+                    <span class="page-info">第 <span ng-bind="historyQuery.page"></span> 頁，共 <span ng-bind="totalHistoryPages"></span> 頁</span>
+                    <button class="pagination-button" ng-disabled="historyQuery.page >= totalHistoryPages" ng-click="changeHistoryPage(1)">下一頁</button>
                 </div>
             </div>
 
@@ -118,18 +110,17 @@
                     <div class="toolbar">
                         <div class="form-group">
                             <label for="filterExceeded">
-                                <input type="checkbox" id="filterExceeded">
+                                <input type="checkbox" id="filterExceeded" ng-model="prepaidQuery.filterExceeded" ng-change="fetchPrepaidData(1)">
                                 僅顯示用量超過預繳金額的帳號
                             </label>
                         </div>
                         <div class="form-group">
-                            <button type="button" id="notifyAllButton" class="send-button">一鍵通知所有未通知帳號</button>
+                            <button type="button" class="send-button" ng-click="notifyAll()">一鍵通知所有未通知帳號</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-                <div id="prepaidTableContainer">
+                <div id="prepaidTableContainer" ng-show="prepaidRecords.length > 0">
                     <table class="history-table">
                         <thead>
                             <tr>
@@ -141,23 +132,33 @@
                                 <th style="width: 20%;">操作</th>
                             </tr>
                         </thead>
-                        <tbody id="prepaidTableBody">
-                            </tbody>
+                        <tbody>
+                            <tr ng-repeat="account in prepaidRecords">
+                                <td ng-bind="account.username"></td>
+                                <td ng-bind="account.prepaid_limit"></td>
+                                <td ng-bind="account.yearly_usage"></td>
+                                <td ng-bind="account.prepaid_status"></td>
+                                <td ng-bind="account.notification_status"></td>
+                                <td>
+                                    <button type="button" class="pagination-button" ng-click="notifySingle(account)">單獨通知</button>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
-                <p id="noPrepaidRecordsMessage" class="no-records-message" style="display:none;">沒有找到任何帳號資料。</p>
+                <p class="no-records-message" ng-show="prepaidRecords.length === 0">沒有找到任何帳號資料。</p>
 
-                <div id="prepaidPagination" class="pagination-container" style="display:none;">
-                    <button id="prevPrepaidPageButton" class="pagination-button">上一頁</button>
-                    <span id="prepaidPageInfo" class="page-info"></span>
-                    <button id="nextPrepaidPageButton" class="pagination-button">下一頁</button>
+                <div class="pagination-container" ng-show="prepaidRecords.length > 0">
+                    <button class="pagination-button" ng-disabled="prepaidQuery.page === 1" ng-click="changePrepaidPage(-1)">上一頁</button>
+                    <span class="page-info">第 <span ng-bind="prepaidQuery.page"></span> 頁，共 <span ng-bind="totalPrepaidPages"></span> 頁</span>
+                    <button class="pagination-button" ng-disabled="prepaidQuery.page >= totalPrepaidPages" ng-click="changePrepaidPage(1)">下一頁</button>
                 </div>
             </div>
-            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/hpc_usage.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hpc_usage.ctrl.js') }}"></script>
 </body>
 </html>
