@@ -1,10 +1,10 @@
-from flask import Blueprint, request, jsonify, make_response
-from database.extensions import db
-from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting
-from sqlalchemy import or_, and_, func
 import json
 import csv
 from io import StringIO, BytesIO
+from sqlalchemy import or_, and_, func
+from flask import Blueprint, request, jsonify, make_response
+from database.extensions import db
+from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting
 
 contact_bp = Blueprint('contact', __name__)
 

@@ -1,15 +1,8 @@
 from flask import current_app
 from database.extensions import db
 from database.hpc_model import HPCSetting
+from utils.params import DEFAULT_HPC_SETTINGS
 
-# 預設設定值和其型別轉換函式
-DEFAULT_HPC_SETTINGS = {
-    'price_threshold': {'value': 500, 'type': int, 'desc': '單次通知的消費金額門檻 (NTD)'},
-    'check_interval': {'value': 1, 'type': int, 'desc': '檢查消費的間隔時間 (小時)'},
-    'diff_price_threshold': {'value': 10000, 'type': int, 'desc': '用於檢查成長率的消費差異門檻 (NTD)'},
-    'check_period': {'value': 30, 'type': int, 'desc': '檢查成長率的時間週期 (天)'},
-    'notification_cooldown_days': {'value': 7, 'type': int, 'desc': '通知冷卻時間 (天)'}
-}
 
 def _convert_value_to_type(key, value_str):
     """將資料庫讀出的字串值轉換為正確的 Python 型別"""

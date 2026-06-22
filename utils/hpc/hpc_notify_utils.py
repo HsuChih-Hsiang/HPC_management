@@ -1,10 +1,9 @@
 from flask import current_app
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from flask import render_template
 from utils.hpc.hpc_bill_utils import get_hpc_user_and_total_usage_with_details
 from utils.hpc.hpc_setting_utils import load_hpc_settings
 from utils.email_utils import send_hpc_notification_email
-from sqlalchemy import func
 from database.extensions import db
 from database.hpc_model import NotificationHistory
 from datetime import datetime, timedelta

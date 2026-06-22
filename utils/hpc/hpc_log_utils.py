@@ -1,8 +1,8 @@
 
 import os
 import json
-from  utils.params import HPC_NOTIFICATIONS_DIR
 from datetime import datetime
+from  utils.params import HPC_NOTIFICATIONS_DIR
 
 def save_hpc_notification_log(notification_record):
     """

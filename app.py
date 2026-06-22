@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
 from utils.login_utils import oauth, init_oauth
-from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp
 from utils.params import SECRET_KEY, DATABASE_URI
+from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp
 
 app = Flask(__name__)
 

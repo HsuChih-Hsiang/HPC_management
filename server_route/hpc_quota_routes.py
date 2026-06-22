@@ -1,12 +1,13 @@
 import io
-from flask import request, jsonify, Blueprint, render_template, send_file
+import uuid
 from xhtml2pdf import pisa
+from flask import request, jsonify, Blueprint, render_template, send_file
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
-from sqlalchemy import and_, func, cast, Numeric
+from sqlalchemy import func, cast, Numeric
 from datetime import datetime, date
-from  utils.email_utils import send_pdf_email
-import uuid
+from utils.email_utils import send_pdf_email
+
 
 quota_bp = Blueprint('quota', __name__)
 

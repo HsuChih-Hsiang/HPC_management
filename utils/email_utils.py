@@ -1,15 +1,13 @@
 import ssl
 import smtplib
 from database.extensions import db
-from database.hpc_model import Accounting
+from database.hpc_model import Accounting, MailboxGroup, MailboxEmail
 from utils.params import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
 from email import encoders
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 from flask import current_app
-from database.extensions import db
-from database.hpc_model import MailboxGroup, MailboxEmail
 
 
 

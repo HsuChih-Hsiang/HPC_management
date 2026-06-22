@@ -1,7 +1,7 @@
 from sqlalchemy import func
+from database.extensions import db
 from database.hpc_model import Accounting, PrepaidAmount, NotificationHistory, Serverlist
 from datetime import datetime, timedelta
-from database.extensions import db
 
 
 def get_hpc_user_and_total_usage_with_details(check_period_days):

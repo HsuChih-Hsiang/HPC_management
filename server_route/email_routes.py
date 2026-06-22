@@ -3,7 +3,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import request, jsonify, Blueprint
-
 from utils.params import UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME, SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
 from utils.email_utils import load_mailboxes, save_mailboxes
 
