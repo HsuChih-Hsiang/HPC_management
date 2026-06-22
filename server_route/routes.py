@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, session, redirect, url_for
 from flask import render_template
 
 routes_bp = Blueprint('routes', __name__)
@@ -24,6 +24,11 @@ def hpc_contact():
     return render_template('contact_manager.html')
 
 @routes_bp.route('/')
-def login():
-    # 顯示登入頁面
+@routes_bp.route('/login_page')
+def login_page():
+    # 確認 session 是否還有效，如果有效，直接跳轉到內部主頁
+    if 'user_id' in session:
+        return redirect(url_for('routes.batch_sending'))
+    
+    # 若無 session 或已過期，才顯示登入頁面
     return render_template('login.html')

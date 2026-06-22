@@ -21,9 +21,8 @@ def callback():
     
     # 如果 userinfo 為空，則手動解碼 id_token (如果需要)
     if not user_info:
-        user_info = oauth.google.parse_id_token(token, nonce=None) 
-    
-    # 檢查使用者是否存在
+        user_info = oauth.google.parse_id_token(token, nonce=None)
+        
     user = AdUser.query.filter_by(google_id=user_info['sub']).first()
     
     if not user:
@@ -35,7 +34,8 @@ def callback():
         db.session.add(new_user)
         db.session.commit()
         user = new_user
-    
+
+    session.permanent = True
     session['user_id'] = user.id
     session['user_name'] = user.name # 存入名稱供側邊欄使用
     return redirect(url_for('routes.batch_sending')) # 建議使用 url_for
@@ -43,4 +43,4 @@ def callback():
 @login_bp.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('routes.login'))
+    return redirect(url_for('routes.login_page'))
