@@ -14,7 +14,6 @@ def handle_templates():
     username = get_current_user()
     
     if request.method == 'GET':
-        # 從資料庫獲取該使用者的所有模板
         templates = EmailTemplate.query.filter_by(owner_username=username).all()
         return jsonify([t.to_dict() for t in templates])
     

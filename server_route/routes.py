@@ -26,9 +26,6 @@ def hpc_contact():
 @routes_bp.route('/')
 @routes_bp.route('/login_page')
 def login_page():
-    # 確認 session 是否還有效，如果有效，直接跳轉到內部主頁
     if 'user_id' in session:
         return redirect(url_for('routes.batch_sending'))
-    
-    # 若無 session 或已過期，才顯示登入頁面
     return render_template('login.html')

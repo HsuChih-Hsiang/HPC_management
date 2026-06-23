@@ -11,6 +11,9 @@ SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 DATABASE_URI = os.getenv('DATABASE_URI')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+KEY_DIR = '/source'
+PRIVATE_KEY_PATH = os.path.join(KEY_DIR, 'private_key.pem')
+
 # HPC settings
 HPC_NOTIFICATIONS_DIR = os.path.join('log', 'hpc_notifications')
 
