@@ -40,7 +40,13 @@ def enforce_login_protection():
     if request.endpoint is None:
         return
 
-    allowed_endpoints = ['routes.login_page', 'login.login', 'login.callback', 'static']
+    allowed_endpoints = [
+        'static', 
+        'routes.login_page', 
+        'login.login', 
+        'login.callback', 
+        'login.check_session'
+    ]
 
     if request.endpoint in allowed_endpoints:
         return

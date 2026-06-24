@@ -566,10 +566,32 @@ function renderPagination(totalPages, currentPage) {
     const isFirstPage = currentPage === 1;
     html += `<button onclick="loadData(${currentPage - 1})" ${isFirstPage ? 'disabled' : ''}>上一頁</button>`;
 
-    // 頁碼
-    for (let i = 1; i <= totalPages; i++) {
+    // --- 核心邏輯：計算顯示的頁碼範圍 ---
+    const range = 2; // 目前頁面配置前後各顯示 2 頁
+    const startPage = Math.max(1, currentPage - range);
+    const endPage = Math.min(totalPages, currentPage + range);
+
+    // 1. 處理開頭的「第一頁」與「...」
+    if (startPage > 1) {
+        html += `<button onclick="loadData(1)">1</button>`;
+        if (startPage > 2) {
+            html += `<span class="ellipsis" style="padding: 0 8px; color: #999;">...</span>`;
+        }
+    }
+
+    // 2. 渲染中間的頁碼（目前頁面的前後兩頁）
+    for (let i = startPage; i <= endPage; i++) {
         html += `<button onclick="loadData(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
     }
+
+    // 3. 處理結尾的「...」與「最後一頁」
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<span class="ellipsis" style="padding: 0 8px; color: #999;">...</span>`;
+        }
+        html += `<button onclick="loadData(${totalPages})">${totalPages}</button>`;
+    }
+    // --------------------------------
 
     // 下一頁：如果是最後一頁 OR 總頁數為 0 則禁用
     const isLastPage = currentPage >= totalPages;

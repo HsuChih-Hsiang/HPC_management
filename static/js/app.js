@@ -86,16 +86,12 @@ app.directive('droppableArea', function() {
 // 2. 使用 .run() 定義全域（所有頁面通用）的側邊欄與導航邏輯
 app.run(['$rootScope', function($rootScope) {
     
-    // 狀態：側邊欄是否開啟
     $rootScope.isMenuOpen = false;
 
-    // 功能：切換側邊欄開關
     $rootScope.toggleMenu = function() {
         $rootScope.isMenuOpen = !$rootScope.isMenuOpen;
     };
 
-    // 功能：自動判斷當前瀏覽器網址路徑，決定哪個選單要變高亮 (active)
-    // 這裡加上了移除尾隨斜線的處理，避免 /setting 與 /setting/ 造成判斷失敗
     $rootScope.isActive = function(path) {
         var currentPath = window.location.pathname;
         if (currentPath > 1 && currentPath.endsWith('/')) {
@@ -106,28 +102,22 @@ app.run(['$rootScope', function($rootScope) {
     
 }]);
 
-app.run(['$rootScope', '$interval', '$http', '$window', function($rootScope, $interval, $http, $window) {
+app.run(['$rootScope', '$interval', '$http', function($rootScope, $interval, $http) {
     
-    // 定義檢查 Function
+    let heartbeatTimer;
+
     function checkSessionAlive() {
         $http.get('/check-session')
             .then(function(response) {
-                // Session 依然有效，正常不作動作
                 console.log('Session is valid.');
             }, function(error) {
-                // 後端回傳 401 (或其他非 200 狀態)
                 if (error.status === 401) {
                     stopHeartbeat();
-                    alert('您的登入時效已過期，請重新登入！');
-                    $window.location.href = '/login_page'; // 跳轉至登入頁
                 }
             });
     }
+    heartbeatTimer = $interval(checkSessionAlive, 300000);
 
-    // 每 60,000 毫秒（1分鐘）執行一次
-    const heartbeatTimer = $interval(checkSessionAlive, 300000);
-
-    // 安全機制：當頁面銷毀或切換時關閉計時器，避免記憶體洩漏
     function stopHeartbeat() {
         if (angular.isDefined(heartbeatTimer)) {
             $interval.cancel(heartbeatTimer);
@@ -137,19 +127,15 @@ app.run(['$rootScope', '$interval', '$http', '$window', function($rootScope, $in
     $rootScope.$on('$destroy', function() {
         stopHeartbeat();
     });
-    
-    // 網頁一載入就先檢查一次
     checkSessionAlive();
 }]);
 
 app.config(['$httpProvider', function($httpProvider) {
-    $httpProvider.interceptors.push(['$q', '$window', function($q, $window) {
+    $httpProvider.interceptors.push(['$q', '$window', '$location', function($q, $window, $location) {
         return {
             'responseError': function(rejection) {
-                // 如果後端任何一個 API 回傳 401，代表工作階段已結束
                 if (rejection.status === 401) {
-                    // 為了避免重複 alert，可以確認當前網址是不是已經在登入頁了
-                    if ($window.location.pathname !== '/login_page') {
+                    if ($location.path() !== '/login' && $window.location.pathname !== '/login_page') {
                         alert('登入已過期，請重新登入。');
                         $window.location.href = '/login_page';
                     }
