@@ -1,10 +1,11 @@
 import json
 import csv
+from datetime import datetime
 from io import StringIO, BytesIO
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, cast
 from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
-from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting
+from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting, Bill, Accounting
 
 contact_bp = Blueprint('contact', __name__)
 
@@ -16,22 +17,31 @@ def get_contacts():
     is_course = request.args.get('is_course', '').lower() == 'true'
     is_formal = request.args.get('is_formal', '').lower() == 'true'
     is_trial = request.args.get('is_trial', '').lower() == 'true'
+    is_payment = request.args.get('is_payment', '').lower() == 'true'
+    selected_hosts = request.args.get('hosts', '')  # 接收前端傳來的主機字串
     per_page = 10
     
-    query = Contact.query.outerjoin(ContactAccountMapping).outerjoin(UserAccounting)
+    # 基本關聯查詢
+    query = Contact.query\
+        .outerjoin(ContactAccountMapping)\
+        .outerjoin(UserAccounting)\
+        .outerjoin(SecondaryContact)
+        
     filters = []
 
+    # 1. 搜尋功能 (包含次要聯絡人 info)
     if search:
-       filters.append(or_(
+        filters.append(or_(
             Contact.applicant.like(f'%{search}%'),
             Contact.team_name.like(f'%{search}%'),
             Contact.trial_account.like(f'%{search}%'),
             ContactAccountMapping.manual_account.like(f'%{search}%'),
-            UserAccounting.username.like(f'%{search}%')
+            UserAccounting.username.like(f'%{search}%'),
+            SecondaryContact.info.like(f'%{search}%')
         ))
 
+    # 2. 帳號類型篩選 (課程、正式、測試)
     type_filters = []
-
     if is_course:
         type_filters.append(Contact.is_course_account == True)
 
@@ -46,13 +56,11 @@ def get_contacts():
 
     if is_trial:
         type_filters.append(and_(
-            Contact.is_course_account == False,      # 非課程帳號
-            Contact.trial_account != None,           # 測試帳號欄位不為空
-            Contact.trial_account != '',             # 測試帳號欄位不為空字串
+            Contact.is_course_account == False,
+            Contact.trial_account != None,
+            Contact.trial_account != '',
             or_(
-                # 情況 A: 完全沒有 Mapping 紀錄
-                ContactAccountMapping.id == None,    
-                # 情況 B: 有 Mapping 紀錄，但正式帳號 ID 與 手動紀錄皆為空
+                ContactAccountMapping.id == None,
                 and_(
                     ContactAccountMapping.user_accounting_id == None,
                     ContactAccountMapping.manual_account == None
@@ -63,13 +71,48 @@ def get_contacts():
     if type_filters:
         filters.append(or_(*type_filters))
 
+    # 3. 申請年份篩選
     if year:
         filters.append(Contact.apply_date.like(f'{year}%'))
 
+    # 4. 處理 is_payment 邏輯 (去年度應開立但未開立帳單)
+    if is_payment:
+        # 2026年執行時，last_year 會自動等於 2025
+        last_year = datetime.now().year - 1
+        start_of_last_year = datetime(last_year, 1, 1, 0, 0, 0)
+        end_of_last_year = datetime(last_year, 12, 31, 23, 59, 59)
+
+        # 條件 A：在 Accounting 表中有去年度的計算紀錄
+        has_accounting_last_year = exists().where(
+            and_(
+                Accounting.username == UserAccounting.username,
+                Accounting.begintime >= start_of_last_year,
+                Accounting.begintime <= end_of_last_year
+            )
+        )
+        filters.append(has_accounting_last_year)
+
+        # 條件 B：在 Bill 表中完全沒有任何帳單紀錄
+        has_no_bill = ~exists().where(Bill.contact_id == Contact.id)
+        filters.append(has_no_bill)
+
+    # 5. 修正：主機多選條件篩選
+    if selected_hosts:
+        host_list = [h.strip() for h in selected_hosts.split(',') if h.strip()]
+        host_or_filters = []
+        for h in host_list:
+            # 關鍵點：將 JSON 欄位透過 cast 轉成 db.Text 再做模糊搜尋，避免 PostgreSQL 噴型態錯誤
+            host_or_filters.append(cast(Contact.hosts, db.Text).like(f'%{h}%'))
+        
+        if host_or_filters:
+            filters.append(or_(*host_or_filters))
+            
     if filters:
         query = query.filter(*filters)
     
-    query = query.order_by(Contact.apply_date.desc())
+    # 加上 distinct 避免重複
+    query = query.distinct().order_by(Contact.apply_date.desc())
+    
     pagination = query.paginate(page=page, per_page=per_page)
     return jsonify({
         'records': [c.to_dict() for c in pagination.items],
@@ -140,6 +183,53 @@ def get_contact(id):
     if request.method == 'GET':
         contact = Contact.query.get_or_404(id)
         return jsonify(contact.to_dict())
+    
+import json
+
+@contact_bp.route('/api/contacts/hosts', methods=['GET'])
+def get_all_hosts():
+    # 只檢查是否為 NULL，移除資料庫端的空字串比較
+    results = db.session.query(Contact.hosts).filter(
+        Contact.hosts.isnot(None)
+    ).all()
+    
+    unique_hosts = set()
+    
+    for row in results:
+        host_data = row[0] 
+        
+        # 情況 A：如果 SQLAlchemy 自動幫你轉成 Python 的 list 或 dict 了
+        if isinstance(host_data, (list, dict)):
+            # 如果裡面放的是 ['hostA', 'hostB'] 這樣的字串陣列
+            if isinstance(host_data, list):
+                for item in host_data:
+                    if isinstance(item, str) and item.strip():
+                        unique_hosts.add(item.strip())
+            continue
+            
+        # 情況 B：如果拿出來依然是字串 (可能是 JSON 字串或舊資料的逗號分隔字串)
+        if isinstance(host_data, str):
+            host_str = host_data.strip()
+            if not host_str:
+                continue
+                
+            # 嘗試解析是否為 JSON 字串
+            try:
+                parsed = json.loads(host_str)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, str) and item.strip():
+                            unique_hosts.add(item.strip())
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                # 如果解析失敗，代表它是傳統的 "host1, host2" 逗號分隔字串
+                pass
+            
+            # 處理傳統逗號分隔文字
+            items = [item.strip() for item in host_str.split(',') if item.strip()]
+            unique_hosts.update(items)
+        
+    return jsonify(sorted(list(unique_hosts)))
 
 @contact_bp.route('/api/contacts/<int:id>', methods=['PUT'])
 def update_contact(id):

@@ -58,6 +58,25 @@
                                 <label><input type="checkbox" id="filterCourse"> 課程帳號</label>
                                 <label><input type="checkbox" id="filterFormal"> 正式帳號</label>
                                 <label><input type="checkbox" id="filterTrial"> 測試帳號</label>
+                                <label><input type="checkbox" id="filterPayment"> 未開帳單帳號</label>
+                                <div class="host-filter-wrapper" style="position: relative; display: inline-block;">
+                                    <!-- 維持你原本的畫面與標籤結構 -->
+                                    <label style="cursor: pointer;" id="triggerHostLabel">
+                                        <input type="checkbox" id="filterHost"> 使用主機 <span id="hostCount"></span>
+                                    </label>
+
+                                    <!-- 點擊後彈出的主機選擇清單 (預設隱藏) -->
+                                    <div id="hostDropdownContainer" class="host-popover" style="display: none;">
+                                        <div class="popover-actions">
+                                            <button type="button" id="popSelectAll">全選</button>
+                                            <button type="button" id="popClearAll">全取消</button>
+                                        </div>
+                                        <hr>
+                                        <div id="popHostList" class="popover-list">
+                                            <p style="color: gray; font-size: 13px;">載入中...</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>      

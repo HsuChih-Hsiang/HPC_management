@@ -1,20 +1,25 @@
 version: '3.8'
+
 services:
   app:
     build:
-      context: .
+      context: ..                  # 🌟 修改 1：改為 ..（往上跳一層到專案根目錄，這樣才讀得到 app.py）
+      dockerfile: deployment/DOCKERFILE # 🌟 修改 2：指定 Dockerfile 的精確路徑（注意大小寫需與實體檔案一致）
       args:
-        GITHUB_TOKEN: ${GITHUB_TOKEN} # 從 .env 讀取
+        GITHUB_TOKEN: ${GITHUB_TOKEN} 
     restart: always
-    env_file: .env
+    env_file:
+      - ../.env                    # 🌟 修改 3：改為 ../.env（因為 .env 在外面那層）
 
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
+    env_file:
+      - ../.env                    # 🌟 修改 4：Nginx 也需要讀取 .env，底下的 ${DOMAIN} 才會有值
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro  # 🌟 修改 5：改為 ./nginx.conf（因為它現在跟 compose 同層）
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     command: /bin/sh -c "envsubst '${DOMAIN}' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf.tmp && mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"

@@ -65,10 +65,12 @@ async function loadData(page = 1) {
     const isCourse = document.getElementById('filterCourse').checked;
     const isFormal = document.getElementById('filterFormal').checked;
     const isTrial = document.getElementById('filterTrial').checked;
+    const isPayment = document.getElementById('filterPayment').checked;
+    const selectedHosts = typeof window.getFilterHosts === 'function' ? window.getFilterHosts().join(',') : '';
     
     try {
         // 建議後端 API 支援 year 參數
-        const res = await fetch(`/api/contacts?page=${page}&search=${encodeURIComponent(search)}&year=${year}&is_course=${isCourse}&is_formal=${isFormal}&is_trial=${isTrial}`);
+        const res = await fetch(`/api/contacts?page=${page}&search=${encodeURIComponent(search)}&year=${year}&is_course=${isCourse}&is_formal=${isFormal}&is_trial=${isTrial}&is_payment=${isPayment}&hosts=${encodeURIComponent(selectedHosts)}`);
         const data = await res.json();
         
         const tbody = document.getElementById('contactTableBody');
@@ -128,6 +130,108 @@ async function loadData(page = 1) {
         console.error("載入資料失敗:", err);
     }
 }
+document.addEventListener('DOMContentLoaded', () => {
+    const filterHostCheckbox = document.getElementById('filterHost');
+    const triggerHostLabel = document.getElementById('triggerHostLabel');
+    const hostContainer = document.getElementById('hostDropdownContainer');
+    const popHostList = document.getElementById('popHostList');
+    const hostCountSpan = document.getElementById('hostCount');
+    
+    const popSelectAll = document.getElementById('popSelectAll');
+    const popClearAll = document.getElementById('popClearAll');
+
+    // 1. 點擊「使用主機」區塊時，顯示/隱藏下拉選單
+    triggerHostLabel.addEventListener('click', (e) => {
+        // 阻止點擊 label 導致 checkbox 狀態亂跳的預設行為
+        e.preventDefault(); 
+        
+        const isHidden = hostContainer.style.display === 'none';
+        hostContainer.style.display = isHidden ? 'block' : 'none';
+        
+        // 如果是打開清單，且尚未加載過資料，就去戳 API
+        if (isHidden && popHostList.dataset.loaded !== 'true') {
+            loadHostsFromAPI();
+        }
+    });
+
+    // 點擊外面時自動收起選單
+    document.addEventListener('click', (e) => {
+        if (!triggerHostLabel.contains(e.target) && !hostContainer.contains(e.target)) {
+            hostContainer.style.display = 'none';
+        }
+    });
+
+    // 2. 從 API 載入主機清單
+    function loadHostsFromAPI() {
+        fetch('/api/contacts/hosts')
+            .then(res => res.json())
+            .then(hosts => {
+                popHostList.innerHTML = '';
+                popHostList.dataset.loaded = 'true';
+
+                if(hosts.length === 0) {
+                    popHostList.innerHTML = '<p style="color:gray;font-size:12px;">無可用主按</p>';
+                    return;
+                }
+
+                hosts.forEach(host => {
+                    const label = document.createElement('label');
+                    label.className = 'pop-host-item';
+
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = host;
+                    cb.className = 'sub-host-checkbox';
+                    
+                    // 當內層主機被勾選或取消時，同步更新最外層的畫面狀態
+                    cb.addEventListener('change', syncMainCheckboxState);
+
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(host));
+                    popHostList.appendChild(label);
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                popHostList.innerHTML = '<p style="color:red;font-size:12px;">載入失敗</p>';
+            });
+    }
+
+    // 3. 連動：根據子主機的勾選狀況，決定外層大 Checkbox 要不要亮、呈現多少筆
+    function syncMainCheckboxState() {
+        const checkedSubs = document.querySelectorAll('.sub-host-checkbox:checked');
+        const count = checkedSubs.length;
+
+        if (count > 0) {
+            filterHostCheckbox.checked = true;          // 有選主機，大 Checkbox 自動打勾
+            hostCountSpan.textContent = `(${count})`;  // 顯示選了幾台，例如: (2)
+        } else {
+            filterHostCheckbox.checked = false;         // 沒選主機，大 Checkbox 取消打勾
+            hostCountSpan.textContent = '';
+        }
+
+        // 【此處可觸發你原有的 API 刷新列表函數】
+        // 例如：renderTable(); 
+    }
+
+    // 4. 全選按鈕行為
+    popSelectAll.addEventListener('click', () => {
+        document.querySelectorAll('.sub-host-checkbox').forEach(cb => cb.checked = true);
+        syncMainCheckboxState();
+    });
+
+    // 5. 全取消/清除按鈕行為
+    popClearAll.addEventListener('click', () => {
+        document.querySelectorAll('.sub-host-checkbox').forEach(cb => cb.checked = false);
+        syncMainCheckboxState();
+    });
+
+    // 6. 供你發送 API 搜尋時，獲取當前勾選的主機陣列
+    window.getFilterHosts = function() {
+        const checkedSubs = document.querySelectorAll('.sub-host-checkbox:checked');
+        return Array.from(checkedSubs).map(cb => cb.value);
+    };
+});
 
 /**
  * 核心功能：儲存表單 (新增或修改)
