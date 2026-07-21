@@ -1,3 +1,5 @@
+import json
+from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
 from sqlalchemy import func
 from database.extensions import db
 from database.hpc_model import Accounting, PrepaidAmount, NotificationHistory, Serverlist
@@ -166,3 +168,31 @@ def update_prepaid_amount_db(username, amount):
         record = PrepaidAmount(username=username, amount=amount)
         db.session.add(record)
     db.session.commit()
+
+
+def calculate_prepaid_quota(deposit_amount):
+    """
+    根據預繳金額計算最終獲得的額度
+    :param deposit_amount: 預繳金額 (例如 60000)
+    :return: 計算後的總額度 (四捨五入或取整數)
+    """
+    # 1. 從 DB 取出設定
+    settings = load_hpc_settings_by_classification(2)
+    discounts_raw = settings.get('prepay_discounts', '[]')
+    
+    try:
+        discounts = json.loads(discounts_raw) if isinstance(discounts_raw, str) else discounts_raw
+    except json.JSONDecodeError:
+        discounts = []
+
+    # 2. 動態 If-Else 判斷與算式套用
+    for rule in discounts:
+        min_amount = rule.get('min_amount', 0)
+        divisor = rule.get('divisor', 1.0)
+        
+        if deposit_amount >= min_amount:
+            if divisor != 0:
+                return round(deposit_amount / divisor)
+            break
+
+    return deposit_amount

@@ -1,6 +1,7 @@
+import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template
-from utils.hpc.hpc_setting_utils import load_hpc_settings, save_hpc_settings
+from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification, save_hpc_settings
 from utils.hpc.hpc_notify_utils import get_hpc_notifications_by_date, send_hpc_notification_email, save_notification_to_db
 from utils.hpc.hpc_log_utils import save_hpc_notification_log
 from utils.hpc.hpc_bill_utils import get_usage_and_prepaid_data_db, update_prepaid_amount_db
@@ -27,9 +28,9 @@ def get_hpc_history():
 
 # API 路由：儲存與讀取 HPC 用量設定
 @hpc_bp.route('/api/hpc-usage/settings', methods=['GET', 'POST'])
-def hpc_settings():
+def hpc_notify_settings():
     if request.method == 'GET':
-        current_settings = load_hpc_settings()
+        current_settings = load_hpc_settings_by_classification(1)
         return jsonify(current_settings)
 
     elif request.method == 'POST':
@@ -85,7 +86,52 @@ def hpc_settings():
         save_hpc_settings(new_settings)
         
         return jsonify({'success': True, 'message': '設定已成功儲存。'})
-    
+
+@hpc_bp.route('/api/hpc-usage/settings_free_quota', methods=['GET', 'POST'])
+def hpc_quota_settings():
+    if request.method == 'GET':
+        current_settings = load_hpc_settings_by_classification(2)
+        return jsonify(current_settings)
+
+    elif request.method == 'POST':
+        data = request.get_json() or {}
+        
+        free_quota = data.get('free_quota')
+        academic_quota = data.get('academic_quota')
+        prepay_discounts = data.get('prepay_discounts')  # 前端傳入 List
+
+        if free_quota is None or academic_quota is None:
+            return jsonify({'success': False, 'message': '缺少必要的設定參數。'}), 400
+        
+        try:
+            free_quota = int(free_quota)
+            academic_quota = int(academic_quota)
+            
+            # 處理階梯算式設定
+            discounts_json = "[]"
+            if prepay_discounts and isinstance(prepay_discounts, list):
+                # 依門檻金額由大到小排序 (確保 > 100001 先判斷)
+                sorted_discounts = sorted(
+                    prepay_discounts, 
+                    key=lambda x: x.get('min_amount', 0), 
+                    reverse=True
+                )
+                discounts_json = json.dumps(sorted_discounts)
+
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': '參數格式不正確。'}), 400
+
+        # 寫入資料庫
+        new_settings = {
+            'free_quota': free_quota,
+            'academic_quota': academic_quota,
+            'prepay_discounts': discounts_json
+        }
+        save_hpc_settings(new_settings)
+        
+        return jsonify({'success': True, 'message': '設定已成功儲存。'})
+
+
 @hpc_bp.route('/api/hpc-usage/prepaid', methods=['GET'])
 def get_prepaid_data():
     filter_exceeded = request.args.get('filter_exceeded', 'false').lower() == 'true'

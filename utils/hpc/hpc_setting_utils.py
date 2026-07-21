@@ -1,3 +1,5 @@
+import ast
+import json
 from flask import current_app
 from database.extensions import db
 from database.hpc_model import HPCSetting
@@ -5,56 +7,100 @@ from utils.params import DEFAULT_HPC_SETTINGS
 
 
 def _convert_value_to_type(key, value_str):
-    """將資料庫讀出的字串值轉換為正確的 Python 型別"""
+    """將資料庫 TEXT 欄位讀出的字串轉為對應型態"""
     setting_info = DEFAULT_HPC_SETTINGS.get(key)
     if not setting_info:
-        return value_str # 如果不是預設的 key，直接返回字串
-    
+        return value_str
+
     target_type = setting_info['type']
     try:
         if target_type == int:
             return int(value_str)
         elif target_type == float:
             return float(value_str)
-        # 如果是其他型別，可以繼續新增判斷
+        elif target_type == list:
+            if isinstance(value_str, list):
+                return value_str
+            
+            # 優先使用標準 JSON 解析 (適用 json.dumps 寫入的 TEXT)
+            try:
+                return json.loads(value_str)
+            except (json.JSONDecodeError, TypeError):
+                # 備案：防止早期資料庫曾寫入 Python 單引號字串
+                return ast.literal_eval(value_str)
+
         return value_str
-    except ValueError:
-        current_app.logger.error(f"HPCSetting Key: {key} 的值 '{value_str}' 無法轉換為 {target_type.__name__}，使用預設值。")
+
+    except (ValueError, TypeError, SyntaxError) as e:
+        type_name = getattr(target_type, '__name__', str(target_type))
+        current_app.logger.error(
+            f"HPCSetting Key: {key} 的值 '{value_str}' 無法轉換為 {type_name}，使用預設值。錯誤: {e}"
+        )
         return setting_info['value']
 
 
-def load_hpc_settings():
-    """從資料庫加載所有設定，如果不存在則創建預設值"""
-    settings_dict = {}
-    
-    # 確保應用程式上下文存在
-    with current_app.app_context():
+def init_hpc_settings(app):
+    """檢查資料庫設定，不存在則初始化寫入 TEXT 欄位"""
+    with app.app_context():
         existing_settings = HPCSetting.query.all()
-        existing_keys = {s.key: s for s in existing_settings}
+        existing_keys = {s.key for s in existing_settings}
+        new_added = False
 
         for key, info in DEFAULT_HPC_SETTINGS.items():
             if key not in existing_keys:
-                default_value = str(info['value'])
-                # 從 DEFAULT_HPC_SETTINGS 讀取 classification，若無則預設為 1
-                classification_val = info.get('classification', 1)
+                raw_val = info['value']
+                
+                # 若為 list/dict，轉為標準 JSON 字串再存入 TEXT 欄位
+                if isinstance(raw_val, (list, dict)):
+                    default_value = json.dumps(raw_val)
+                else:
+                    default_value = str(raw_val)
 
                 new_setting = HPCSetting(
                     key=key, 
                     value=default_value, 
                     description=info['desc'],
-                    classification=classification_val  # 修正：補上 classification
+                    classification=info.get('classification', 1)
                 )
                 db.session.add(new_setting)
-                settings_dict[key] = info['value']
-            else:
-                db_setting = existing_keys[key]
-                settings_dict[key] = _convert_value_to_type(key, db_setting.value)
-                # 若需要回傳 classification 給前端：
-                # settings_dict['classification'] = db_setting.classification
-        
-        db.session.commit()
-        
-    return settings_dict
+                new_added = True
+
+        if new_added:
+            db.session.commit()
+
+def load_hpc_settings_by_classification(target_classification=None):
+    """
+    從資料庫讀取 HPC 設定並按 classification 歸類。
+    若指定 target_classification，則僅回傳該類別的設定清單。
+    """
+    result = {}
+
+    with current_app.app_context():
+        # 如果指定了 target_classification，只向資料庫查詢該類別，提升查詢效率
+        query = HPCSetting.query
+        if target_classification is not None:
+            query = query.filter_by(classification=target_classification)
+            
+        settings = query.all()
+
+        for setting in settings:
+            cls_id = setting.classification
+
+            if cls_id not in result:
+                result[cls_id] = []
+
+            result[cls_id].append({
+                'key': setting.key,
+                'value': _convert_value_to_type(setting.key, setting.value),
+                'description': setting.description,
+                'classification': cls_id
+            })
+
+    # 若指定特定分類，回傳該分類的 List；否則回傳以 classification 為 Key 的 Dict
+    if target_classification is not None:
+        return result.get(target_classification, [])
+
+    return result
 
 
 def save_hpc_settings(settings):

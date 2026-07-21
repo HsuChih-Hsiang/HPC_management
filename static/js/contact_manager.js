@@ -1181,108 +1181,125 @@ function handleQuotaButtonClick(event, id, applicant, isCourse, isTrial) {
     openQuotaModal(id, applicant);
 }
 
-// 綁定額度表單提交
 document.addEventListener('DOMContentLoaded', function() {
-    // ==========================================
-    // 宣告小視窗所需的 DOM 物件（已改為複選結構）
-    // ==========================================
     const modal = document.getElementById('rewardQuotaModal');
     const openBtn = document.getElementById('btn-open-reward-modal');
     const closeBtn = document.getElementById('btn-close-modal');
     const cancelBtn = document.getElementById('btn-cancel-modal');
     const confirmBtn = document.getElementById('btn-confirm-reward');
     
-    // 🌟 改為獲取對應的 Checkbox 與數量輸入框
     const chkFree = document.getElementById('chk-reward-free');
     const chkAcademic = document.getElementById('chk-reward-academic');
     const quantityInput = document.getElementById('reward_quantity');
 
-    // ==========================================
-    // 1. 小視窗開關與重置邏輯
-    // ==========================================
-    openBtn.addEventListener('click', () => modal.style.display = 'block');
-
-    function closeModal() {
-        modal.style.display = 'none';
-        // 🌟 關閉時重置複選框狀態與行內輸入框
-        chkFree.checked = false;
-        chkAcademic.checked = false;
-        quantityInput.style.display = 'none';
-        quantityInput.value = 1;
+    // 開啟 Modal
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            if (modal) modal.style.display = 'block';
+        });
     }
 
-    closeBtn.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
+    // 關閉 Modal 與重置
+    function closeModal() {
+        if (modal) modal.style.display = 'none';
+        if (chkFree) chkFree.checked = false;
+        if (chkAcademic) chkAcademic.checked = false;
+        if (quantityInput) {
+            quantityInput.style.display = 'none';
+            quantityInput.value = 1;
+        }
+    }
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
     window.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
-    // 🌟 監聽學術額度勾選狀態：勾選才顯示行內的數量輸入框
-    chkAcademic.addEventListener('change', function() {
-        if (this.checked) {
-            quantityInput.style.display = 'inline-block';
-            quantityInput.focus();
-        } else {
-            quantityInput.style.display = 'none';
-        }
-    });
-
-    // ==========================================
-    // 分流一：小視窗【確認發放獎勵額度】點擊事件（優化：單次 API 批量送出）
-    // ==========================================
-    confirmBtn.addEventListener('click', async () => {
-        const id = document.getElementById('quotaTargetId').value; // 取得當前對象 ID
-        
-        // 蒐集被勾選的任務與確認訊息
-        let selectedItems = [];
-        let confirmDetails = [];
-
-        if (chkFree.checked) {
-            selectedItems.push({ type: 'free', quantity: 1 });
-            confirmDetails.push("・免費額度 $10,000 元 (限今年度帳單折抵)");
-        }
-
-        if (chkAcademic.checked) {
-            const qty = parseInt(quantityInput.value) || 1;
-            if (qty <= 0) { 
-                alert("學術額度數量必須大於 0"); 
-                return; 
+    // 學術額度 Checkbox 控制輸入框
+    if (chkAcademic) {
+        chkAcademic.addEventListener('change', function() {
+            if (quantityInput) {
+                quantityInput.style.display = this.checked ? 'inline-block' : 'none';
+                if (this.checked) quantityInput.focus();
             }
-            selectedItems.push({ type: 'academic', quantity: qty });
-            confirmDetails.push(`・學術額度 $1,000 × ${qty} 份 = $${1000 * qty} 元`);
-        }
+        });
+    }
 
-        // 防呆：什麼都沒勾選
-        if (selectedItems.length === 0) {
-            alert("請至少選擇一種額度類型");
-            return;
-        }
+    // 🌟 確認發放按鈕事件
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', async (e) => {
+            // 避免預設表單 Submit 行為（若按鈕位於 <form> 內）
+            e.preventDefault(); 
 
-        // 組裝統一的確認提示視窗
-        const confirmMsg = `【確認發放以下研究獎勵？】\n\n${confirmDetails.join('\n')}`;
-        if (!confirm(confirmMsg)) return;
+            const targetIdInput = document.getElementById('quotaTargetId');
+            const id = targetIdInput ? targetIdInput.value : null;
 
-        try {
-            // 🌟 關鍵改動：整包 items 一次打包送過去
-            const res = await fetch(`/api/contacts/${id}/research_bonus`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: selectedItems }) 
-            });
-            
-            const data = await res.json();
-            
-            if (res.ok) {
-                // 顯示後端組合好、帶有精美換行與千分位的成功訊息
-                alert(data.message);
-                closeModal();          // 關閉小視窗
-                closeQuotaModal();     // 關閉原本的分配額度大彈窗
-                if (typeof loadData === 'function') loadData(currentPage);
-            } else {
-                alert(`發放失敗：${data.message || '伺服器錯誤'}`);
+            if (!id) {
+                alert("錯誤：找不到目標對象 ID (quotaTargetId)");
+                return;
             }
-        } catch (err) {
-            alert("連線失敗，無法完成獎勵額度發放");
-        }
-    });
+
+            let selectedItems = [];
+            let confirmDetails = [];
+
+            if (chkFree && chkFree.checked) {
+                selectedItems.push({ type: 'free', quantity: 1 });
+                confirmDetails.push("・免費額度 $10,000 元 (限今年度帳單折抵)");
+            }
+
+            if (chkAcademic && chkAcademic.checked) {
+                const qty = parseInt(quantityInput.value) || 1;
+                if (qty <= 0) { 
+                    alert("學術額度數量必須大於 0"); 
+                    return; 
+                }
+                selectedItems.push({ type: 'academic', quantity: qty });
+                confirmDetails.push(`・學術額度 $1,000 × ${qty} 份 = $${1000 * qty} 元`);
+            }
+
+            if (selectedItems.length === 0) {
+                alert("請至少選擇一種額度類型");
+                return;
+            }
+
+            const confirmMsg = `【確認發放以下研究獎勵？】\n\n${confirmDetails.join('\n')}`;
+            if (!confirm(confirmMsg)) return;
+
+            // 按鈕停用防重覆點擊
+            confirmBtn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/contacts/${id}/research_bonus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: selectedItems }) 
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(data.message || "獎勵額度發放成功！");
+                    closeModal(); // 關閉獎勵小彈窗
+
+                    // 呼叫外部關閉大彈窗函式（若有定義）
+                    if (typeof closeQuotaModal === 'function') closeQuotaModal();
+                    
+                    // 重新載入列表資料
+                    if (typeof loadData === 'function') {
+                        loadData(typeof currentPage !== 'undefined' ? currentPage : 1);
+                    } else {
+                        location.reload(); // 若沒有 loadData 則重新整理頁面
+                    }
+                } else {
+                    alert(`發放失敗：${data.message || '伺服器錯誤'}`);
+                }
+            } catch (err) {
+                console.error("API 請求失敗:", err);
+                alert("連線失敗，無法完成獎勵額度發放");
+            } finally {
+                confirmBtn.disabled = false;
+            }
+        });
+    }
 });
     
 /**
@@ -1523,3 +1540,36 @@ async function handlePreviewAndSend() {
         alert('系統發生異常: ' + err.message);
     }
 }
+
+function loadQuotaSettings() {
+    fetch('/api/hpc-usage/settings_free_quota')
+        .then(response => response.json())
+        .then(data => {
+            // 預設值，防止 API 沒抓到數字時畫面空白
+            let freeQuota = 0;
+            let academicQuota = 0;
+
+            // 支援 API 回傳清單 Array 或 字典 Object 結構
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    if (item.key === 'free_quota') freeQuota = item.value;
+                    if (item.key === 'academic_quota') academicQuota = item.value;
+                });
+            } else if (typeof data === 'object') {
+                freeQuota = data.free_quota || 0;
+                academicQuota = data.academic_quota || 0;
+            }
+
+            // 格式化數字 (例如 10000 轉為 10,000) 並填入 HTML
+            document.getElementById('txt-free-quota').innerText = Number(freeQuota).toLocaleString();
+            document.getElementById('txt-academic-quota').innerText = Number(academicQuota).toLocaleString();
+        })
+        .catch(error => {
+            console.error('載入額度設定失敗:', error);
+            document.getElementById('txt-free-quota').innerText = '0';
+            document.getElementById('txt-academic-quota').innerText = '0';
+        });
+}
+
+// 頁面載入完成時自動發送請求
+document.addEventListener('DOMContentLoaded', loadQuotaSettings);

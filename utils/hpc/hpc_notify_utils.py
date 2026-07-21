@@ -2,7 +2,7 @@ from flask import current_app
 from sqlalchemy import desc, func
 from flask import render_template
 from utils.hpc.hpc_bill_utils import get_hpc_user_and_total_usage_with_details
-from utils.hpc.hpc_setting_utils import load_hpc_settings
+from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
 from utils.email_utils import send_hpc_notification_email
 from database.extensions import db
 from database.hpc_model import NotificationHistory
@@ -75,7 +75,7 @@ def check_hpc_usage_and_notify():
     根據設定檢查 HPC 用量並發送通知，使用資料庫進行歷史紀錄管理。
     """
     # 假設 load_hpc_settings 已經使用資料庫版本，如 hpc_setting_utils.py 所示
-    settings = load_hpc_settings()
+    settings = load_hpc_settings_by_classification(1)
     cooldown_days = settings.get('notification_cooldown_days', 7)
     check_period_days = settings.get('check_period', 30)
     

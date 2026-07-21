@@ -2,6 +2,7 @@ from flask import Flask, session, request, redirect, url_for
 from database.extensions import db
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from utils.hpc.hpc_setting_utils import init_hpc_settings
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
 from utils.login_utils import oauth, init_oauth
 from utils.crypto_utils import key_generate
@@ -11,8 +12,6 @@ from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, c
 
 app = Flask(__name__)
 
-key_generate()
-
 app.session_interface = CustomSessionInterface()
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -20,10 +19,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # app.config['SESSION_COOKIE_SECURE'] = True    # 【防竊聽】僅限 HTTPS 傳輸（本地開發 HTTP 時先註解，上線要打開）
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
-db.init_app(app)
-
 app.secret_key = SECRET_KEY
-init_oauth(app)
 
 app.register_blueprint(mailbox_bp)
 app.register_blueprint(hpc_bp)
@@ -65,14 +61,16 @@ def add_security_headers(response):
     
     return response
 
-
+with app.app_context():
+    db.init_app(app)
+    init_oauth(app)
+    key_generate()
+    init_hpc_settings(app)
 
 def check_hpc_usage_in_context():
     with app.app_context():
         check_hpc_usage_and_notify()
-
-
-
+    
 # --- run server ---
 if __name__ == '__main__':
     scheduler = BackgroundScheduler()

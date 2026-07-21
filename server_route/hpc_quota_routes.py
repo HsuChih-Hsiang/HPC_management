@@ -2,6 +2,7 @@ import io
 import uuid
 from xhtml2pdf import pisa
 from flask import request, jsonify, Blueprint, render_template, send_file
+from utils.hpc.hpc_bill_utils import calculate_prepaid_quota
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
 from sqlalchemy import func, cast, Numeric
@@ -33,13 +34,8 @@ def add_contact_quota(id):
     
     purchase_year = purchase_date.year
 
-    if 50001 <= amount <= 100000: 
-        discount_rate = 0.75
-    elif amount > 100000:
-        discount_rate = 0.36
-    else:
-        discount_rate = 1
-    discount = abs(amount / discount_rate - amount)
+    result_amout = calculate_prepaid_quota(amount)
+    discount = abs(result_amout - amount)
 
     current_source_id = str(uuid.uuid4())
 
