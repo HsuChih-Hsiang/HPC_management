@@ -176,17 +176,29 @@ def calculate_prepaid_quota(deposit_amount):
     :param deposit_amount: 預繳金額 (例如 60000)
     :return: 計算後的總額度 (四捨五入或取整數)
     """
-    # 1. 從 DB 取出設定
-    settings = load_hpc_settings_by_classification(2)
-    discounts_raw = settings.get('prepay_discounts', '[]')
+    # 1. 從 DB 取出設定清單
+    settings_list = load_hpc_settings_by_classification(2)
     
-    try:
-        discounts = json.loads(discounts_raw) if isinstance(discounts_raw, str) else discounts_raw
-    except json.JSONDecodeError:
+    # 2. 從 List 中找到 key 為 'discount' 的那一筆資料
+    discount_item = next((item for item in settings_list if item.get('key') == 'discount'), {})
+    discounts_raw = discount_item.get('value', [])
+    
+    # 3. 解析 discounts (處理字串或直接是 List/Dict 的情況)
+    if isinstance(discounts_raw, str):
+        try:
+            discounts = json.loads(discounts_raw)
+        except json.JSONDecodeError:
+            discounts = []
+    elif isinstance(discounts_raw, list):
+        discounts = discounts_raw
+    else:
         discounts = []
 
-    # 2. 動態 If-Else 判斷與算式套用
+    # 4. 動態 If-Else 判斷與算式套用
     for rule in discounts:
+        if not isinstance(rule, dict):
+            continue
+            
         min_amount = rule.get('min_amount', 0)
         divisor = rule.get('divisor', 1.0)
         
@@ -195,4 +207,5 @@ def calculate_prepaid_quota(deposit_amount):
                 return round(deposit_amount / divisor)
             break
 
+    # 若未達任何優惠門檻，回傳原始預繳金額
     return deposit_amount
