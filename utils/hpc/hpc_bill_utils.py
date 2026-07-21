@@ -4,50 +4,39 @@ from database.hpc_model import Accounting, PrepaidAmount, NotificationHistory, S
 from datetime import datetime, timedelta
 
 
-def get_hpc_user_and_total_usage_with_details(check_period_days):
+def get_hpc_user_and_total_usage_with_details():
     """
-    計算每個帳號在當年度和指定時間範圍內的總費用，並提供每個 server 的明細。
+    計算每個帳號在當年度和【今年初至今】的總費用，並提供每個 server 的明細。
 
     Args:
-        check_period_days (int): 用於計算近期用量的天數。
+        check_period_days (int, optional): 原本用於計算近期用量，現已改為計算今年初至今，此參數可留空。
 
     Returns:
-        tuple: 包含當年度用量和近期用量的字典。
+        tuple: 包含當年度用量和今年初至今用量的字典。
                每個字典的 key 是使用者名稱，value 是一個包含 'total_price' 和 'details' 的字典。
-               'details' 是一個字典，key 是 server 名稱，value 是該 server 的花費。
-               例如: (yearly_usage, recent_usage)
-               yearly_usage = {
-                   'user1': {
-                       'total_price': 1000.0,
-                       'details': {
-                           'serverA': 600.0,
-                           'serverB': 400.0
-                       }
-                   },
-                   'user2': { ... }
-               }
     """
     current_year = datetime.now().year
-    recent_period_start = datetime.now() - timedelta(days=check_period_days)
+    
+    # 關鍵修改：將近期計算的起點，設定為當年度的 1 月 1 日 0 點 0 分 0 秒
+    recent_period_start = datetime(current_year, 1, 1, 0, 0, 0)
     
     # 執行 SQL 聯結查詢，並計算每個使用者在每個 server 上的花費
-    # 這邊除了 username 和 total_price 外，還會選擇 servername
     base_query = db.session.query(
         Accounting.username,
-        Serverlist.server,  # 選擇 servername
+        Serverlist.server,
         func.sum(
             (Accounting.cores * (Accounting.wtime / 3600)) * Serverlist.price
         ).label('total_price')
     ).join(Serverlist, Accounting.host == Serverlist.server).group_by(
-        Accounting.username, Serverlist.server  # 以 username 和 servername 分組
+        Accounting.username, Serverlist.server
     )
     
-    # 過濾出當年度的資料
+    # 過濾出當年度的資料（依據年份標籤）
     yearly_results = base_query.filter(
         func.extract('year', Accounting.endtime) == current_year
     ).all()
 
-    # 過濾出近期內的資料
+    # 過濾出今年初到現在的資料（依據時間戳記大於等於 1/1）
     recent_results = base_query.filter(
         Accounting.endtime >= recent_period_start
     ).all()
@@ -61,11 +50,11 @@ def get_hpc_user_and_total_usage_with_details(check_period_days):
                 'details': {}
             }
         
-        # 累加總花費，並記錄每個 server 的花費
         cost = float(row.total_price)
         yearly_usage[row.username]['total_price'] += cost
         yearly_usage[row.username]['details'][row.server] = cost
 
+    # 這邊算出來的就是「今年初至今」的數據了
     recent_usage = {}
     for row in recent_results:
         if row.username not in recent_usage:
@@ -79,7 +68,6 @@ def get_hpc_user_and_total_usage_with_details(check_period_days):
         recent_usage[row.username]['details'][row.server] = cost
         
     return yearly_usage, recent_usage
-
 
 def get_hpc_user_and_total_usage(check_period_days):
     """
@@ -133,7 +121,7 @@ def get_usage_and_prepaid_data_db():
     current_year = datetime.now().year
     
     # 1. 獲取年度總用量 (這部分不變)
-    yearly_usage, _ = get_hpc_user_and_total_usage_with_details(365)
+    yearly_usage, _ = get_hpc_user_and_total_usage_with_details()
     
     # 2. 從資料庫獲取預繳金額
     prepaid_records = PrepaidAmount.query.all()
@@ -151,15 +139,21 @@ def get_usage_and_prepaid_data_db():
     all_users = set(yearly_usage.keys()) | set(prepaid_amounts.keys())
 
     for user in all_users:
+        if user.startswith('gst'):
+            continue
+
         usage_data = yearly_usage.get(user, {'total_price': 0.0})
-        prepaid = prepaid_amounts.get(user, 0.0)
+        yearly_usage_rounded = round(usage_data['total_price'], 2)
         
-        combined_data.append({
-            'username': user,
-            'yearly_usage': round(usage_data['total_price'], 2),
-            'prepaid_amount': float(prepaid),
-            'notified': user in notified_this_year
-        })
+        if yearly_usage_rounded > 10000 :
+            prepaid = prepaid_amounts.get(user, 0.0)
+            
+            combined_data.append({
+                'username': user,
+                'yearly_usage': yearly_usage_rounded,
+                'prepaid_amount': float(prepaid),
+                'notified': user in notified_this_year
+            })
     
     return combined_data
 

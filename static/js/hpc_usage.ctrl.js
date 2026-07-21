@@ -103,12 +103,18 @@ angular.module('emailApp')
     // 儲存設定
     $scope.saveSettings = function() {
         const s = $scope.settings;
-        if (s.price_threshold < 0 || s.check_interval <= 0 || s.check_period <= 0 || s.diff_price_threshold <= 0 || s.notification_cooldown_days <= 0) {
+
+        // 1. 前端欄位驗證
+        if (s.price_threshold < 0 || s.check_interval <= 0 || s.check_period <= 0 || s.diff_price_threshold < 0 || s.notification_cooldown_days < 0) {
             showMessage('請輸入有效的數值。', 'error');
             return;
         }
 
-        $http.post('/api/hpc-usage/settings', s)
+        // 2. 組合 Payload（深拷貝或建立新物件，確保加入 classification = 1）
+        const payload = Object.assign({}, s, { classification: 1 });
+
+        // 3. 發送 POST 請求
+        $http.post('/api/hpc-usage/settings', payload)
             .then(function(response) {
                 if (response.data && response.data.success) {
                     showMessage(response.data.message, 'success');

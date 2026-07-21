@@ -2,7 +2,7 @@ import json
 import csv
 from datetime import datetime
 from io import StringIO, BytesIO
-from sqlalchemy import or_, and_, func, cast
+from sqlalchemy import or_, and_, func, cast, exists
 from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
 from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting, Bill, Accounting
@@ -267,7 +267,11 @@ def update_contact(id):
     
     SecondaryContact.query.filter_by(contact_id=id).delete()
     for sc in data.get('secondary_contacts', []):
-        contact.secondaries.append(SecondaryContact(name=sc['name'], info=sc['info']))
+        contact.secondaries.append(SecondaryContact(
+            name=sc.get('name', ''),
+            info=sc.get('info', ''),
+            is_primary=sc.get('is_primary', False)
+        ))
 
     CourseStudent.query.filter_by(contact_id=id).delete()
     for cs in data.get('course_students', []):

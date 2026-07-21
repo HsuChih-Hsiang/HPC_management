@@ -276,8 +276,19 @@ if (contactForm) {
                 notes: getVal('notes'),
                 hosts: Array.from(document.querySelectorAll('input[name="hosts"]:checked')).map(c => c.value),
                 secondary_contacts: Array.from(document.querySelectorAll('.contact-row')).map(row => {
-                    const inputs = row.querySelectorAll('input');
-                    return { name: inputs[0]?.value || '', info: inputs[1]?.value || '' };
+                    // 精準抓取 class="primary-radio" 的元素
+                    const radio = row.querySelector('.primary-radio');
+                    const nameInput = row.querySelector('.contact-name') || row.querySelectorAll('input[type="text"]')[0];
+                    const infoInput = row.querySelector('.contact-info') || row.querySelectorAll('input[type="text"]')[1];
+
+                    // 強制用 Boolean 轉型，確保存入的是明確的 true / false
+                    const isPrimary = radio ? Boolean(radio.checked) : false;
+
+                    return { 
+                        name: nameInput ? nameInput.value.trim() : '', 
+                        info: infoInput ? infoInput.value.trim() : '',
+                        is_primary: isPrimary
+                    };
                 }),
                 is_course_account: document.getElementById('is_course_account').checked,
                 course_students: getCourseData()
@@ -479,7 +490,7 @@ async function editItem(id) {
             if (data.secondary_contacts && data.secondary_contacts.length > 0) {
                 data.secondary_contacts.forEach(sc => {
                     // 確保 sc.name 與 sc.info 存在
-                    addContactRow(sc.name || '', sc.info || '');
+                    addContactRow(!!sc.is_primary, sc.name || '', sc.info || '');
                 });
             } else {
                 console.warn("沒有次要聯絡人資料或格式錯誤");
@@ -522,18 +533,70 @@ async function editItem(id) {
 /**
  * 其他輔助功能 (年份、主機、刪除)
  */
-function addContactRow(name = '', info = '') {
+function addContactRow(isPrimary = false, name = '', info = '') {
     const container = document.getElementById('other-contacts-container');
     if (!container) return;
+    
+    // 轉成純 Boolean（相容傳進來的 false / true）
+    const isChecked = Boolean(isPrimary);
+
     const row = document.createElement('div');
     row.className = 'contact-row'; 
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    row.style.marginBottom = '6px';
+
     row.innerHTML = `
-        <input type="text" value="${name}" placeholder="姓名">
-        <input type="text" value="${info}" placeholder="聯絡資訊">
+        <input type="radio" name="is_primary_contact" class="primary-radio" title="設為主要聯絡人">
+        <input type="text" class="contact-name" placeholder="姓名">
+        <input type="text" class="contact-info" placeholder="聯絡資訊">
         <button type="button" class="btn-remove-row" onclick="this.parentElement.remove()">✕</button>
     `;
+    
+    // 1. 先加入到畫面 (DOM)
     container.appendChild(row);
+
+    // 2. 掛載後，透過 DOM Property 填值（比直接寫在 HTML 樣板裡更安全、不破壞 DOM）
+    const radio = row.querySelector('.primary-radio');
+    const nameInput = row.querySelector('.contact-name');
+    const infoInput = row.querySelector('.contact-info');
+
+    if (radio) {
+        radio.checked = isChecked;
+        radio.dataset.wasChecked = isChecked ? "true" : "false"; // 紀錄點選狀態
+    }
+    if (nameInput) nameInput.value = name || '';
+    if (infoInput) infoInput.value = info || '';
 }
+
+// 使用 pointerdown 在點擊發生的瞬間「記錄狀態」
+document.getElementById('other-contacts-container')?.addEventListener('pointerdown', function(e) {
+    if (e.target && e.target.classList.contains('primary-radio')) {
+        const radio = e.target;
+        // 紀錄點擊之前的 checked 狀態
+        radio.dataset.wasCheckedBeforeClick = radio.checked ? 'true' : 'false';
+    }
+});
+
+// 在 click 完成時根據記錄決定要不要「取消選取」
+document.getElementById('other-contacts-container')?.addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('primary-radio')) {
+        const radio = e.target;
+
+        // 如果點擊前「已經是勾選狀態」，表示這次點擊是要取消勾選
+        if (radio.dataset.wasCheckedBeforeClick === 'true') {
+            radio.checked = false;
+            radio.dataset.wasCheckedBeforeClick = 'false';
+        } else {
+            // 如果點擊前是未勾選，現在瀏覽器把它勾選了，清空其他按鈕的標記
+            document.querySelectorAll('#other-contacts-container .primary-radio').forEach(r => {
+                r.dataset.wasCheckedBeforeClick = 'false';
+            });
+            radio.dataset.wasCheckedBeforeClick = 'true';
+        }
+    }
+});
 
 async function initYearFilter() {
     const yearSelect = document.getElementById('yearFilter');

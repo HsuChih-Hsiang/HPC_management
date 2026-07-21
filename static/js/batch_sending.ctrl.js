@@ -1,4 +1,52 @@
-// static/js/batch_sending.ctrl.js
+// === 1. 定義 TinyMCE 的 AngularJS 指令 ===
+app.directive('tinymceEditor', ['$timeout', function($timeout) {
+    return {
+        restrict: 'A',
+        require: 'ngModel',
+        link: function(scope, element, attrs, ngModelCtrl) {
+            // 生成隨機的 ID 給 textarea，避免多個編輯器時衝突
+            const id = 'tiny-editor-' + Math.random().toString(36).substr(2, 9);
+            element.attr('id', id);
+
+            $timeout(function() {
+                tinymce.init({
+                    selector: '#' + id,
+                    height: 350,
+                    menubar: 'edit view insert format tools table help',
+                    plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
+                    toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strike | link image table | align lineheight | numlist bullist indent outdent | emoticons charmap | removeformat',
+                    branding: false,
+                    promotion: false,
+                    contextmenu: false,
+                    setup: function(editor) {
+                        // 當編輯器內容改變時，同步更新 AngularJS 的 ngModel
+                        editor.on('change keyup nodechange', function() {
+                            scope.$evalAsync(function() {
+                                ngModelCtrl.$setViewValue(editor.getContent());
+                            });
+                        });
+
+                        // 監聽外部 ngModel 的變更（例如：應用模板或清空時），同步回填給 TinyMCE
+                        ngModelCtrl.$render = function() {
+                            if (tinymce.get(id)) {
+                                tinymce.get(id).setContent(ngModelCtrl.$viewValue || '');
+                            }
+                        };
+                    }
+                });
+            });
+
+            // 當 Scope 銷毀時，記得釋放 TinyMCE 實例記憶體
+            scope.$on('$destroy', function() {
+                if (tinymce.get(id)) {
+                    tinymce.get(id).remove();
+                }
+            });
+        }
+    };
+}]);
+
+// === 2. 舊有的控制器內容 ===
 app.controller('BatchSendingController', ['$scope', '$http', '$timeout', function($scope, $http, $timeout) {
     // === 狀態模型 ===
     $scope.isMenuOpen = false;
@@ -47,7 +95,6 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     };
 
     $scope.addTag = function(event, type) {
-        // 支援 Enter 或逗號
         if (event && event.key !== 'Enter' && event.key !== ',') return;
         if (event) event.preventDefault();
 
@@ -64,7 +111,7 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         }
 
         $scope.mailData[type].push(email);
-        $scope.inputs[type] = ''; // 清空輸入框
+        $scope.inputs[type] = ''; 
     };
 
     $scope.removeTag = function(type, index) {
@@ -123,7 +170,10 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
 
     // === 寄信 API ===
     $scope.sendEmail = function() {
-        if (!$scope.mailData.to.length || !$scope.mailData.subject || !$scope.mailData.body || $scope.mailData.body === '<p><br></p>') {
+        // TinyMCE 空白時通常會帶有預設的段落標籤，這裡加入清除判斷
+        let emptyCheck = $scope.mailData.body ? $scope.mailData.body.replace(/<[^>]*>/g, '').trim() : '';
+
+        if (!$scope.mailData.to.length || !$scope.mailData.subject || !emptyCheck) {
             $scope.showMessage('請填寫所有必填欄位 (收件人、主旨、郵件內容)。', 'error');
             return;
         }
@@ -141,7 +191,7 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
                 $scope.showMessage('郵件已成功寄送！', 'success');
                 // 重置表單
                 $scope.mailData = { to: [], cc: [], bcc: [], subject: '', body: '' };
-                $scope.quillInstance.setContents([]);
+                // 透過雙向綁定觸發 directive 的 $render 自動清空 TinyMCE
             } else {
                 $scope.showMessage('郵件寄送失敗: ' + (res.data.message || '未知錯誤'), 'error');
             }
@@ -163,15 +213,14 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     $scope.applyTemplate = function(tpl) {
         $scope.mailData.body = tpl.html;
         $scope.mailData.subject = tpl.subject || '';
-        if ($scope.quillInstance) {
-            $scope.quillInstance.setContents($scope.quillInstance.clipboard.convert(tpl.html));
-        }
+        // 已移除舊有的 Quill 剪貼簿轉換邏輯，因為 ngModel 會自動藉由 $render 同步至 TinyMCE
         $scope.modals.template = false;
         $scope.showMessage('模板已成功應用。', 'info');
     };
 
     $scope.saveTemplate = function() {
-        if (!$scope.mailData.body || $scope.mailData.body === '<p><br></p>') {
+        let emptyCheck = $scope.mailData.body ? $scope.mailData.body.replace(/<[^>]*>/g, '').trim() : '';
+        if (!emptyCheck) {
             $scope.showMessage('請先輸入郵件內容再儲存為模板。', 'error');
             return;
         }
@@ -200,7 +249,7 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         if (confirm('確定要清空當前郵件內容和主旨嗎？')) {
             $scope.mailData.body = '';
             $scope.mailData.subject = '';
-            $scope.quillInstance.setContents([]);
+            // 已移除舊有的 Quill setContents，透過雙向綁定驅動更新
             $scope.modals.template = false;
             $scope.showMessage('郵件內容和主旨已清空。', 'info');
         }
@@ -214,7 +263,6 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         
         $http.get('/api/mailboxes').then(function(res) {
             $scope.groups = res.data.map(function(group) {
-                // 檢查是否已存在於當前 target
                 group.emailsObj = group.emails.filter(e => e && e.trim() !== '' && e.trim().toLowerCase() !== 'on').map(e => ({
                     email: e,
                     selected: $scope.mailData[target].includes(e)

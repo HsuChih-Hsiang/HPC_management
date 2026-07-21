@@ -35,16 +35,22 @@ def load_hpc_settings():
         for key, info in DEFAULT_HPC_SETTINGS.items():
             if key not in existing_keys:
                 default_value = str(info['value'])
+                # 從 DEFAULT_HPC_SETTINGS 讀取 classification，若無則預設為 1
+                classification_val = info.get('classification', 1)
+
                 new_setting = HPCSetting(
                     key=key, 
                     value=default_value, 
-                    description=info['desc']
+                    description=info['desc'],
+                    classification=classification_val  # 修正：補上 classification
                 )
                 db.session.add(new_setting)
                 settings_dict[key] = info['value']
             else:
                 db_setting = existing_keys[key]
                 settings_dict[key] = _convert_value_to_type(key, db_setting.value)
+                # 若需要回傳 classification 給前端：
+                # settings_dict['classification'] = db_setting.classification
         
         db.session.commit()
         
@@ -54,19 +60,24 @@ def load_hpc_settings():
 def save_hpc_settings(settings):
     """將設定字典存入資料庫"""
     with current_app.app_context():
+        # 從輸入字典提取 classification，若沒帶入則預設給 1
+        target_classification = settings.get('classification', 1)
+
         for key, value in settings.items():
             # 找到現有設定或創建新設定
             setting_obj = HPCSetting.query.filter_by(key=key).first()
             
             if setting_obj:
-                # 更新現有值，將其轉換為字串儲存
+                # 更新現有值與分類
                 setting_obj.value = str(value)
+                setting_obj.classification = target_classification  # 修正：同步更新現有物件的分類
             else:
                 # 如果是新的 key (非預設的)，則新增
                 new_setting = HPCSetting(
                     key=key, 
                     value=str(value), 
-                    description=f"自定義設定: {key}"
+                    description=f"自定義設定: {key}",
+                    classification=target_classification  # 修正：補上 classification
                 )
                 db.session.add(new_setting)
         

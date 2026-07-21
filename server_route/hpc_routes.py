@@ -39,8 +39,17 @@ def hpc_settings():
         diff_price_threshold = data.get('diff_price_threshold')
         check_period = data.get('check_period')
         notification_cooldown_days = data.get('notification_cooldown_days')
+        classification = data.get('classification')  # 1. 提取新欄位
 
-        if not all([price_threshold is not None, check_interval is not None, check_period is not None, notification_cooldown_days is not None]): # 修改這行
+        # 2. 加入必要欄位檢查
+        if not all([
+            price_threshold is not None, 
+            check_interval is not None, 
+            diff_price_threshold is not None,  # 建議 diff_price_threshold 也加入必填檢查
+            check_period is not None, 
+            notification_cooldown_days is not None,
+            classification is not None
+        ]):
             return jsonify({'success': False, 'message': '缺少必要的設定參數。'}), 400
         
         try:
@@ -49,21 +58,29 @@ def hpc_settings():
             diff_price_threshold = int(diff_price_threshold)
             check_period = int(check_period)
             notification_cooldown_days = int(notification_cooldown_days)
+            classification = int(classification)  # 3. 轉為整數
             
-            if not (price_threshold >= 0 and check_interval > 0 and check_period > 0 and diff_price_threshold >= 0 and notification_cooldown_days >= 0): # 修改這行
-                print('1')
+            # 4. 檢查範圍（假設 classification 必須大於等於 0，若可為負值請依需求調整）
+            if not (price_threshold >= 0 and 
+                    check_interval > 0 and 
+                    check_period > 0 and 
+                    diff_price_threshold >= 0 and 
+                    notification_cooldown_days >= 0 and 
+                    classification > 0):
                 return jsonify({'success': False, 'message': '設定參數數值無效，請檢查範圍。'}), 400
 
-        except ValueError:
+        except (ValueError, TypeError):  # 建議加上 TypeError 防止傳入非字串/數字型態 (如 list/dict)
             print('2')
             return jsonify({'success': False, 'message': '設定參數格式不正確，請輸入數字。'}), 400
 
+        # 5. 寫入儲存字典
         new_settings = {
             'price_threshold': price_threshold,
             'check_interval': check_interval,
             'diff_price_threshold': diff_price_threshold,
             'check_period': check_period,
-            'notification_cooldown_days': notification_cooldown_days
+            'notification_cooldown_days': notification_cooldown_days,
+            'classification': classification
         }
         save_hpc_settings(new_settings)
         

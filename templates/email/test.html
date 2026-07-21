@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>進階信件編輯器（支援 HTML 匯入）</title>
+    <!-- 引入 TinyMCE 免費 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" referrerpolicy="origin"></script>
+    <style>
+        .email-box {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            font-family: system-ui, sans-serif;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; }
+        .form-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        /* 按鈕列樣式 */
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn-import { background: #28a745; color: white; margin-right: 10px; }
+        .btn-import:hover { background: #218838; }
+        .btn-save { background: #007bff; color: white; }
+        .btn-save:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+<div class="email-box">
+    <h2>高級信件編輯器</h2>
+    
+    <div class="form-group">
+        <label>信件主旨</label>
+        <input type="text" id="email-subject" placeholder="請輸入信件主旨...">
+    </div>
+    
+    <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">信件內容</label>
+            
+            <!-- 隱藏的檔案上傳點，只接受 .html 或 .htm 檔案 -->
+            <input type="file" id="html-file-picker" accept=".html,.htm" style="display: none;" onchange="handleFileImport(this)">
+            <!-- 觸發按鈕 -->
+            <button type="button" class="btn btn-import" onclick="document.getElementById('html-file-picker').click()">📥 匯入 HTML 檔案</button>
+        </div>
+        
+        <!-- TinyMCE 編輯器區塊 -->
+        <textarea id="email-body-editor"></textarea>
+    </div>
+    
+    <div class="action-bar">
+        <span></span> <!-- 佔位 -->
+        <button class="btn btn-save" onclick="getHTMLContent()">儲存信件內容</button>
+    </div>
+</div>
+
+<script>
+    // 1. 初始化 TinyMCE
+    tinymce.init({
+        selector: '#email-body-editor',
+        height: 450,
+        plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount',
+        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strike | link image table | align lineheight | numlist bullist indent outdent | emoticons charmap | removeformat',
+        branding: false,
+        promotion: false
+    });
+
+    // 2. 核心邏輯：處理 HTML 檔案匯入
+    function handleFileImport(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        
+        // 當檔案讀取完成時觸發
+        reader.onload = function(e) {
+            const fileContent = e.target.result; // 這就是 HTML 的純文字內容
+            
+            // 將內容直接塞進 TinyMCE 編輯器中
+            if (tinymce.get('email-body-editor')) {
+                tinymce.get('email-body-editor').setContent(fileContent);
+                alert(`成功匯入檔案：${file.name}`);
+            }
+            
+            // 清空 file input，這樣下一次選同一個檔案才會再次觸發 onchange
+            input.value = '';
+        };
+
+        // 以文字（UTF-8）編碼讀取 HTML 檔案
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    // 3. 取得最終編輯後的 HTML（準備給後端）
+    function getHTMLContent() {
+        const subject = document.getElementById('email-subject').value.trim();
+        const htmlBody = tinymce.get('email-body-editor').getContent();
+        
+        if(!htmlBody.trim()) {
+            alert("編輯器內沒有內容！");
+            return;
+        }
+
+        console.log("準備送出的主旨:", subject);
+        console.log("準備送出的 HTML 結構:", htmlBody);
+        
+        // 接下來在這裡寫你的 fetch() 把資料打包丟給 Flask
+        alert("已經成功撈出整段 HTML，可以送去後端發信了！請看主控台 (F12)");
+    }
+</script>
+
+</body>
+</html>

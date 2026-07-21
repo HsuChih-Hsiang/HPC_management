@@ -1,12 +1,20 @@
+/* ==========================================================================
+   1. 基礎輸入框與表單元件樣式調整
+   ========================================================================== */
 /* 輸入框樣式調整：現在將 max-width 移除，使其佔滿 100% 寬度 */
 .email-form input[type="text"],
+.email-form input[type="email"],
+.tox-tinymce { /* 納入 TinyMCE 的外層容器，確保長度完全一致 */
+    width: 100% !important; /* 確保佔滿父容器可用空間 */
+    box-sizing: border-box; /* 確保 padding 和邊框不會把寬度撐大 */
+}
+
+.email-form input[type="text"],
 .email-form input[type="email"] {
-    width: 100%; /* 確保佔滿父容器可用空間 */
     padding: 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
-    box-sizing: border-box;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -81,209 +89,11 @@
     background-color: #c82333;
 }
 
-/* --- Quill.js 編輯器樣式 --- */
-#editor-container, #templateEditor {
-    height: 300px; /* 桌面版高度 */
-    /* background-color, border, border-radius, padding 移到 .ql-container 和 .ql-editor */
-    margin-bottom: 10px;
-}
-
-.ql-toolbar.ql-snow {
-    border: 1px solid #ddd;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    background-color: #e9ecef;
-}
-
-.ql-container.ql-snow {
-    border: 1px solid #ddd; /* 外邊框 */
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    border-top: none;
-    /* background-color 移到 .ql-editor */
-}
-
-/* 新增或修改：為 Quill 編輯器的實際內容區域設定白色背景和內邊距 */
-.ql-editor {
-    background-color: #ffffff; /* 純白色背景 */
-    padding: 10px; /* 內容的內邊距 */
-    box-sizing: border-box; /* 確保 padding 不會增加寬度 */
-    height: 100%; /* 讓內容區域佔滿父容器（ql-container）的高度 */
-    overflow-y: auto; /* 確保內容溢出時有滾動條 */
-}
-
-/* --- 訊息框樣式 --- */
-.message-box {
-    margin-top: 25px;
-    padding: 15px;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.message-box.success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.message-box.error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
-
-.message-box.info {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-}
-
-/* 統一 次要操作按鈕 的樣式 */
-.template-list-item .template-actions button,
-.add-email-form .save-template-button
- {
-    padding: 8px 15px; /* 統一內邊距 */
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 15px; /* 統一字體大小 */
-    transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-
-.template-list-item .template-actions .edit-btn {
-    background-color: #17a2b8;
-    color: white;
-}
-
-.template-list-item .template-actions .edit-btn:hover {
-    background-color: #138496;
-    transform: translateY(-1px);
-}
-
-
-/* 統一所有 delete-btn 的樣式 (包括模板編輯頁面和信箱管理頁面) */
-.template-list-item .template-actions .delete-btn,
-.group-item .delete-btn,
-.email-item .delete-btn {
-    background-color: #dc3545; /* 紅色 */
-    color: #fff;
-    /* 這裡不再需要 box-shadow */
-}
-
-.template-list-item .template-actions .delete-btn:hover,
-.group-item .delete-btn:hover,
-.email-item .delete-btn:hover {
-    background-color: #c82333;
-    transform: translateY(-1px);
-}
-.template-list-item .template-actions .delete-btn:active,
-.group-item .delete-btn:active,
-.email-item .delete-btn:active {
-    background-color: #bd2130;
-    transform: translateY(0);
-}
-
-
-/* --- 「郵件內容 (HTML 編輯器):」標籤和「選擇模板」按鈕的容器樣式 (index.html) --- */
-.label-with-button {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.label-with-button label {
-    margin-bottom: 0;
-    white-space: nowrap;
-}
-
-/* --- 選擇模板按鈕的樣式 (index.html) --- */
-.select-template-button {
-    padding: 6px 12px;
-    margin-bottom: 0;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.2);
-    flex-shrink: 0;
-}
-
-.select-template-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0, 123, 255, 0.3);
-}
-
-.select-template-button:active {
-    background-color: #004085;
-    transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(0, 123, 255, 0.2);
-}
-
-/* --- 儲存和寄送按鈕的並列容器樣式 (index.html) --- */
-.action-buttons-group {
-    display: flex;
-    gap: 15px;
-    margin-top: 20px;
-    justify-content: space-between;
-}
-
-.action-buttons-group .save-template-button {
-    width: 50%;
-    margin-top: 0;
-    margin-bottom: 0;
-    flex-grow: 1;
-    flex-basis: 0;
-}
-
-.action-buttons-group .send-button {
-    width: 50%;
-    margin-top: 0;
-    margin-bottom: 0;
-    flex-grow: 1;
-    flex-basis: 0;
-}
-
-/* 模態視窗內的模板列表容器，現在只有 index.html 使用 */
-.template-list-in-modal {
-    margin-top: 15px;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 10px;
-    max-height: 300px; /* 限制列表高度可滾動 */
-    overflow-y: auto;
-    background-color: #fcfcfc;
-}
-
-/* 模態視窗內模板項目的樣式 (只有 index.html 使用) */
-.template-list-item-modal {
-    background-color: #e9f5ff; /* 淺藍色背景 */
-    border: 1px solid #cceeff;
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
-    display: flex;
-    flex-direction: column;
-}
-
-/* 郵件標籤樣式 */
+/* ==========================================================================
+   2. 收件人電子郵件標籤容器（已修正寬度一致性）
+   ========================================================================== */
 .email-input-container {
-    flex: 1 1 0%;    /* 關鍵：強制平分空間，寬度基礎為 0 */
-    min-width: 0;    /* 關鍵：防止內容（長標籤）將 Flex 項目撐開 */
-    width: 1000px;
+    width: 100% !important; /* 修正：移除原本的 1000px，強制 100% 滿版與主旨對齊 */
     display: flex;
     flex-wrap: wrap; /* 允許換行 */
     align-items: center;
@@ -296,7 +106,7 @@
     max-height: 200px; /* 超過此高度才出現捲軸 */
     overflow-y: auto;
     overflow-x: hidden; /* 絕對禁止左右長度延伸 */
-    box-sizing: border-box;
+    box-sizing: border-box; /* 確保邊框計算正確 */
 }
 
 .email-input-container:focus-within {
@@ -318,20 +128,16 @@
     padding: 4px 10px;
     font-size: 14px;
     color: #1976d2;
-    cursor: move;
     transition: all 0.2s ease;
-    user-select: none;
     max-width: 200px;
     flex-shrink: 0;
     white-space: nowrap;
     height: 24px;
     margin-top: 8px; 
     margin-bottom: 8px; 
-
     user-select: none;
     cursor: default;
 }
-
 
 .email-tag:hover {
     background-color: #bbdefb;
@@ -412,7 +218,232 @@
     order: 999; 
 }
 
-/* 群組列表容器 */
+/* 編輯模式 */
+.email-tag.editing {
+    background-color: #ffffff !important;
+    box-shadow: 0 0 4px rgba(33, 150, 243, 0.4);
+}
+
+.email-edit-input {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    font-size: 14px !important;
+    font-family: inherit !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100%;
+    min-width: 30px;
+}
+
+.email-tags-container.has-content .email-input::placeholder {
+    visibility: hidden;
+    opacity: 0;
+}
+
+/* ==========================================================================
+   3. 訊息提示框與按鈕樣式
+   ========================================================================== */
+.message-box {
+    margin-top: 25px;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-box.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message-box.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message-box.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.template-list-item .template-actions button,
+.add-email-form .save-template-button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.template-list-item .template-actions .edit-btn {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.template-list-item .template-actions .edit-btn:hover {
+    background-color: #138496;
+    transform: translateY(-1px);
+}
+
+.template-list-item .template-actions .delete-btn,
+.group-item .delete-btn,
+.email-item .delete-btn {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.template-list-item .template-actions .delete-btn:hover,
+.group-item .delete-btn:hover,
+.email-item .delete-btn:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+}
+
+.template-list-item .template-actions .delete-btn:active,
+.group-item .delete-btn:active,
+.email-item .delete-btn:active {
+    background-color: #bd2130;
+    transform: translateY(0);
+}
+
+/* ==========================================================================
+   4. 頁面佈局與功能按鈕
+   ========================================================================== */
+.label-with-button {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.label-with-button label {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.select-template-button {
+    padding: 6px 12px;
+    margin-bottom: 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.select-template-button:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 123, 255, 0.3);
+}
+
+.select-template-button:active {
+    background-color: #004085;
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 123, 255, 0.2);
+}
+
+.action-buttons-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: space-between;
+}
+
+.action-buttons-group .save-template-button,
+.action-buttons-group .send-button {
+    width: 50%;
+    margin-top: 0;
+    margin-bottom: 0;
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+.clear-template-button {
+    background-color: #f0ad4e;
+    color: white;
+    box-shadow: 0 4px 10px rgba(240, 173, 78, 0.2);
+    margin-top: 20px;
+}
+
+.clear-template-button:hover {
+    background-color: #ec971f;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(240, 173, 78, 0.3);
+}
+
+.clear-template-button:active {
+    background-color: #d88a18;
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(240, 173, 78, 0.2);
+}
+
+/* ==========================================================================
+   5. 模態視窗（Modal）內部元件
+   ========================================================================== */
+.template-list-in-modal {
+    margin-top: 15px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fcfcfc;
+}
+
+.template-list-item-modal {
+    background-color: #e9f5ff;
+    border: 1px solid #cceeff;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.template-list-item-modal:hover {
+    background-color: #d1ecff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.template-list-item-modal h4 {
+    margin: 0 0 5px 0;
+    color: #0056b3;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.template-list-item-modal p {
+    margin: 0;
+    color: #555;
+    font-size: 0.85em;
+    font-style: italic;
+}
+
+#noTemplatesMessageModal {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+}
+
 .group-list-container {
     flex-grow: 1;
     overflow-y: auto;
@@ -422,7 +453,6 @@
     background-color: #f9f9f9;
 }
 
-/* 單一群組項目 */
 .group-item {
     padding: 10px;
     border-bottom: 1px solid #eee;
@@ -441,7 +471,6 @@
     font-weight: bold;
 }
 
-/* 電子郵件選擇列表 */
 .email-checkbox-list {
     display: flex;
     flex-direction: column;
@@ -463,7 +492,6 @@
     cursor: pointer;
 }
 
-/* 模態視窗底部按鈕群組 */
 .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -490,7 +518,7 @@
 }
 
 .add-button {
-    background-color: #4CAF50; /* 綠色 */
+    background-color: #4CAF50;
     color: white;
 }
 
@@ -498,7 +526,6 @@
     background-color: #45a049;
 }
 
-/* 群組標題的樣式 */
 .group-header {
     display: flex;
     align-items: center;
@@ -514,17 +541,6 @@
 .group-header input[type="checkbox"] {
     margin-right: 8px;
     cursor: pointer;
-}
-
-/* 動畫效果 */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95) translateY(20px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .modal-content h2 {
@@ -553,84 +569,17 @@
 .close-button:focus {
     color: #333;
     text-decoration: none;
-    cursor: pointer;
     transform: rotate(5deg);
 }
 
-.template-list-item-modal:hover {
-    background-color: #d1ecff; /* 深一點的藍色 */
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
-    transform: translateY(-2px);
+/* ==========================================================================
+   6. 響應式斷點與動畫
+   ========================================================================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.template-list-item-modal h4 {
-    margin: 0 0 5px 0;
-    color: #0056b3;
-    font-size: 1.1em;
-    font-weight: 600;
-}
-
-.template-list-item-modal p {
-    margin: 0;
-    color: #555;
-    font-size: 0.85em;
-    font-style: italic;
-}
-
-#noTemplatesMessageModal { /* 主頁面模態視窗的無模板訊息 */
-    text-align: center;
-    color: #6c757d;
-    font-style: italic;
-    padding: 20px;
-}
-
-/* 清空模板內容按鈕 (主要按鈕，尺寸較大) */
-.clear-template-button {
-    background-color: #f0ad4e;
-    color: white;
-    box-shadow: 0 4px 10px rgba(240, 173, 78, 0.2);
-    margin-top: 20px;
-}
-
-.clear-template-button:hover {
-    background-color: #ec971f;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(240, 173, 78, 0.3);
-}
-
-.clear-template-button:active {
-    background-color: #d88a18;
-    transform: translateY(0);
-    box-shadow: 0 2px 5px rgba(240, 173, 78, 0.2);
-}
-
-.email-tags-container.has-content .email-input::placeholder {
-    visibility: hidden;
-    opacity: 0;
-}
-
-/* 編輯模式：外層容器變成透明，只靠內層 input 撐開 */
-/* 編輯模式：保持外框，只針對內部 input 調整 */
-.email-tag.editing {
-    background-color: #ffffff !important; /* 編輯時背景變白以便辨識 */
-    box-shadow: 0 0 4px rgba(33, 150, 243, 0.4);
-}
-
-.email-edit-input {
-    border: none !important;
-    outline: none !important;
-    background: transparent !important;
-    font-size: 14px !important;
-    font-family: inherit !important;
-    color: #000000 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100%; /* 填滿標籤內部 */
-    min-width: 30px;
-}
-
-
-/* 響應式設計 */
 @media (max-width: 768px) {
     .email-tag {
         font-size: 12px;

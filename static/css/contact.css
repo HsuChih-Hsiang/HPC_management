@@ -1660,38 +1660,58 @@ body {
     padding: 10px;
 }
 
+/* 按鈕容器列 */
 .popover-actions {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 6px;
+    gap: 10px; /* 讓兩個按鈕拉開一點距離 */
+    margin-bottom: 10px;
 }
 
+/* 兩個按鈕的通用基礎樣式 */
 .popover-actions button {
-    padding: 2px 6px;
+    flex: 1; /* 均分寬度，看起來更整齊 */
+    padding: 5px 10px;
     font-size: 12px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px; /* 圓角 */
     cursor: pointer;
-    background: #f5f5f5;
-    border: 1px solid #ccc;
-    border-radius: 3px;
+    transition: all 0.2s ease; /* 讓顏色變換變平滑 */
+    text-align: center;
 }
 
-.popover-actions button:hover {
-    background: #e8e8e8;
+/* 全選按鈕 - 科技藍 */
+#popSelectAll {
+    background-color: #e3f2fd;
+    color: #0d47a1;
 }
 
-.popover-list {
-    max-height: 180px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+#popSelectAll:hover {
+    background-color: #0d47a1;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(13, 71, 161, 0.2);
 }
 
-.pop-host-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    cursor: pointer;
-    user-select: none;
+/* 全取消按鈕 - 質感灰 */
+#popClearAll {
+    background-color: #f5f5f5;
+    color: #616161;
+}
+
+#popClearAll:hover {
+    background-color: #e0e0e0;
+    color: #212121;
+}
+
+/* 按鈕點擊時的下壓視覺回饋 */
+.popover-actions button:active {
+    transform: scale(0.97);
+}
+
+/* 分隔線微調，讓它更淡更優雅 */
+.host-popover hr {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 8px 0;
 }

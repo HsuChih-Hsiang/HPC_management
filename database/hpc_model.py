@@ -123,6 +123,7 @@ class HPCSetting(db.Model):
     key = db.Column(db.String(80), primary_key=True)
     value = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text)
+    classification = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
         return f'<HPCSetting (key={self.key}, value={self.value})>'
@@ -325,7 +326,7 @@ class Contact(db.Model):
             'notes': self.notes,
             'is_course_account': self.is_course_account,
             'course_students': [{'account': s.student_account, 'password': s.student_password} for s in self.course_students],
-            'secondary_contacts': [{'name': s.name, 'info': s.info} for s in self.secondaries],
+            'secondary_contacts': [{'name': s.name, 'info': s.info, 'is_primary': s.is_primary} for s in self.secondaries],
             
             # 核心數據分流輸出結果
             'total_remaining': round(total_remaining, 2),          
@@ -342,6 +343,11 @@ class SecondaryContact(db.Model):
     contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id'))
     name = db.Column(db.String(100))
     info = db.Column(db.String(255))
+    is_primary = db.Column(db.Boolean, default=False, nullable=True)
+
+    def __repr__(self):
+        status = "Primary" if self.is_primary else "Secondary"
+        return f"<SecondaryContact {self.id} ({self.name or '未命名'}, {status})>"
 
 class CourseStudent(db.Model):
     __tablename__ = 'course_students'
@@ -363,6 +369,10 @@ class ContactAccountMapping(db.Model):
 
     # 關聯到 UserAccounting 模型
     user_accounting = db.relationship('UserAccounting', backref='contact_mappings')
+
+    def __repr__(self):
+        acc_info = f"SystemID:{self.user_accounting_id}" if self.user_accounting_id else f"Manual:'{self.manual_account}'"
+        return f"<ContactAccountMapping {self.id} (ContactID:{self.contact_id} -> {acc_info})>"
     
 class UserAccounting(db.Model):
     __tablename__ = 'user_accounting'

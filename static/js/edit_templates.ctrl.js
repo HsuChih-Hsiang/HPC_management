@@ -1,5 +1,54 @@
 // static/js/edit_templates.ctrl.js
 angular.module('emailApp')
+
+// 新增 TinyMCE 的 AngularJS 指令，處理編輯器初始化與資料同步
+.directive('tinymceEditor', ['$timeout', function($timeout) {
+    return {
+        restrict: 'A',
+        require: 'ngModel',
+        link: function(scope, element, attrs, ngModel) {
+            $timeout(function() {
+                tinymce.init({
+                    target: element[0],
+                    height: 350,
+                    menubar: 'edit view insert format tools table help',
+                    plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table code help wordcount',
+                    toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code help',
+                    branding: false,
+                    promotion: false,
+                    setup: function(editor) {
+                        // 當 TinyMCE 內容改變時，同步回 AngularJS 的 ngModel
+                        editor.on('change keyup undo redo', function() {
+                            var content = editor.getContent();
+                            scope.$apply(function() {
+                                ngModel.$setViewValue(content);
+                            });
+                        });
+                    },
+                    init_instance_callback: function(editor) {
+                        // 當外部的 ngModel 改變時，更新 TinyMCE 視窗內容
+                        ngModel.$render = function() {
+                            editor.setContent(ngModel.$viewValue || '');
+                        };
+                        // 確保初始載入時資料正確渲染
+                        if (ngModel.$viewValue) {
+                            editor.setContent(ngModel.$viewValue);
+                        }
+                    }
+                });
+            });
+
+            // 當 Scope 銷毀時，記得拔除 TinyMCE 實例防止記憶體洩漏
+            scope.$on('$destroy', function() {
+                var id = element.attr('id');
+                if (id && tinymce.get(id)) {
+                    tinymce.get(id).remove();
+                }
+            });
+        }
+    };
+}])
+
 .controller('EditTemplatesController', ['$scope', '$http', '$window', '$timeout', function($scope, $http, $window, $timeout) {
     
     // 初始化變數
@@ -40,6 +89,11 @@ angular.module('emailApp')
             html: ''
         };
         $scope.currentEditingTemplateId = null;
+        
+        // 額外處理：手動清空 TinyMCE 編輯器畫面
+        if (tinymce.get('templateEditor')) {
+            tinymce.get('templateEditor').setContent('');
+        }
     };
 
     // 1. 加載所有已儲存的模板列表
@@ -67,6 +121,11 @@ angular.module('emailApp')
                 $scope.templateData.name = data.name;
                 $scope.templateData.subject = data.subject || '';
                 $scope.templateData.html = data.html || '';
+
+                // 同步更新到 TinyMCE 編輯器中
+                if (tinymce.get('templateEditor')) {
+                    tinymce.get('templateEditor').setContent(data.html || '');
+                }
 
                 showMessage('已載入模板 "' + data.name + '" 進行編輯。', 'info');
 
@@ -115,13 +174,20 @@ angular.module('emailApp')
     $scope.saveTemplate = function() {
         var name = $scope.templateData.name ? $scope.templateData.name.trim() : '';
         var subject = $scope.templateData.subject ? $scope.templateData.subject.trim() : '';
+        
+        // 確保抓到 TinyMCE 當下的最新內容
         var html = $scope.templateData.html ? $scope.templateData.html.trim() : '';
+        if (tinymce.get('templateEditor')) {
+            html = tinymce.get('templateEditor').getContent().trim();
+        }
 
         if (!name) {
             showMessage('模板名稱不能為空。', 'error');
             return;
         }
-        if (!html || html === '<p><br></p>') {
+        
+        // 修改點：對應 TinyMCE 的各種空標籤格式（如 <p>&nbsp;</p>, <p><br></p>, 或全空）
+        if (!html || html === '<p><br></p>' || html === '<p>&nbsp;</p>' || html === '') {
             showMessage('模板內容不能為空。', 'error');
             return;
         }
@@ -144,7 +210,7 @@ angular.module('emailApp')
             var result = response.data;
             if (result.success) {
                 showMessage(result.message, 'success');
-                $scope.clearEditor();   // 重置表單
+                $scope.clearEditor();   // 重置表單與 TinyMCE
                 $scope.loadTemplates(); // 更新左側列表
             } else {
                 showMessage('操作失敗: ' + (result.message || '未知錯誤'), 'error');
