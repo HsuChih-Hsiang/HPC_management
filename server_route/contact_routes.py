@@ -2,10 +2,11 @@ import json
 import csv
 from datetime import datetime
 from io import StringIO, BytesIO
-from sqlalchemy import or_, and_, func, cast, exists
+from sqlalchemy import or_, and_, func, cast, exists, Numeric
 from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
-from database.hpc_model import Contact, SecondaryContact, CourseStudent, ContactAccountMapping, UserAccounting, Bill, Accounting
+from database.hpc_model import (Contact, SecondaryContact, CourseStudent, ContactAccountMapping, 
+                                Serverlist, UserAccounting, Bill, Accounting, PrepaidAmount)
 
 contact_bp = Blueprint('contact', __name__)
 
@@ -283,29 +284,76 @@ def update_contact(id):
     db.session.commit()
     return jsonify({'success': True})
 
-# --- 新增：一鍵匯出 CSV API ---
-@contact_bp.route('/api/contacts/export', methods=['GET'])
-def export_contacts():
-    contacts = Contact.query.all()
+@contact_bp.route('/api/contacts/hpc-statistics', methods=['GET'])
+def get_hpc_statistics():
+    current_year = datetime.now().year
+    years = [current_year, current_year - 1, current_year - 2]
     
-    # 建立 CSV 內容
-    output = StringIO()
-    # 寫入 UTF-8 BOM 以防 Excel 開啟亂碼
-    output.write(u'\ufeff')
-    writer = csv.writer(output)
+    result = []
     
-    # 標題列
-    writer.writerow(['申請團隊', '一級單位', '申請人', '申請日期', '正式帳號', '帳號名稱', '使用主機', '測試期限', '其他聯絡人'])
-    
-    for c in contacts:
-        hosts_str = ", ".join(json.loads(c.hosts or '[]'))
-        sc_str = "; ".join([f"{s.name}({s.info})" for s in c.secondaries])
-        writer.writerow([
-            c.team_name, c.dept_level1, c.applicant, c.apply_date, 
-            c.formal_account, c.account_name, hosts_str, c.test_deadline, sc_str
-        ])
-    
-    response = make_response(output.getvalue())
-    response.headers["Content-Disposition"] = "attachment; filename=contacts_export.csv"
-    response.headers["Content-type"] = "text/csv; charset=utf-8"
-    return response
+    for year in sorted(years, reverse=True):
+        year_str = str(year)
+        
+        # 1. 訪談人數 (該年度 apply_date 開頭為該年份，且扣除課程帳號)
+        interview_count = Contact.query.filter(
+            Contact.apply_date.like(f"{year_str}%"),
+            (Contact.is_course_account == False) | (Contact.is_course_account.is_(None))
+        ).count()
+
+        # 2. 測試人數 (有 apply_date 且 trial_account 不為空/Null)
+        trial_count = Contact.query.filter(
+            Contact.apply_date.like(f"{year_str}%"),
+            Contact.trial_account.isnot(None),
+            Contact.trial_account != ''
+        ).count()
+        
+        # 3. 正式使用人數 (該年度 Contact 有綁定 ContactAccountMapping)
+        formal_count = Contact.query.join(ContactAccountMapping).filter(
+            Contact.apply_date.like(f"{year_str}%")
+        ).count()
+
+        # 4. 課程帳號數量 (is_course_account 為 True)
+        course_count = Contact.query.filter(
+            Contact.apply_date.like(f"{year_str}%"),
+            Contact.is_course_account == True
+        ).count()
+        
+        # 5. 預繳總額
+        total_receivable = db.session.query(
+            func.coalesce(func.sum(PrepaidAmount.amount), 0)
+        ).filter(
+            PrepaidAmount.year == year,
+            PrepaidAmount.is_paid == True,      # 排除未繳費 (is_paid == False)
+            PrepaidAmount.is_history == False   # 排除歷史紀錄 (is_history == True)
+        ).scalar()
+        
+        # 6. 使用費總額 (採用你提供的計算式，依 endtime 歸屬年份)
+        usage_query = db.session.query(
+            func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
+            func.count(Accounting.jobid).label('job_count')
+        ).join(
+            Serverlist, Accounting.host == Serverlist.server
+        ).filter(
+            func.extract('year', Accounting.endtime) == year,
+            or_(
+                Accounting.username.notlike('gst%'),
+                Accounting.username.is_(None)
+            )
+        ).first()
+
+        total_price = usage_query.total_price if usage_query and usage_query.total_price is not None else 0
+        
+        result.append({
+            "year": year,
+            "interview_count": interview_count,
+            "trial_count": trial_count,
+            "formal_count": formal_count,
+            "course_count": course_count,
+            "total_receivable": round(float(total_receivable), 2),
+            "usage_amount": round(float(total_price), 2)
+        })
+        
+    return jsonify({
+        "status": "success",
+        "data": result
+    })
