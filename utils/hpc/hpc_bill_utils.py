@@ -1,6 +1,6 @@
 import json
 from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
-from sqlalchemy import func
+from sqlalchemy import func, cast, Numeric, and_
 from database.extensions import db
 from database.hpc_model import Accounting, PrepaidAmount, NotificationHistory, Serverlist
 from datetime import datetime, timedelta
@@ -29,7 +29,9 @@ def get_hpc_user_and_total_usage_with_details():
         func.sum(
             (Accounting.cores * (Accounting.wtime / 3600)) * Serverlist.price
         ).label('total_price')
-    ).join(Serverlist, Accounting.host == Serverlist.server).group_by(
+    # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
+    # 否則同一筆 job 會對到多筆價格造成金額被重複加總
+    ).join(Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)).group_by(
         Accounting.username, Serverlist.server
     )
     
@@ -91,12 +93,14 @@ def get_hpc_user_and_total_usage(check_period_days):
     
     # 執行 SQL 聯結查詢並計算費用
     # 計算 job 執行的小時數 (wtime / 3600)
+    # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
+    # 否則同一筆 job 會對到多筆價格造成金額被重複加總
     yearly_results = db.session.query(
         Accounting.username,
         func.sum(
             (Accounting.cores * (Accounting.wtime / 3600)) * Serverlist.price
         ).label('total_price')
-    ).join(Serverlist, Accounting.host == Serverlist.server).filter(
+    ).join(Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)).filter(
         func.extract('year', Accounting.endtime) == current_year
     ).group_by(Accounting.username).all()
 
@@ -105,7 +109,7 @@ def get_hpc_user_and_total_usage(check_period_days):
         func.sum(
             (Accounting.cores * (Accounting.wtime / 3600)) * Serverlist.price
         ).label('total_price')
-    ).join(Serverlist, Accounting.host == Serverlist.server).filter(
+    ).join(Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)).filter(
         Accounting.endtime >= recent_period_start
     ).group_by(Accounting.username).all()
 
@@ -115,19 +119,84 @@ def get_hpc_user_and_total_usage(check_period_days):
     
     return yearly_usage, recent_usage
 
-def get_usage_and_prepaid_data_db():
+def get_account_last_year_usage_details(username):
+    """
+    計算單一帳號「去年度」依主機+queue分組的 HPC 使用量明細，供確認信範本
+    (templates/email/quotation_check_email.html) 的動態使用量表格使用。
+
+    計算公式與 hpc_quota_routes.calculate_pending_bill / contact_routes.get_hpc_statistics
+    保持一致：SU = cores * (wtime 秒數 / 3600) * 該主機當時的單價。
+
+    注意：Serverlist 同一個 server 可能有多筆不同 queue 的價格設定，
+    因此 join 條件除了 host 還必須帶上 queue，否則同一筆 Accounting
+    job 會同時對到該 host 底下的多個 queue 價格，造成總額被重複加總、灌水。
+
+    Returns:
+        dict: {
+            'usage_year': int,                 去年度年份
+            'usage_rows': [{'host', 'queue', 'job_count', 'su'}, ...],  依主機+queue分組明細
+            'usage_total_su': float            該帳號去年度總 SU
+        }
+    """
+    last_year = datetime.now().year - 1
+
+    results = db.session.query(
+        Accounting.host,
+        Accounting.queue,
+        func.count(Accounting.jobid).label('job_count'),
+        func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('su')
+    ).join(
+        Serverlist,
+        (Accounting.host == Serverlist.server) & (Accounting.queue == Serverlist.queue)
+    ).filter(
+        Accounting.username == username,
+        func.extract('year', Accounting.endtime) == last_year
+    ).group_by(Accounting.host, Accounting.queue).order_by(Accounting.host, Accounting.queue).all()
+
+    usage_rows = [
+        {
+            'host': row.host,
+            'queue': row.queue,
+            'job_count': row.job_count or 0,
+            'su': round(float(row.su or 0), 2)
+        }
+        for row in results
+    ]
+    usage_total_su = round(sum(row['su'] for row in usage_rows), 2)
+
+    return {
+        'usage_year': last_year,
+        'usage_rows': usage_rows,
+        'usage_total_su': usage_total_su
+    }
+
+def get_usage_and_prepaid_data_db(min_usage_threshold=10000):
     """
     【資料庫版本】
     整合HPC年度用量、預繳金額和年度通知狀態。
+
+    Args:
+        min_usage_threshold (float): 本年度使用量 (SU) 顯示門檻，只有超過此門檻的帳號
+            才會被列入清單，供 /api/hpc-usage/prepaid 讓前端動態調整（預設 10000）。
     """
     current_year = datetime.now().year
     
     # 1. 獲取年度總用量 (這部分不變)
     yearly_usage, _ = get_hpc_user_and_total_usage_with_details()
     
-    # 2. 從資料庫獲取預繳金額
-    prepaid_records = PrepaidAmount.query.all()
-    prepaid_amounts = {record.username: record.amount for record in prepaid_records}
+    # 2. 從資料庫獲取預繳金額（自費金額 + 優惠額度）
+    # 只計入「已付款 (is_paid=True) 且非歷史封存 (is_history=False)」的紀錄，
+    # 且同一帳號可能有多筆年度紀錄要加總，
+    # 邏輯對齊 database/hpc_model.py 的 Contact.to_dict() 中 total_remaining 的算法，
+    # 確保這裡跟聯絡人管理頁面看到的「剩餘總額度」定義一致。
+    prepaid_records = PrepaidAmount.query.filter_by(is_paid=True, is_history=False).all()
+    prepaid_amounts = {}
+    for record in prepaid_records:
+        prepaid_amounts[record.username] = (
+            prepaid_amounts.get(record.username, 0.0)
+            + float(record.amount or 0)
+            + float(record.discount or 0)
+        )
     
     # 3. 從資料庫獲取今年已通知預繳金額超額的使用者
     notified_users_records = db.session.query(NotificationHistory.username).filter(
@@ -147,7 +216,7 @@ def get_usage_and_prepaid_data_db():
         usage_data = yearly_usage.get(user, {'total_price': 0.0})
         yearly_usage_rounded = round(usage_data['total_price'], 2)
         
-        if yearly_usage_rounded > 10000 :
+        if yearly_usage_rounded > min_usage_threshold :
             prepaid = prepaid_amounts.get(user, 0.0)
             
             combined_data.append({

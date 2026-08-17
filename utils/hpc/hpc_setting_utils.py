@@ -106,8 +106,11 @@ def load_hpc_settings_by_classification(target_classification=None):
 def save_hpc_settings(settings):
     """將設定字典存入資料庫"""
     with current_app.app_context():
-        # 從輸入字典提取 classification，若沒帶入則預設給 1
-        target_classification = settings.get('classification', 1)
+        # 'classification' 只是用來指定「這批設定」要歸類到哪個分類，
+        # 它本身不是一筆設定 key，複製一份字典後把它拿掉，
+        # 避免被底下的迴圈當成一般設定寫進 HPCSetting 表（多出一筆 key='classification' 的髒資料）。
+        settings = dict(settings)
+        target_classification = settings.pop('classification', 1)
 
         for key, value in settings.items():
             # 找到現有設定或創建新設定

@@ -122,10 +122,16 @@ def hpc_quota_settings():
             return jsonify({'success': False, 'message': '參數格式不正確。'}), 400
 
         # 寫入資料庫
+        # 注意：
+        #  1. key 必須是 'discount'（跟 DEFAULT_HPC_SETTINGS / calculate_prepaid_quota 讀取的 key 一致），
+        #     用 'prepay_discounts' 存的話，實際計算優惠時永遠讀不到剛存的值。
+        #  2. save_hpc_settings 沒收到 classification 時預設是 1，這三筆設定原本屬於分類 2，
+        #     不帶的話存檔會把它們的 classification 也一併改成 1，後續用分類 2 讀取就會全部撈不到。
         new_settings = {
             'free_quota': free_quota,
             'academic_quota': academic_quota,
-            'prepay_discounts': discounts_json
+            'discount': discounts_json,
+            'classification': 2
         }
         save_hpc_settings(new_settings)
         
@@ -137,8 +143,9 @@ def get_prepaid_data():
     filter_exceeded = request.args.get('filter_exceeded', 'false').lower() == 'true'
     page = request.args.get('page', 1, type=int)
     limit = request.args.get('limit', 10, type=int)
+    min_usage = request.args.get('min_usage', 10000, type=float)
 
-    all_data = get_usage_and_prepaid_data_db()
+    all_data = get_usage_and_prepaid_data_db(min_usage)
 
     if filter_exceeded:
         all_data = [d for d in all_data if d['yearly_usage'] > d['prepaid_amount']]
@@ -148,7 +155,15 @@ def get_prepaid_data():
     total_records = len(all_data)
     start_index = (page - 1) * limit
     end_index = start_index + limit
-    paginated_data = all_data[start_index:end_index]
+    paginated_data = [
+        {
+            'username': d['username'],
+            'prepaid_limit': d['prepaid_amount'],
+            'yearly_usage': d['yearly_usage'],
+            'notification_status': '已通知' if d['notified'] else '未通知'
+        }
+        for d in all_data[start_index:end_index]
+    ]
 
     return jsonify({
         'records': paginated_data,
@@ -176,19 +191,21 @@ def update_prepaid_amount():
     return jsonify({'success': True, 'message': f"使用者 {username} 的預繳金額已更新。"})
 
 
-@hpc_bp.route('/api/hpc-usage/notify-prepaid', methods=['POST'])
-def notify_prepaid_users():
-    data = request.get_json()
-    target_user = data.get('username')
-    notify_all = data.get('notify_all', False)
+NOTIFICATION_TYPE_PREPAID = 0  # 對應 database/hpc_model.py NotificationHistory 註解：0 為 'prepaid'
 
+def _send_prepaid_shortage_notifications(target_user=None, notify_all=False):
+    """
+    核心邏輯：找出年度用量超過預繳額度、且今年尚未通知過的帳號，寄送 HTML 通知信。
+    傳入 target_user 只通知單一帳號；notify_all=True 則通知所有符合條件的帳號。
+    回傳 (success, message, status_code) 供路由組裝 JSON response。
+    """
     all_data = get_usage_and_prepaid_data_db()
     users_to_notify = []
 
     if target_user:
         user_data = next((u for u in all_data if u['username'] == target_user), None)
         if not user_data:
-             return jsonify({'success': False, 'message': '找不到該使用者。'}), 404
+            return False, '找不到該使用者，或該帳號本年度用量未超過顯示門檻。', 404
         if user_data['yearly_usage'] > user_data['prepaid_amount'] and not user_data['notified']:
             users_to_notify.append(user_data)
     elif notify_all:
@@ -196,11 +213,11 @@ def notify_prepaid_users():
             u for u in all_data if u['yearly_usage'] > u['prepaid_amount'] and not u['notified']
         ]
     else:
-        return jsonify({'success': False, 'message': '未指定通知目標。'}), 400
+        return False, '未指定通知目標。', 400
 
     if not users_to_notify:
-        return jsonify({'success': True, 'message': '沒有需要通知的使用者。'})
-    
+        return True, '沒有需要通知的使用者。', 200
+
     recipients_map = {u['username']: "chh0410@ntu.edu.tw" for u in users_to_notify}
 
     successful_notifications = 0
@@ -213,27 +230,62 @@ def notify_prepaid_users():
 
         subject = "HPC 預繳金額使用提醒"
         body = render_template(
-            'prepaid_notification_template.html',
+            'email/prepaid_notification.html',
             username=username,
             yearly_usage=user_data['yearly_usage'],
             prepaid_amount=user_data['prepaid_amount']
         )
-        
+
         if send_hpc_notification_email([recipient_email], subject, body):
-            save_notification_to_db(username, 'prepaid')
+            message = f"預繳金額不足通知 (年度用量: ${user_data['yearly_usage']}, 預繳: ${user_data['prepaid_amount']})"
+            save_notification_to_db(username, NOTIFICATION_TYPE_PREPAID, message, user_data['yearly_usage'])
             successful_notifications += 1
-            
+
             # email log
             notification_record = {
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                "message": f"預繳金額不足通知 (年度用量: ${user_data['yearly_usage']}, 預繳: ${user_data['prepaid_amount']})",
+                "message": message,
                 "usage": user_data['yearly_usage'],
                 "users": [username],
                 "recipients": [recipient_email]
             }
             save_hpc_notification_log(notification_record)
 
-    return jsonify({'success': True, 'message': f"成功發送 {successful_notifications} 封通知郵件。"})
+    return True, f"成功發送 {successful_notifications} 封通知郵件。", 200
+
+
+@hpc_bp.route('/api/hpc-usage/notify-single', methods=['POST'])
+def notify_single_user():
+    data = request.get_json() or {}
+    username = data.get('username')
+
+    if not username:
+        return jsonify({'success': False, 'message': '未指定通知目標。'}), 400
+
+    success, message, status_code = _send_prepaid_shortage_notifications(target_user=username)
+    return jsonify({'success': success, 'message': message}), status_code
+
+
+@hpc_bp.route('/api/hpc-usage/notify-all', methods=['POST'])
+def notify_all_users():
+    success, message, status_code = _send_prepaid_shortage_notifications(notify_all=True)
+    return jsonify({'success': success, 'message': message}), status_code
+
+
+@hpc_bp.route('/api/hpc-usage/notify-prepaid', methods=['POST'])
+def notify_prepaid_users():
+    data = request.get_json() or {}
+    target_user = data.get('username')
+    notify_all = data.get('notify_all', False)
+
+    if target_user:
+        success, message, status_code = _send_prepaid_shortage_notifications(target_user=target_user)
+    elif notify_all:
+        success, message, status_code = _send_prepaid_shortage_notifications(notify_all=True)
+    else:
+        success, message, status_code = False, '未指定通知目標。', 400
+
+    return jsonify({'success': success, 'message': message}), status_code
 
 @hpc_bp.route('/api/hpc-usage/serverlist', methods=['GET'])
 def get_server_list():

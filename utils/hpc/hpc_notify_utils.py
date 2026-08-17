@@ -107,7 +107,7 @@ def check_hpc_usage_and_notify():
 
             # 渲染年度總用量通知的 HTML 內容
             notification_message = render_template(
-                'notification_template.html',
+                'email/notification_template.html',
                 username=username,
                 total_price=user_total_price,
                 threshold=settings['price_threshold'],
@@ -157,7 +157,7 @@ def check_hpc_usage_and_notify():
 
             # 渲染近期用量增長通知的 HTML 內容
             notification_message = render_template(
-                'notification_template.html',
+                'email/notification_template.html',
                 username=username,
                 total_price=user_recent_price,
                 threshold=settings['diff_price_threshold'],

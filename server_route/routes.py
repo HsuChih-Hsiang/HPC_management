@@ -23,6 +23,10 @@ def hpc_usage():
 def hpc_contact():
     return render_template('contact_manager.html')
 
+@routes_bp.route('/setting')
+def setting():
+    return render_template('setting.html')
+
 @routes_bp.route('/')
 @routes_bp.route('/login_page')
 def login_page():

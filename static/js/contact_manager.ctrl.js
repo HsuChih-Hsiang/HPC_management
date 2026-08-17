@@ -70,6 +70,62 @@
     app.directive('rawNumber', rawValueDirective('number'));
 
     /* -------------------------------------------------------------------
+     * tinymce-editor 指令（與 edit_templates.ctrl.js / batch_sending.ctrl.js 同款）
+     *
+     * 若 textarea 本身已經有 id（例如本頁的 emailTemplateEditor）就沿用，
+     * 沒有的話才隨機生成，避免與頁面上其他潛在的 TinyMCE 實例衝突；
+     * 用 init_instance_callback 確保編輯器初始化完成後，
+     * 一定會把當下的 ngModel 值渲染進去（不受 tinymce.init 非同步時機影響）。
+     * ------------------------------------------------------------------- */
+    app.directive('tinymceEditor', ['$timeout', function ($timeout) {
+        return {
+            restrict: 'A',
+            require: 'ngModel',
+            link: function (scope, element, attrs, ngModel) {
+                var id = attrs.id;
+                if (!id) {
+                    id = 'tiny-editor-' + Math.random().toString(36).substr(2, 9);
+                    element.attr('id', id);
+                }
+
+                $timeout(function () {
+                    tinymce.init({
+                        selector: '#' + id,
+                        height: 400,
+                        menubar: 'edit view insert format tools table help',
+                        plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table code help wordcount',
+                        toolbar: 'undo redo | blocks | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | code help',
+                        branding: false,
+                        promotion: false,
+                        setup: function (editor) {
+                            editor.on('change keyup undo redo', function () {
+                                var content = editor.getContent();
+                                scope.$apply(function () {
+                                    ngModel.$setViewValue(content);
+                                });
+                            });
+                        },
+                        init_instance_callback: function (editor) {
+                            ngModel.$render = function () {
+                                editor.setContent(ngModel.$viewValue || '');
+                            };
+                            if (ngModel.$viewValue) {
+                                editor.setContent(ngModel.$viewValue);
+                            }
+                        }
+                    });
+                });
+
+                scope.$on('$destroy', function () {
+                    if (window.tinymce && tinymce.get(id)) {
+                        tinymce.get(id).remove();
+                    }
+                });
+            }
+        };
+    }]);
+
+    /* -------------------------------------------------------------------
      * pagination-render 指令
      *
      * contact.css 對分頁有「結構型」選擇器：
@@ -420,6 +476,9 @@
             $scope.onRewardModalBackdrop = function ($event) {
                 if ($event.target && $event.target.id === 'rewardQuotaModal') { $scope.closeRewardModal(); }
             };
+            $scope.onSettingModalBackdrop = function ($event) {
+                if ($event.target && $event.target.id === 'settingModal') { $scope.closeSettingModal(); }
+            };
 
             // ============================================================
             // 年份下拉選單（原 initYearFilter）
@@ -539,7 +598,7 @@
                     console.log('收到的次要聯絡人資料:', data.secondary_contacts);
                     if (data.secondary_contacts && data.secondary_contacts.length > 0) {
                         data.secondary_contacts.forEach(function (sc) {
-                            addContactRow(!!sc.is_primary, sc.name || '', sc.info || '');
+                            addContactRow(!!sc.is_primary, sc.name || '', sc.info || '', sc.id, !!sc.email_disabled, sc.email_toggled_at || null);
                         });
                     } else {
                         console.warn('沒有次要聯絡人資料或格式錯誤');
@@ -666,11 +725,17 @@
             };
 
             // ---- 其他聯絡人（原 addContactRow）----
-            function addContactRow(isPrimary, name, info) {
+            // id / emailDisabled / emailToggledAt 只有從編輯既有聯絡人回填時才會帶值；
+            // 「＋ 新增聯絡人欄位」按鈕呼叫時不帶參數，代表這是還沒存檔的新聯絡人，
+            // 沒有 id 就沒辦法呼叫關閉寄信 API，畫面上會把該按鈕停用。
+            function addContactRow(isPrimary, name, info, id, emailDisabled, emailToggledAt) {
                 $scope.contactRows.push({
+                    id: id || null,
                     is_primary: Boolean(isPrimary),
                     name: name || '',
-                    info: info || ''
+                    info: info || '',
+                    email_disabled: Boolean(emailDisabled),
+                    email_toggled_at: emailToggledAt || null
                 });
             }
             $scope.addContactRow = addContactRow;
@@ -679,17 +744,38 @@
                 $scope.contactRows.splice(index, 1);
             };
 
-            // 原版用 pointerdown + click 兩段式判斷，讓已勾選的 radio 可以再點一次取消
-            $scope.togglePrimaryContact = function (row, $event) {
-                if ($event) $event.preventDefault();
+            // 主要聯絡人勾選框（可取消勾選）
+            //
+            // 原本用 <input type="radio"> + ng-checked + ng-click(preventDefault) 手動控制勾選/取消，
+            // 但瀏覽器對 radio 的原生行為是：click 事件結束後，若呼叫了 preventDefault()，
+            // 會把 checked 狀態「還原成點擊前的樣子」（canceled activation steps），
+            // 這一步發生在 Angular 的 digest 之後，會把我們剛設好的 checked=false 蓋回 true。
+            // 結果是 Angular 的資料模型正確變成 false，畫面上的圓圈卻仍顯示勾選、看起來完全沒反應。
+            // radio 天生就不支援「點自己取消勾選」，因此改用 checkbox（原生就支援取消勾選），
+            // 再用 ng-change 手動確保「同時最多只有一個勾選」即可，不需要跟瀏覽器的原生行為搏鬥。
+            $scope.onPrimaryContactChange = function (row) {
                 if (row.is_primary) {
-                    // 點擊前已是勾選狀態 → 這次點擊是要取消勾選
-                    row.is_primary = false;
-                } else {
-                    // 點擊前未勾選 → 設為唯一的主要聯絡人
-                    $scope.contactRows.forEach(function (r) { r.is_primary = false; });
-                    row.is_primary = true;
+                    $scope.contactRows.forEach(function (r) {
+                        if (r !== row) r.is_primary = false;
+                    });
                 }
+            };
+
+            // 關閉/開啟寄信給這個聯絡人（即時呼叫 API，不用等整份聯絡人表單存檔）。
+            // 只有已經存過檔、有 id 的聯絡人才能呼叫；還沒存檔的新增列請先按「儲存提交」。
+            $scope.toggleContactEmail = function (row) {
+                if (!row.id) {
+                    alert('請先儲存聯絡人資料後，才能設定是否寄信給這位聯絡人。');
+                    return;
+                }
+                $http.post('/api/contacts/secondary-contacts/' + row.id + '/toggle-email').then(function (res) {
+                    var data = res.data || {};
+                    row.email_disabled = !!data.email_disabled;
+                    row.email_toggled_at = data.email_toggled_at || null;
+                }, function (err) {
+                    var data = (err && err.data) || {};
+                    alert('設定失敗：' + (data.message || ('HTTP ' + (err && err.status))));
+                });
             };
 
             // ---- 課程帳號（原 is_course_account change / addCourseRow / getCourseData）----
@@ -755,10 +841,14 @@
                             .map(function (h) { return h.name; }),
                         secondary_contacts: $scope.contactRows.map(function (row) {
                             // 強制用 Boolean 轉型，確保存入的是明確的 true / false
+                            // 後端存整份聯絡人時會整批刪除重建，email_disabled/email_toggled_at
+                            // 一定要跟著送回去，不然「關閉寄信」的設定會在下次儲存時被重置掉
                             return {
                                 name: trim(row.name),
                                 info: trim(row.info),
-                                is_primary: Boolean(row.is_primary)
+                                is_primary: Boolean(row.is_primary),
+                                email_disabled: Boolean(row.email_disabled),
+                                email_toggled_at: row.email_toggled_at || null
                             };
                         }),
                         is_course_account: Boolean($scope.form.is_course_account),
@@ -1080,9 +1170,14 @@
                 var selectedItems = [];
                 var confirmDetails = [];
 
+                // 額度金額改用「⚙️ 學術獎勵額度與優惠區間」設定裡即時載入的數字，
+                // 不要寫死 10000 / 1000，避免確認視窗顯示的金額跟後端實際發放的金額對不上。
+                var freeQuotaAmount = $scope.quotaSettings.freeQuota || 10000;
+                var academicQuotaAmount = $scope.quotaSettings.academicQuota || 1000;
+
                 if ($scope.reward.free) {
                     selectedItems.push({ type: 'free', quantity: 1 });
-                    confirmDetails.push('・免費額度 $10,000 元 (限今年度帳單折抵)');
+                    confirmDetails.push('・免費額度 $' + freeQuotaAmount.toLocaleString() + ' 元 (限今年度帳單折抵)');
                 }
 
                 if ($scope.reward.academic) {
@@ -1092,7 +1187,7 @@
                         return;
                     }
                     selectedItems.push({ type: 'academic', quantity: qty });
-                    confirmDetails.push('・學術額度 $1,000 × ' + qty + ' 份 = $' + (1000 * qty) + ' 元');
+                    confirmDetails.push('・學術額度 $' + academicQuotaAmount.toLocaleString() + ' × ' + qty + ' 份 = $' + (academicQuotaAmount * qty).toLocaleString() + ' 元');
                 }
 
                 // 防呆：什麼都沒勾選
@@ -1320,6 +1415,85 @@
             };
 
             // ============================================================
+            // 寄送確認信（跟寄送繳費單無關，寄的是「確認信範本設定」編輯好的內容，
+            // 後端會自動帶入該聯絡人去年度的 HPC 使用量表格）
+            //
+            // 點擊按鈕不會直接送出，而是先開一個 modal 顯示收件人/副本/主旨與
+            // 渲染好的實際內容，管理員確認無誤後才按「確認寄送」真正寄出。
+            // ============================================================
+            $scope.confirmEmailPreviewModalOpen = false;
+            $scope.confirmEmailPreviewLoading = false;
+            $scope.confirmEmailSending = false;
+            $scope.confirmEmailPreview = { to: [], cc: [], subject: '', html: '' };
+
+            $scope.sendQuotationCheckEmail = function () {
+                var contactId = $scope.quotaTargetId;
+
+                if (!contactId) {
+                    alert('🛑 前端錯誤：找不到必要的網頁元素！');
+                    return;
+                }
+
+                $scope.confirmEmailPreview = { to: [], cc: [], subject: '', trustedHtml: '' };
+                $scope.confirmEmailPreviewLoading = true;
+                $scope.confirmEmailPreviewModalOpen = true;
+
+                $http.get('/api/contacts/' + contactId + '/confirm-email-preview').then(function (res) {
+                    var data = res.data || {};
+                    $scope.confirmEmailPreview = {
+                        to: data.to || [],
+                        cc: data.cc || [],
+                        subject: data.subject || '',
+                        // 用 trustAsHtml 讓信件原本的 inline style 不會被 ngSanitize 洗掉，
+                        // 預覽才會跟實際寄出的長相一致
+                        trustedHtml: $sce.trustAsHtml(data.html || '')
+                    };
+                    $scope.confirmEmailPreviewLoading = false;
+                }, function (err) {
+                    $scope.confirmEmailPreviewLoading = false;
+                    $scope.confirmEmailPreviewModalOpen = false;
+                    var data = (err && err.data) || {};
+                    alert('❌ 無法產生預覽：' + (data.message || ('HTTP ' + (err && err.status))));
+                });
+            };
+
+            $scope.closeConfirmEmailPreviewModal = function () {
+                $scope.confirmEmailPreviewModalOpen = false;
+            };
+
+            $scope.onConfirmEmailPreviewBackdrop = function ($event) {
+                if ($event.target && $event.target.id === 'confirmEmailPreviewModal') { $scope.closeConfirmEmailPreviewModal(); }
+            };
+
+            $scope.confirmSendQuotationCheckEmail = function () {
+                var contactId = $scope.quotaTargetId;
+                if (!contactId) {
+                    alert('🛑 前端錯誤：找不到必要的網頁元素！');
+                    return;
+                }
+
+                $scope.confirmEmailSending = true;
+                $http({
+                    method: 'POST',
+                    url: '/api/contacts/' + contactId + '/send-confirm-email',
+                    headers: { 'Content-Type': 'application/json' }
+                }).then(function (res) {
+                    $scope.confirmEmailSending = false;
+                    var data = res.data || {};
+                    if (data.success) {
+                        alert('✅ ' + data.message);
+                        $scope.closeConfirmEmailPreviewModal();
+                    } else {
+                        alert('❌ 寄送失敗：' + (data.message || '未知錯誤'));
+                    }
+                }, function (err) {
+                    $scope.confirmEmailSending = false;
+                    var data = (err && err.data) || {};
+                    alert('❌ 寄送失敗：' + (data.message || ('HTTP ' + (err && err.status))));
+                });
+            };
+
+            // ============================================================
             // 額度設定（原 loadQuotaSettings）
             // ============================================================
             $scope.quotaSettings = { freeQuotaText: '加載中...', academicQuotaText: '加載中...' };
@@ -1342,11 +1516,15 @@
                         academicQuota = data.academic_quota || 0;
                     }
 
-                    // 格式化數字 (例如 10000 轉為 10,000)
-                    $scope.quotaSettings.freeQuotaText = Number(freeQuota).toLocaleString();
-                    $scope.quotaSettings.academicQuotaText = Number(academicQuota).toLocaleString();
+                    // 格式化數字 (例如 10000 轉為 10,000) 供畫面顯示，同時保留原始數字供計算用
+                    $scope.quotaSettings.freeQuota = Number(freeQuota) || 0;
+                    $scope.quotaSettings.academicQuota = Number(academicQuota) || 0;
+                    $scope.quotaSettings.freeQuotaText = $scope.quotaSettings.freeQuota.toLocaleString();
+                    $scope.quotaSettings.academicQuotaText = $scope.quotaSettings.academicQuota.toLocaleString();
                 }, function (error) {
                     console.error('載入額度設定失敗:', error);
+                    $scope.quotaSettings.freeQuota = 0;
+                    $scope.quotaSettings.academicQuota = 0;
                     $scope.quotaSettings.freeQuotaText = '0';
                     $scope.quotaSettings.academicQuotaText = '0';
                 });
@@ -1403,6 +1581,319 @@
                     return;
                 }
                 console.warn('triggerManualWriteOff 尚未實作（沿用原始程式行為）', billId, amount);
+            };
+
+            // ============================================================
+            // ⚙️ 系統設定 Modal（原 setting-button）
+            //
+            // 這顆按鈕底下之後會陸續掛更多功能，所以做成「選單 + 子畫面」的
+            // 小型導覽結構：settingView 記錄目前在哪一頁（'menu' 或功能代號），
+            // 進入子畫面時載入該功能的資料，標題列的返回箭頭會回到 'menu'。
+            // ============================================================
+            var SETTING_VIEWS = {
+                menu: { title: '系統設定', icon: 'fa-cog' },
+                emailTemplate: { title: '確認信範本設定', icon: 'fa-envelope-open-text' },
+                quotaSettings: { title: '學術獎勵額度與優惠區間設定', icon: 'fa-graduation-cap' },
+                defaultCc: { title: '確認信預設副本人員', icon: 'fa-users' }
+            };
+
+            $scope.settingModalOpen = false;
+            $scope.settingView = 'menu';
+            $scope.settingViewTitle = SETTING_VIEWS.menu.title;
+            $scope.settingViewIcon = SETTING_VIEWS.menu.icon;
+
+            function setSettingView(view) {
+                $scope.settingView = view;
+                $scope.settingViewTitle = SETTING_VIEWS[view].title;
+                $scope.settingViewIcon = SETTING_VIEWS[view].icon;
+            }
+
+            $scope.openSettingModal = function () {
+                $scope.settingModalOpen = true;
+                setSettingView('menu');
+            };
+
+            $scope.closeSettingModal = function () {
+                $scope.settingModalOpen = false;
+            };
+
+            $scope.backToSettingMenu = function () {
+                setSettingView('menu');
+            };
+
+            $scope.openSettingView = function (view) {
+                setSettingView(view);
+                if (view === 'emailTemplate') {
+                    loadEmailTemplateView();
+                } else if (view === 'quotaSettings') {
+                    loadQuotaSettingsView();
+                } else if (view === 'defaultCc') {
+                    loadDefaultCcView();
+                }
+            };
+
+            // ------------------------------------------------------------
+            // 子功能 1：確認信範本設定
+            //
+            // 內容預設抓 templates/email/quotation_check_email.html，
+            // 之後若已儲存過自訂範本則改抓資料庫版本（後端已處理 fallback）。
+            // 範本內會有 {{ 變數 }} 供後端 Python 端渲染真實資料，
+            // 因此存檔前會比對「開啟當下」與「準備存檔」兩份內容的變數清單，
+            // 一旦發現使用者刪掉了既有變數就擋下存檔並提示，避免誤刪。
+            // ------------------------------------------------------------
+            $scope.emailTemplateLoading = false;
+            $scope.emailTemplateSaving = false;
+            $scope.emailTemplate = { html: '' };
+            $scope.emailTemplateHintText = '';
+
+            var emailTemplateBasePlaceholders = [];
+
+            function extractPlaceholders(html) {
+                // 同時保護 {{ 變數 }} 輸出標籤，以及 {% for %}/{% endfor %} 這類控制區塊標籤
+                // （範本裡的使用量表格需要 {% for %} 迴圈才能運作，少了它 {{ row.xxx }} 會渲染失敗）。
+                var matches = String(html || '').match(/\{\{[^{}]*\}\}|\{%[^{}]*%\}/g) || [];
+                var seen = {};
+                var result = [];
+                matches.forEach(function (m) {
+                    var key = m.replace(/\s+/g, ' ').trim();
+                    if (!seen[key]) {
+                        seen[key] = true;
+                        result.push(key);
+                    }
+                });
+                return result;
+            }
+
+            function buildEmailTemplateHint(placeholders) {
+                if (placeholders.length) {
+                    return '內容中的 ' + placeholders.join('、') + ' 為系統標籤（含變數與表格迴圈），將由程式自動帶入實際資料，請勿刪除或修改；如需新增變數請維持相同的 {{ 變數名 }} 格式。';
+                }
+                return '內容若包含 {{ 變數名 }} 或 {% %} 格式的文字，將由系統自動帶入實際資料；請勿刪除既有的標籤，如需新增請維持相同格式。';
+            }
+
+            function applyEmailTemplateHtml(html) {
+                emailTemplateBasePlaceholders = extractPlaceholders(html);
+                $scope.emailTemplateHintText = buildEmailTemplateHint(emailTemplateBasePlaceholders);
+                $scope.emailTemplate.html = html;
+            }
+
+            function loadEmailTemplateView() {
+                $scope.emailTemplateLoading = true;
+                $scope.emailTemplateSaving = false;
+                $scope.emailTemplate = { html: '' };
+                emailTemplateBasePlaceholders = [];
+
+                $http.get('/api/contacts/confirm-email-template').then(function (res) {
+                    applyEmailTemplateHtml((res.data && res.data.html) || '');
+                    $scope.emailTemplateLoading = false;
+                }, function (error) {
+                    console.error('載入確認信範本失敗:', error);
+                    $scope.emailTemplateLoading = false;
+                    $scope.backToSettingMenu();
+                    alert('載入確認信範本失敗，請稍後再試。');
+                });
+            }
+
+            // 還原成預設範本內容（例如自訂版本被編輯器改壞、動態使用量表格失效時使用）。
+            // 只是把內容載回編輯器讓管理員確認，還是要按「儲存範本」才會真的覆蓋資料庫版本。
+            $scope.restoreDefaultEmailTemplate = function () {
+                if (!confirm('確定要用預設範本內容覆蓋目前編輯器裡的內容嗎？（尚未按下「儲存範本」前不會影響已儲存的版本）')) {
+                    return;
+                }
+                $scope.emailTemplateLoading = true;
+                $http.get('/api/contacts/confirm-email-template', { params: { default: '1' } }).then(function (res) {
+                    applyEmailTemplateHtml((res.data && res.data.html) || '');
+                    $scope.emailTemplateLoading = false;
+                }, function (error) {
+                    console.error('載入預設範本失敗:', error);
+                    $scope.emailTemplateLoading = false;
+                    alert('載入預設範本失敗，請稍後再試。');
+                });
+            };
+
+            $scope.saveEmailTemplate = function () {
+                var html = $scope.emailTemplate.html || '';
+
+                if (!html.trim()) {
+                    alert('範本內容不能為空。');
+                    return;
+                }
+
+                // 擋下使用者刪除既有 {{ 變數 }} 的存檔動作
+                var currentPlaceholders = extractPlaceholders(html);
+                var missing = emailTemplateBasePlaceholders.filter(function (p) {
+                    return currentPlaceholders.indexOf(p) === -1;
+                });
+                if (missing.length) {
+                    alert('以下系統變數已被移除，請保留供程式渲染使用，否則無法儲存：\n' + missing.join('\n'));
+                    return;
+                }
+
+                $scope.emailTemplateSaving = true;
+                $http.post('/api/contacts/confirm-email-template', { html: html }).then(function (res) {
+                    $scope.emailTemplateSaving = false;
+                    var result = res.data || {};
+                    if (result.success) {
+                        alert(result.message || '確認信範本已成功儲存。');
+                        emailTemplateBasePlaceholders = extractPlaceholders(html);
+                        $scope.backToSettingMenu();
+                    } else {
+                        alert('儲存失敗: ' + (result.message || '未知錯誤'));
+                    }
+                }, function (error) {
+                    console.error('儲存確認信範本失敗:', error);
+                    $scope.emailTemplateSaving = false;
+                    alert('儲存失敗，請檢查網路或稍後再試。');
+                });
+            };
+
+            // ------------------------------------------------------------
+            // 子功能 2：學術獎勵額度與優惠區間設定
+            //
+            // 對應 HPCSetting 表 classification=2 的三筆設定：
+            //   free_quota / academic_quota / discount（預繳優惠級距，list）
+            // 沿用既有的 GET/POST /api/hpc-usage/settings_free_quota。
+            // ------------------------------------------------------------
+            $scope.quotaSettingsLoading = false;
+            $scope.quotaSettingsSaving = false;
+            $scope.quotaSettingsForm = { free_quota: null, academic_quota: null, discounts: [] };
+
+            function loadQuotaSettingsView() {
+                $scope.quotaSettingsLoading = true;
+                $scope.quotaSettingsSaving = false;
+
+                $http.get('/api/hpc-usage/settings_free_quota').then(function (res) {
+                    var data = res.data;
+                    var freeQuota = null, academicQuota = null, discounts = [];
+
+                    if (angular.isArray(data)) {
+                        data.forEach(function (item) {
+                            if (item.key === 'free_quota') freeQuota = item.value;
+                            if (item.key === 'academic_quota') academicQuota = item.value;
+                            if (item.key === 'discount') discounts = angular.isArray(item.value) ? item.value : [];
+                        });
+                    }
+
+                    $scope.quotaSettingsForm = {
+                        free_quota: freeQuota,
+                        academic_quota: academicQuota,
+                        discounts: discounts.map(function (d) {
+                            return { min_amount: d.min_amount, divisor: d.divisor };
+                        })
+                    };
+                    $scope.quotaSettingsLoading = false;
+                }, function (error) {
+                    console.error('載入額度設定失敗:', error);
+                    $scope.quotaSettingsLoading = false;
+                    $scope.backToSettingMenu();
+                    alert('載入額度設定失敗，請稍後再試。');
+                });
+            }
+
+            $scope.addDiscountRow = function () {
+                $scope.quotaSettingsForm.discounts.push({ min_amount: null, divisor: null });
+            };
+
+            $scope.removeDiscountRow = function (index) {
+                $scope.quotaSettingsForm.discounts.splice(index, 1);
+            };
+
+            $scope.saveQuotaSettings = function () {
+                var form = $scope.quotaSettingsForm;
+
+                if (form.free_quota === null || form.free_quota === '' ||
+                    form.academic_quota === null || form.academic_quota === '') {
+                    alert('請填寫免費額度與學術獎勵額度。');
+                    return;
+                }
+
+                var hasInvalidRow = form.discounts.some(function (d) {
+                    return d.min_amount === null || d.min_amount === '' ||
+                           d.divisor === null || d.divisor === '' || Number(d.divisor) === 0;
+                });
+                if (hasInvalidRow) {
+                    alert('優惠區間的門檻金額與除數皆為必填，且除數不可為 0。');
+                    return;
+                }
+
+                $scope.quotaSettingsSaving = true;
+                $http.post('/api/hpc-usage/settings_free_quota', {
+                    free_quota: form.free_quota,
+                    academic_quota: form.academic_quota,
+                    prepay_discounts: form.discounts.map(function (d) {
+                        return { min_amount: Number(d.min_amount), divisor: Number(d.divisor) };
+                    })
+                }).then(function (res) {
+                    $scope.quotaSettingsSaving = false;
+                    var result = res.data || {};
+                    if (result.success) {
+                        alert(result.message || '設定已成功儲存。');
+                        loadQuotaSettings(); // 同步刷新學術獎勵彈窗顯示用的唯讀額度文字
+                        $scope.backToSettingMenu();
+                    } else {
+                        alert('儲存失敗: ' + (result.message || '未知錯誤'));
+                    }
+                }, function (error) {
+                    console.error('儲存額度設定失敗:', error);
+                    $scope.quotaSettingsSaving = false;
+                    alert('儲存失敗，請檢查網路或稍後再試。');
+                });
+            };
+
+            // ------------------------------------------------------------
+            // 子功能 3：確認信預設副本人員
+            //
+            // 對應 HPCSetting key='confirm_email_default_cc'（一個 Email 字串陣列）。
+            // 寄送確認信時，後端會自動把這份清單併入 Cc。
+            // ------------------------------------------------------------
+            $scope.defaultCcLoading = false;
+            $scope.defaultCcSaving = false;
+            $scope.defaultCcForm = { emails: [] };
+
+            function loadDefaultCcView() {
+                $scope.defaultCcLoading = true;
+
+                $http.get('/api/contacts/confirm-email-default-cc').then(function (res) {
+                    var emails = (res.data && res.data.emails) || [];
+                    $scope.defaultCcForm = { emails: angular.isArray(emails) ? emails.slice() : [] };
+                    $scope.defaultCcLoading = false;
+                }, function (error) {
+                    console.error('載入預設副本人員失敗:', error);
+                    $scope.defaultCcLoading = false;
+                    $scope.backToSettingMenu();
+                    alert('載入預設副本人員失敗，請稍後再試。');
+                });
+            }
+
+            $scope.addDefaultCcRow = function () {
+                $scope.defaultCcForm.emails.push('');
+            };
+
+            $scope.removeDefaultCcRow = function (index) {
+                $scope.defaultCcForm.emails.splice(index, 1);
+            };
+
+            $scope.saveDefaultCc = function () {
+                var emails = $scope.defaultCcForm.emails
+                    .map(function (e) { return (e || '').trim(); })
+                    .filter(function (e) { return e !== ''; });
+
+                $scope.defaultCcSaving = true;
+                $http.post('/api/contacts/confirm-email-default-cc', { emails: emails }).then(function (res) {
+                    $scope.defaultCcSaving = false;
+                    var result = res.data || {};
+                    if (result.success) {
+                        alert(result.message || '預設副本人員已成功儲存。');
+                        $scope.backToSettingMenu();
+                    } else {
+                        alert('儲存失敗: ' + (result.message || '未知錯誤'));
+                    }
+                }, function (error) {
+                    console.error('儲存預設副本人員失敗:', error);
+                    $scope.defaultCcSaving = false;
+                    var data = (error && error.data) || {};
+                    alert('儲存失敗：' + (data.message || '請檢查網路或稍後再試'));
+                });
             };
 
             // ============================================================

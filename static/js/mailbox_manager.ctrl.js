@@ -109,10 +109,8 @@ app.controller('MailboxController', ['$scope', '$http', function($scope, $http) 
         event.preventDefault();
         const email = event.dataTransfer.getData('text/plain');
         if (email) {
-            $scope.$apply(function() {
-                // 直接寫入物件欄位，100% 觸發雙向綁定更新畫面
-                $scope.emailInputs[groupId] = email;
-            });
+            // 這裡已經在 ngOndrop 指令的 $apply 中執行，不可再巢狀呼叫 $apply
+            $scope.emailInputs[groupId] = email;
         }
     };
 

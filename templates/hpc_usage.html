@@ -53,6 +53,7 @@
                     </div>
                     <div class="button-group">
                         <button type="submit" class="send-button">儲存設定</button>
+                        <button type="button" class="setting-button" ng-click="openSettingModal()" title="確認信預設副本人員">⚙️</button>
                     </div>
                 </form>
             </div>
@@ -108,8 +109,14 @@
                 <h2>預繳金額與年度用量監控</h2>
                 <div class="toolbar-wrapper">
                     <div class="toolbar">
+                        <div class="form-group threshold-group">
+                            <label for="minUsageThreshold">本年度使用量門檻 (SU)</label>
+                            <input type="number" id="minUsageThreshold" ng-model="prepaidQuery.minUsage"
+                                   class="form-control" min="0" step="1000"
+                                   ng-model-options="{debounce: 600}" ng-change="fetchPrepaidData(1)">
+                        </div>
                         <div class="form-group">
-                            <label for="filterExceeded">
+                            <label>
                                 <input type="checkbox" id="filterExceeded" ng-model="prepaidQuery.filterExceeded" ng-change="fetchPrepaidData(1)">
                                 僅顯示用量超過預繳金額的帳號
                             </label>
@@ -127,7 +134,6 @@
                                 <th>帳號</th>
                                 <th>預繳額度 (SU)</th>
                                 <th>本年度使用量 (SU)</th>
-                                <th>預繳狀態</th>
                                 <th>通知狀態</th>
                                 <th style="width: 20%;">操作</th>
                             </tr>
@@ -137,7 +143,6 @@
                                 <td ng-bind="account.username"></td>
                                 <td ng-bind="account.prepaid_limit"></td>
                                 <td ng-bind="account.yearly_usage"></td>
-                                <td ng-bind="account.prepaid_status"></td>
                                 <td ng-bind="account.notification_status"></td>
                                 <td>
                                     <button type="button" class="pagination-button" ng-click="notifySingle(account)">單獨通知</button>
@@ -153,6 +158,35 @@
                     <span class="page-info">第 <span ng-bind="prepaidQuery.page"></span> 頁，共 <span ng-bind="totalPrepaidPages"></span> 頁</span>
                     <button class="pagination-button" ng-disabled="prepaidQuery.page >= totalPrepaidPages" ng-click="changePrepaidPage(1)">下一頁</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 確認信預設副本人員設定（與 HPC 帳號管理頁面共用同一份 confirm_email_default_cc 設定） -->
+    <div id="settingModal" class="hpc-modal" ng-cloak
+         ng-style="{display: settingModalOpen ? 'block' : 'none'}"
+         ng-click="onSettingModalBackdrop($event)">
+        <div class="hpc-modal-content modal-width-editor">
+            <div class="hpc-modal-header">
+                <h3>⚙️ 確認信預設副本人員</h3>
+                <span class="hpc-close" ng-click="closeSettingModal()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+                <p class="quota-info-tip" style="margin-top:0;">此處設定的 Email，往後系統寄送確認信時都會自動加入副本 (Cc)，與「HPC 帳號管理」頁面共用同一份設定。</p>
+                <p ng-show="defaultCcLoading" style="color:#999;">設定載入中...</p>
+                <div ng-show="!defaultCcLoading">
+                    <div class="discount-row" style="grid-template-columns: 1fr 45px;" ng-repeat="e in defaultCcForm.emails track by $index">
+                        <input type="email" class="form-input" placeholder="example@ntu.edu.tw" ng-model="defaultCcForm.emails[$index]">
+                        <button type="button" class="btn-remove-row" ng-click="removeDefaultCcRow($index)">✕</button>
+                    </div>
+                    <button type="button" class="btn-add-row" ng-click="addDefaultCcRow()">＋ 新增副本人員</button>
+                </div>
+            </div>
+            <div class="hpc-modal-footer">
+                <button type="button" class="btn-save-quota" ng-click="saveDefaultCc()" ng-disabled="defaultCcSaving">
+                    <span ng-show="!defaultCcSaving">儲存設定</span>
+                    <span ng-show="defaultCcSaving">儲存中...</span>
+                </button>
             </div>
         </div>
     </div>

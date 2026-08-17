@@ -1,7 +1,9 @@
 import json
+import re
 from database.extensions import db
 from datetime import datetime, date
-from cryptography.fernet import Fernet
+
+EMAIL_PATTERN = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+')
 
 class Accounting(db.Model):
     __tablename__ = 'accounting'
@@ -211,6 +213,48 @@ class Contact(db.Model):
                 return self.account_mapping.manual_account
         return ""
 
+    def get_confirm_email_recipients(self):
+        """
+        輔助函式：解析寄送確認信時的收件人 (to) 與副本 (cc) 名單。
+        secondary_contacts.info 是自由文字欄位（可能是電話、Email 或其他備註），
+        因此用簡單的 Email 正規表示式從內容中擷取。
+
+        規則：
+          - 若有標記「主要聯絡人」且能擷取到 Email，主要聯絡人為收件人，
+            其餘聯絡人的 Email（若有）放入副本。
+          - 若沒有主要聯絡人可用的 Email，則把所有找得到的 Email 一起放入收件人，副本為空。
+          - 被關閉寄信 (email_disabled=True) 的聯絡人，無論是否為主要聯絡人一律跳過，
+            視同「這個人沒有 Email」。
+        找不到 Email 的聯絡人會被忽略；回傳的清單皆已去重。
+
+        Returns:
+            dict: {'to': [email, ...], 'cc': [email, ...]}
+        """
+        primary_email = None
+        other_emails = []
+        seen = set()
+
+        for sc in self.secondaries:
+            if sc.email_disabled:
+                continue
+            if not sc.info:
+                continue
+            match = EMAIL_PATTERN.search(sc.info)
+            if not match:
+                continue
+            email = match.group(0)
+            if email in seen:
+                continue
+            seen.add(email)
+            if sc.is_primary and primary_email is None:
+                primary_email = email
+            else:
+                other_emails.append(email)
+
+        if primary_email:
+            return {'to': [primary_email], 'cc': other_emails}
+        return {'to': other_emails, 'cc': []}
+
     def to_dict(self):
         formal_account = self.get_formal_account()
 
@@ -326,7 +370,14 @@ class Contact(db.Model):
             'notes': self.notes,
             'is_course_account': self.is_course_account,
             'course_students': [{'account': s.student_account, 'password': s.student_password} for s in self.course_students],
-            'secondary_contacts': [{'name': s.name, 'info': s.info, 'is_primary': s.is_primary} for s in self.secondaries],
+            'secondary_contacts': [{
+                'id': s.id,
+                'name': s.name,
+                'info': s.info,
+                'is_primary': s.is_primary,
+                'email_disabled': bool(s.email_disabled),
+                'email_toggled_at': s.email_toggled_at.strftime('%Y-%m-%d %H:%M:%S') if s.email_toggled_at else None
+            } for s in self.secondaries],
             
             # 核心數據分流輸出結果
             'total_remaining': round(total_remaining, 2),          
@@ -344,6 +395,8 @@ class SecondaryContact(db.Model):
     name = db.Column(db.String(100))
     info = db.Column(db.String(255))
     is_primary = db.Column(db.Boolean, default=False, nullable=True)
+    email_disabled = db.Column(db.Boolean, nullable=False, default=False)
+    email_toggled_at = db.Column(db.TIMESTAMP, nullable=True)
 
     def __repr__(self):
         status = "Primary" if self.is_primary else "Secondary"
@@ -396,31 +449,17 @@ class UserAccounting(db.Model):
         }
     
 class AdUser(db.Model):
+    """登入使用者（Google OAuth），由 login_routes.py 建立與查詢。"""
     __tablename__ = 'ad_user'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    google_id = db.Column(db.String(128), unique=True, nullable=False) 
+    google_id = db.Column(db.String(128), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(100))
-    smtp_encrypted_token = db.Column(db.LargeBinary, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
         return f'<AdUser {self.email}>'
-    
-    def set_smtp_config(self, config_dict, secret_key):
-        """將 dict 加密並存入資料庫"""
-        f = Fernet(secret_key)
-        json_data = json.dumps(config_dict).encode('utf-8')
-        self.smtp_encrypted_token = f.encrypt(json_data)
-
-    def get_smtp_config(self, secret_key):
-        """從資料庫取出並解密回 dict"""
-        if not self.smtp_encrypted_token:
-            return None
-        f = Fernet(secret_key)
-        decrypted_data = f.decrypt(self.smtp_encrypted_token)
-        return json.loads(decrypted_data.decode('utf-8'))
 
 def init_db(app):
     db.init_app(app)

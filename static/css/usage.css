@@ -151,6 +151,26 @@
     cursor: pointer;
 }
 
+/* 使用量門檻輸入框：跟旁邊的 checkbox / 按鈕一樣排成單行，
+   避免 label 在上、輸入框在下的兩行版型跟其他工具列項目高度對不齊。 */
+.prepaid-section .toolbar .threshold-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prepaid-section .toolbar .threshold-group label {
+    margin-bottom: 0;
+    font-weight: 600;
+    cursor: default;
+    white-space: nowrap;
+}
+
+.prepaid-section .toolbar .threshold-group input {
+    width: 110px;
+    padding: 8px 10px;
+}
+
 .prepaid-section .history-table .status-ok {
     color: #28a745;
     font-weight: bold;
@@ -188,4 +208,196 @@
     display: flex;
     align-items: center;
     gap: 20px;
+}
+
+/* ============================================================
+   確認信預設副本人員設定 Modal
+   樣式與「HPC 帳號管理」頁面 (contact.css) 的 #settingModal 一致，
+   在此僅複製用得到的元件樣式，不引入 contact.css 整份檔案，
+   避免其中的全域 body / .main-content-wrapper 版面覆寫這個頁面。
+   ============================================================ */
+.setting-button {
+    background-color: #f3f4f6;
+    color: #111827;
+    border: 1px solid #9ca3af;
+    width: 42px;
+    height: 42px;
+    padding: 1px 0 0 0;
+    font-size: 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+.setting-button:hover { background-color: #e5e7eb; border-color: #4b5563; }
+.setting-button:active { background-color: #d1d5db; }
+
+/* 讓齒輪按鈕跟旁邊的「儲存設定」按鈕上下邊切齊：
+   .button-group 是 flex 容器，預設 align-items: stretch，
+   把固定的 height 拿掉、改用 width 撐出方形，高度就會自動跟著 .send-button 撐滿。 */
+.button-group .setting-button {
+    height: auto;
+    width: 55px;
+}
+
+.hpc-modal {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+}
+
+.hpc-modal-content {
+    background-color: #ffffff;
+    margin: 8% auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    overflow: hidden;
+    animation: hpc-fade-in 0.3s ease-out;
+}
+
+.modal-width-editor { width: 800px; max-width: 92vw; }
+
+#settingModal .hpc-modal-content { max-height: 88vh; display: flex; flex-direction: column; }
+#settingModal .hpc-modal-body { overflow-y: auto; }
+#settingModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+#settingModal .hpc-modal-footer .btn-save-quota { flex: none !important; padding: 8px 18px !important; }
+
+@keyframes hpc-fade-in {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.hpc-modal-header {
+    padding: 16px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.hpc-modal-header h3 { margin: 0; font-size: 1.15rem; color: #2c3e50; }
+
+.hpc-close { font-size: 28px; cursor: pointer; color: #bbb; transition: 0.2s; }
+.hpc-close:hover { color: #e74c3c; }
+
+.hpc-modal-body { padding: 24px; }
+.hpc-modal-footer { padding: 16px 24px; background: #f8f9fa; text-align: right; border-top: 1px solid #eee; }
+
+.discount-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 45px;
+    gap: 15px;
+    align-items: center;
+    background-color: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #edf2f7;
+    margin-bottom: 10px;
+}
+.discount-row input {
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.discount-row input:focus {
+    border-color: #4285f4;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.btn-remove-row {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    color: #e53e3e;
+    border: 1px solid #feb2b2;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+.btn-remove-row:hover {
+    background-color: #fff5f5;
+    border-color: #fc8181;
+    transform: scale(1.1);
+}
+
+.btn-add-row {
+    margin-top: 10px;
+    background-color: #ffffff;
+    color: #4a5568;
+    border: 1px dashed #cbd5e0;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    transition: all 0.2s;
+}
+.btn-add-row:hover {
+    background-color: #edf2f7;
+    border-color: #a0aec0;
+    color: #2d3748;
+}
+
+.btn-save-quota {
+    flex: 1;
+    padding: 9px 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    background-color: transparent;
+    color: #27ae60;
+    border: 1px solid #27ae60;
+}
+.btn-save-quota:hover {
+    background-color: #27ae60;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+}
+.btn-save-quota:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.quota-info-tip {
+    font-size: 12px;
+    color: #6c757d;
+    margin: 0;
+}
+
+.form-input {
+    width: 100%;
+    height: 40px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input:focus {
+    border-color: #4285f4;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
 }

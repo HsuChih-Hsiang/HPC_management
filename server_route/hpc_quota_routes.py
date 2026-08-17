@@ -1,13 +1,16 @@
 import io
 import uuid
 from xhtml2pdf import pisa
-from flask import request, jsonify, Blueprint, render_template, send_file
-from utils.hpc.hpc_bill_utils import calculate_prepaid_quota
+from flask import request, jsonify, Blueprint, render_template, render_template_string, send_file
+from utils.hpc.hpc_bill_utils import calculate_prepaid_quota, get_account_last_year_usage_details
+from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
-from sqlalchemy import func, cast, Numeric
+from sqlalchemy import func, cast, Numeric, and_
 from datetime import datetime, date
-from utils.email_utils import send_pdf_email
+from utils.email_utils import (send_pdf_email, send_hpc_notification_email,
+                                get_confirm_email_template_html, get_confirm_email_default_cc,
+                                render_usage_table_html)
 
 
 quota_bp = Blueprint('quota', __name__)
@@ -244,7 +247,9 @@ def calculate_pending_bill(id):
             func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
             func.count(Accounting.jobid).label('job_count')
         ).join(
-            Serverlist, Accounting.host == Serverlist.server
+            # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
+            # 否則同一筆 job 會對到多筆價格造成金額被重複加總
+            Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)
         ).filter(
             Accounting.username == username,
             func.extract('year', Accounting.endtime) == last_year
@@ -409,6 +414,91 @@ def create_bill(id):
         return jsonify({'message': '開立繳費單失敗', 'error': str(e)}), 500
 
 
+# =========================================================================
+# 寄送「確認信範本設定」中編輯好的 HPC 使用量確認信（與寄送繳費單 PDF 是兩件事）
+#
+# 收件人/副本規則：
+#   - 有標記主要聯絡人且能取得 Email -> 主要聯絡人為收件人(to)，其餘聯絡人放副本(cc)
+#   - 沒有主要聯絡人可用的 Email -> 找得到的 Email 全部一起放收件人(to)，cc 為空
+#   - 「⚙️ 確認信預設副本人員」設定的 Email 一律併入副本(cc)
+#
+# preview 與 send 共用同一套組裝邏輯，確保「預覽看到的內容」跟「實際寄出的內容」一致。
+# =========================================================================
+def _build_confirm_email_content(contact):
+    """回傳 (result, error_message)；成功時 error_message 為 None，
+    result = {'to': [...], 'cc': [...], 'subject': '...', 'html': '...'}"""
+    recipients = contact.get_confirm_email_recipients()
+    to_emails = recipients['to']
+    cc_emails = list(recipients['cc'])
+
+    if not to_emails:
+        return None, '找不到聯絡人的 Email，請至「其他聯絡人」欄位確認至少有一筆包含有效 Email 的聯絡資訊。'
+
+    # 併入預設副本人員，並避免跟收件人/既有副本重複
+    seen = set(to_emails) | set(cc_emails)
+    for email in get_confirm_email_default_cc():
+        if email not in seen:
+            cc_emails.append(email)
+            seen.add(email)
+
+    # 使用量表格需要該聯絡人的正式帳號才能查得到 Accounting 紀錄；
+    # 沒有正式帳號時仍允許寄信，只是使用量表格會是空的（不擋信件寄送）。
+    formal_account = contact.get_formal_account()
+    if formal_account:
+        usage = get_account_last_year_usage_details(formal_account)
+    else:
+        usage = {'usage_year': datetime.now().year - 1, 'usage_rows': [], 'usage_total_su': 0.0}
+
+    # 免費額度 / 學術獎勵額度：來自「⚙️ 設定 → 額度設定」(HPCSetting classification=2)，
+    # 讓範本中的數字跟後台設定同步，不用每次調整都要改死範本。
+    quota_settings = {item['key']: item['value'] for item in load_hpc_settings_by_classification(2)}
+    free_quota = quota_settings.get('free_quota', 0)
+    academic_quota = quota_settings.get('academic_quota', 0)
+
+    try:
+        template_html = get_confirm_email_template_html()
+        rendered_html = render_template_string(
+            template_html,
+            usage_year=usage['usage_year'],
+            usage_total_su=usage['usage_total_su'],
+            usage_table=render_usage_table_html(usage),
+            year=datetime.now().year,
+            free_quota=f'{free_quota:,}',
+            academic_quota=f'{academic_quota:,}'
+        )
+    except Exception as e:
+        return None, ('範本渲染失敗，請至「⚙️ 設定 → 確認信範本設定」確認內容格式正確'
+                      f'（若範本中仍殘留 {{% for %}} 等舊標籤，請改用 {{{{ usage_table }}}} 或還原預設範本）：{e}')
+
+    subject = f"HPC 運算服務 {usage['usage_year']} 年度使用量確認信"
+    return {'to': to_emails, 'cc': cc_emails, 'subject': subject, 'html': rendered_html}, None
+
+
+@quota_bp.route('/api/contacts/<int:id>/confirm-email-preview', methods=['GET'])
+def preview_confirm_email(id):
+    """寄送前先產生預覽內容（收件人/副本/主旨/渲染好的 HTML），給前端 modal 顯示確認。"""
+    contact = Contact.query.get_or_404(id)
+    result, error = _build_confirm_email_content(contact)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    return jsonify(dict(success=True, **result))
+
+
+@quota_bp.route('/api/contacts/<int:id>/send-confirm-email', methods=['POST'])
+def send_confirm_email(id):
+    contact = Contact.query.get_or_404(id)
+    result, error = _build_confirm_email_content(contact)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+
+    sent = send_hpc_notification_email(result['to'], result['subject'], result['html'], cc=result['cc'])
+    if not sent:
+        return jsonify({'success': False, 'message': '確認信寄送失敗，請確認 SMTP 設定或稍後再試。'}), 500
+
+    all_recipients = result['to'] + result['cc']
+    return jsonify({'success': True, 'message': f"確認信已成功寄送給：{', '.join(all_recipients)}。"})
+
+
 @quota_bp.route('/api/contacts/send-quotation', methods=['POST'])
 def send_hpc_quotation():
     try:
@@ -492,13 +582,16 @@ def grant_research_bonus(id):
     if not items:
         return jsonify({'message': '未偵測到任何發放項目'}), 400
 
-    current_year = datetime.now().year 
+    current_year = datetime.now().year
     amount = 0.0  # 實收金額維持 0.0
-    
+
     # 統一配置管理
+    # 額度金額改成即時讀取「⚙️ 學術獎勵額度與優惠區間」設定（HPCSetting classification=2），
+    # 不再寫死 10000 / 1000，否則管理員在設定頁改了數字，這裡發放時還是用舊的固定值。
+    quota_settings = {item['key']: item['value'] for item in load_hpc_settings_by_classification(2)}
     bonus_configs = {
-        'free': {'label': '免費研究折抵', 'base_amount': 10000.0, 'use_quantity': False},
-        'academic': {'label': '學術獎勵', 'base_amount': 1000.0, 'use_quantity': True}
+        'free': {'label': '免費研究折抵', 'base_amount': float(quota_settings.get('free_quota') or 10000), 'use_quantity': False},
+        'academic': {'label': '學術獎勵', 'base_amount': float(quota_settings.get('academic_quota') or 1000), 'use_quantity': True}
     }
 
     records_to_add = []

@@ -8,18 +8,18 @@
 
     <div style="max-width: 700px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-top: 6px solid #2c3e50;">
         
-        <p style="font-size: 16px; font-weight: bold; margin-bottom: 20px;">劉教授 and 芃儀同學您好，</p>
+        <p style="font-size: 16px; font-weight: bold; margin-bottom: 20px;">親愛的 HPC 使用者您好，</p>
 
         <ol style="padding-left: 20px; margin-bottom: 25px;">
             <li style="margin-bottom: 12px;">
-                <strong>檢附貴團隊 2025 年度的 HPC 使用量：</strong>
+                <strong>檢附貴團隊 {{ usage_year }} 年度的 HPC 使用量：</strong>
                 <ul style="padding-left: 20px; margin-top: 5px; list-style-type: disc;">
                     <li>如果您先前已預付款項，且確認餘額足夠，可以暫時無需處理本次繳費。</li>
-                    <li>如未預付，懇請於 <span style="color: #c0392b; font-weight: bold;">2026/09/15 前</span> 完成繳費。</li>
+                    <li>如未預付，懇請於 <span style="color: #c0392b; font-weight: bold;">{{year}}/09/15 前</span> 完成繳費。</li>
                 </ul>
             </li>
             <li style="margin-bottom: 12px;">
-                因計中主管及校方長官要求，需要統計各團隊的研究成果，懇請於 <span style="color: #c0392b; font-weight: bold;">2026/08/15 前</span>，提供貴團隊至 2025/12/31 為止，使用計中 HPC 服務的產出績效（如發表文章），請援引貴團隊先前繳交的格式。<br>
+                因計中主管及校方長官要求，需要統計各團隊的研究成果，懇請於 <span style="color: #c0392b; font-weight: bold;">{{year}}/08/15 前</span>，提供貴團隊至 2025/12/31 為止，使用計中 HPC 服務的產出績效（如發表文章），請援引貴團隊先前繳交的格式。<br>
                 <span style="display: block; margin-top: 5px; color: #666;">
                     💡 如未曾繳交，可參考此連結格式：<a href="http://hpc.ntu.edu.tw/projects/pro151/pub151-20220802.pdf" target="_blank" style="color: #3498db; text-decoration: underline;">成果發表清冊範例 PDF</a><br>
                     <strong>提醒：</strong>請記得將<strong>碩士論文、博士論文</strong>一併納入統計。
@@ -47,15 +47,16 @@
             </ul>
         </div>
 
-        <p style="text-align: right; margin-bottom: 30px; font-weight: bold;">計中張傑生 敬上</p>
+        <p style="text-align: right; margin-bottom: 30px; font-weight: bold;">HPC 服務團隊 敬上</p>
 
         <hr style="border: 0; border-top: 2px dashed #bdc3c7; margin: 30px 0;">
 
-        <h3 style="color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px; margin-top: 0;">📊 統計 2025 年度 HPC 使用量說明</h3>
-        
+        <h3 style="color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px; margin-top: 0;">📊 統計 {{ usage_year }} 年度 HPC 使用量說明</h3>
+
         <ol style="padding-left: 20px;">
             <li style="margin-bottom: 10px;">
-                畫面最右方為貴團隊所需繳交之 service unit (SU) 數。
+                下表為貴團隊 {{ usage_year }} 年度依主機、queue 分列，所需繳交之 service unit (SU) 數：
+                {{ usage_table }}
                 <ul style="padding-left: 20px; margin-top: 5px; list-style-type: circle;">
                     <li>若您先前已大量預購 service unit，懇請主動告知，後續在繳款時，計中會協助扣除之。</li>
                     <li>其餘狀況，<strong>一個 service unit 代表新台幣一元</strong>。</li>
@@ -72,20 +73,20 @@
                 上述數字<strong>尚未扣除免費額度</strong>。如欲申請免費額度，請與計中聯絡：
                 <ul style="padding-left: 20px; margin-top: 5px; list-style-type: square;">
                     <li style="margin-bottom: 5px;">
-                        <strong>a. 基本免費額度：</strong>每個團隊每年 <span style="color: #27ae60; font-weight: bold;">10,000 SU</span>。待配合更新網站資料後，即可核發。<br>
+                        <strong>a. 基本免費額度：</strong>每個團隊每年 <span style="color: #27ae60; font-weight: bold;">{{ free_quota }} SU</span>。待配合更新網站資料後，即可核發。<br>
                         請至此網頁找到貴團隊的頁面查閱：<a href="http://hpc.ntu.edu.tw/projects.html" target="_blank" style="color: #3498db; text-decoration: underline;">HPC 計畫首頁</a><br>
                         <span style="color: #7f8c8d; font-size: 13px;">※ 需更新資料包含：研究簡介頁面、詳細研究文章與發表清冊。</span>
                     </li>
                     <li>
-                        <strong>b. 學術獎勵額度：</strong>每篇文章 <span style="color: #27ae60; font-weight: bold;">1,000 SU</span>（至多十篇）。文章內文需註記致謝計中服務，這部分請與計中聯絡並提供著作列表。
+                        <strong>b. 學術獎勵額度：</strong>每篇文章 <span style="color: #27ae60; font-weight: bold;">{{ academic_quota }} SU</span>（至多十篇）。文章內文需註記致謝計中服務，這部分請與計中聯絡並提供著作列表。
                     </li>
                 </ul>
                 <div style="margin-top: 5px; background-color: #fef9e7; padding: 8px; border-left: 3px solid #f1c40f; font-size: 14px;">
-                    ⚠️ 資料繳交截止日：<strong>2026/08/15 前</strong>。
+                    ⚠️ 資料繳交截止日：<strong>{{ year }}/08/15 前</strong>。
                 </div>
             </li>
             <li style="margin-bottom: 10px;">
-                若無疑問，懇請於 <span style="color: #c0392b; font-weight: bold;">2026/09/15 前</span> 完成繳費。繳費相關細節請洽本中心，也歡迎聯絡討論各種可行方案。
+                若無疑問，懇請於 <span style="color: #c0392b; font-weight: bold;">{{ year }}/09/15 前</span> 完成繳費。繳費相關細節請洽本中心，也歡迎聯絡討論各種可行方案。
             </li>
         </ol>
 

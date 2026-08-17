@@ -5,10 +5,25 @@ from io import StringIO, BytesIO
 from sqlalchemy import or_, and_, func, cast, exists, Numeric
 from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
-from database.hpc_model import (Contact, SecondaryContact, CourseStudent, ContactAccountMapping, 
-                                Serverlist, UserAccounting, Bill, Accounting, PrepaidAmount)
+from database.hpc_model import (Contact, SecondaryContact, CourseStudent, ContactAccountMapping,
+                                Serverlist, UserAccounting, Bill, Accounting, PrepaidAmount, HPCSetting,
+                                EMAIL_PATTERN)
+from utils.email_utils import (get_confirm_email_template_html, read_default_confirm_email_template,
+                                CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY)
 
 contact_bp = Blueprint('contact', __name__)
+
+# 確認信範本設定用的 HPCSetting classification（沿用既有的 key-value 設定表，不另外開表）
+CONFIRM_EMAIL_TEMPLATE_CLASSIFICATION = 3
+
+def _parse_datetime_or_none(value):
+    """把前端回傳的 'YYYY-MM-DD HH:MM:SS' 字串轉回 datetime，格式不對或空值一律回傳 None。"""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+    except (ValueError, TypeError):
+        return None
 
 @contact_bp.route('/api/contacts', methods=['GET'])
 def get_contacts():
@@ -160,7 +175,13 @@ def add_contact():
         db.session.add(mapping)
 
     for sc in data.get('secondary_contacts', []):
-        new_c.secondaries.append(SecondaryContact(name=sc['name'], info=sc['info']))
+        new_c.secondaries.append(SecondaryContact(
+            name=sc.get('name', ''),
+            info=sc.get('info', ''),
+            is_primary=sc.get('is_primary', False),
+            email_disabled=sc.get('email_disabled', False),
+            email_toggled_at=_parse_datetime_or_none(sc.get('email_toggled_at'))
+        ))
 
     for cs in data.get('course_students', []):
         new_c.course_students.append(CourseStudent(
@@ -271,7 +292,11 @@ def update_contact(id):
         contact.secondaries.append(SecondaryContact(
             name=sc.get('name', ''),
             info=sc.get('info', ''),
-            is_primary=sc.get('is_primary', False)
+            is_primary=sc.get('is_primary', False),
+            # 這裡刪掉重建整批 SecondaryContact，email_disabled/email_toggled_at 若不從前端
+            # 一起帶回來就會被重置成預設值，等於白關；前端送出表單時務必把這兩個欄位一起帶上。
+            email_disabled=sc.get('email_disabled', False),
+            email_toggled_at=_parse_datetime_or_none(sc.get('email_toggled_at'))
         ))
 
     CourseStudent.query.filter_by(contact_id=id).delete()
@@ -283,6 +308,23 @@ def update_contact(id):
     
     db.session.commit()
     return jsonify({'success': True})
+
+@contact_bp.route('/api/contacts/secondary-contacts/<int:id>/toggle-email', methods=['POST'])
+def toggle_secondary_contact_email(id):
+    """開關「寄信給這個聯絡人」，並記錄這次切換的時間點。"""
+    sc = SecondaryContact.query.get_or_404(id)
+    sc.email_disabled = not sc.email_disabled
+    sc.email_toggled_at = datetime.now()
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'id': sc.id,
+        'email_disabled': sc.email_disabled,
+        'email_toggled_at': sc.email_toggled_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'message': (f'已關閉寄送給「{sc.name or sc.info}」的信件' if sc.email_disabled
+                    else f'已重新開啟寄送給「{sc.name or sc.info}」的信件')
+    })
 
 @contact_bp.route('/api/contacts/hpc-statistics', methods=['GET'])
 def get_hpc_statistics():
@@ -332,7 +374,9 @@ def get_hpc_statistics():
             func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
             func.count(Accounting.jobid).label('job_count')
         ).join(
-            Serverlist, Accounting.host == Serverlist.server
+            # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
+            # 否則同一筆 job 會對到多筆價格造成金額被重複加總
+            Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)
         ).filter(
             func.extract('year', Accounting.endtime) == year,
             or_(
@@ -357,3 +401,85 @@ def get_hpc_statistics():
         "status": "success",
         "data": result
     })
+
+@contact_bp.route('/api/contacts/confirm-email-template', methods=['GET'])
+def get_confirm_email_template():
+    # default=1 時忽略資料庫中已儲存的版本，直接回傳預設檔案內容
+    # （提供「還原預設範本」用，例如自訂版本被編輯器改壞導致無法渲染時）
+    if request.args.get('default') == '1':
+        return jsonify({'html': read_default_confirm_email_template(), 'is_default': True})
+
+    setting = HPCSetting.query.filter_by(key=CONFIRM_EMAIL_TEMPLATE_KEY).first()
+    html = get_confirm_email_template_html()
+    return jsonify({'html': html, 'is_default': not (setting and setting.value)})
+
+@contact_bp.route('/api/contacts/confirm-email-template', methods=['POST'])
+def save_confirm_email_template():
+    data = request.get_json() or {}
+    html = data.get('html')
+
+    if not html or not html.strip():
+        return jsonify({'success': False, 'message': '範本內容不能為空。'}), 400
+
+    setting = HPCSetting.query.filter_by(key=CONFIRM_EMAIL_TEMPLATE_KEY).first()
+    if setting:
+        setting.value = html
+    else:
+        setting = HPCSetting(
+            key=CONFIRM_EMAIL_TEMPLATE_KEY,
+            value=html,
+            description='確認信範本 (HTML，含 {{ }} 供 Python 端渲染)',
+            classification=CONFIRM_EMAIL_TEMPLATE_CLASSIFICATION
+        )
+        db.session.add(setting)
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': '確認信範本已成功儲存。'})
+
+@contact_bp.route('/api/contacts/confirm-email-default-cc', methods=['GET'])
+def get_confirm_email_default_cc():
+    setting = HPCSetting.query.filter_by(key=CONFIRM_EMAIL_DEFAULT_CC_KEY).first()
+    emails = []
+    if setting and setting.value:
+        try:
+            emails = json.loads(setting.value)
+        except (json.JSONDecodeError, TypeError):
+            emails = []
+    return jsonify({'emails': emails if isinstance(emails, list) else []})
+
+@contact_bp.route('/api/contacts/confirm-email-default-cc', methods=['POST'])
+def save_confirm_email_default_cc():
+    data = request.get_json() or {}
+    emails = data.get('emails', [])
+
+    if not isinstance(emails, list):
+        return jsonify({'success': False, 'message': '格式不正確。'}), 400
+
+    cleaned = []
+    seen = set()
+    for raw in emails:
+        if not isinstance(raw, str):
+            continue
+        email = raw.strip()
+        if not email or email in seen:
+            continue
+        if not EMAIL_PATTERN.fullmatch(email):
+            return jsonify({'success': False, 'message': f'「{email}」不是有效的 Email 格式。'}), 400
+        seen.add(email)
+        cleaned.append(email)
+
+    setting = HPCSetting.query.filter_by(key=CONFIRM_EMAIL_DEFAULT_CC_KEY).first()
+    value = json.dumps(cleaned)
+    if setting:
+        setting.value = value
+    else:
+        setting = HPCSetting(
+            key=CONFIRM_EMAIL_DEFAULT_CC_KEY,
+            value=value,
+            description='確認信預設副本收件人清單 (JSON list)',
+            classification=CONFIRM_EMAIL_TEMPLATE_CLASSIFICATION
+        )
+        db.session.add(setting)
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': '預設副本人員已成功儲存。'})

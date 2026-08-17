@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { font-family: Arial, sans-serif; color: #333; }
+    .highlight { color: #dc3545; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; width: 40%; }
+</style>
+</head>
+<body>
+
+    <p><strong>帳號：{{ username }}</strong></p>
+    <p>
+        您好，系統偵測到您的本年度 HPC 使用量已超過目前的預繳額度，請盡快辦理儲值以避免影響後續運算使用。
+    </p>
+
+    <table>
+        <tbody>
+            <tr>
+                <th>本年度使用量 (SU)</th>
+                <td class="highlight">{{ yearly_usage | float | round(2) }}</td>
+            </tr>
+            <tr>
+                <th>目前預繳額度 (SU)</th>
+                <td>{{ prepaid_amount | float | round(2) }}</td>
+            </tr>
+            <tr>
+                <th>已超額 (SU)</th>
+                <td class="highlight">{{ ((yearly_usage | float) - (prepaid_amount | float)) | round(2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>若有任何疑問，請聯繫系統管理員。</p>
+
+</body>
+</html>

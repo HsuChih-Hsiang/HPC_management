@@ -566,6 +566,32 @@ body {
     transform: scale(1.1);
 }
 
+/* 「寄信中 / 停用寄信」切換按鈕（其他聯絡人列） */
+.btn-toggle-email {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #9ae6b4;
+    background-color: #f0fff4;
+    color: #276749;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-toggle-email:hover { background-color: #c6f6d5; }
+.btn-toggle-email.is-disabled {
+    border-color: #feb2b2;
+    background-color: #fff5f5;
+    color: #c53030;
+}
+.btn-toggle-email.is-disabled:hover { background-color: #fed7d7; }
+.btn-toggle-email:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+
 /* 「+ 新增聯絡人欄位」按鈕美化 */
 .btn-add-row {
     margin-top: 10px;
@@ -849,6 +875,109 @@ body {
 
 .modal-width-wide { width: 550px; }
 .modal-width-narrow { width: 400px; }
+.modal-width-editor { width: 800px; max-width: 92vw; }
+
+#settingModal .hpc-modal-content,
+#confirmEmailPreviewModal .hpc-modal-content { max-height: 88vh; display: flex; flex-direction: column; }
+#settingModal .hpc-modal-body,
+#confirmEmailPreviewModal .hpc-modal-body { overflow-y: auto; }
+#settingModal .hpc-modal-footer,
+#confirmEmailPreviewModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+#settingModal .hpc-modal-footer .btn-secondary,
+#confirmEmailPreviewModal .hpc-modal-footer .btn-secondary { margin-right: 0; }
+#settingModal .hpc-modal-footer .btn-save-quota,
+#confirmEmailPreviewModal .hpc-modal-footer .btn-save-quota { flex: none !important; padding: 8px 18px !important; }
+
+/* 確認信預覽內容區：讓信件原本的排版在框內完整呈現並可捲動 */
+.confirm-email-preview-body {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #edf2f7;
+    border-radius: 6px;
+    background: #fafafa;
+    max-height: 420px;
+    overflow: auto;
+}
+.confirm-email-preview-body table { max-width: 100%; }
+
+/* 返回主選單按鈕（在功能子畫面的標題列顯示） */
+.setting-back-arrow {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    color: #673ab7;
+    background: none;
+    border: none;
+    padding: 4px 10px 4px 0;
+    margin-right: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+}
+.setting-back-arrow:hover { color: #4a2a8a; text-decoration: underline; }
+
+/* ⚙️ 設定選單：功能列表 */
+.setting-menu-list { display: flex; flex-direction: column; gap: 10px; }
+.setting-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+}
+.setting-menu-item:hover {
+    border-color: #673ab7;
+    background: #f5f3fb;
+    box-shadow: 0 2px 8px rgba(103, 58, 183, 0.08);
+}
+.setting-menu-item .setting-menu-icon {
+    font-size: 20px;
+    color: #673ab7;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.setting-menu-item .setting-menu-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.setting-menu-item .setting-menu-text strong { color: #2d3748; font-size: 15px; }
+.setting-menu-item .setting-menu-text small { color: #7f8c8d; font-size: 12.5px; }
+.setting-menu-item .setting-menu-chevron { color: #cbd5e0; font-size: 13px; flex-shrink: 0; }
+
+/* 學術獎勵額度與優惠區間設定：預繳優惠級距一行 */
+.discount-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 45px;
+    gap: 15px;
+    align-items: center;
+    background-color: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #edf2f7;
+    margin-bottom: 10px;
+}
+.discount-row input {
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.discount-row input:focus {
+    border-color: #4285f4;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
 
 @keyframes hpc-fade-in {
     from { transform: translateY(-20px); opacity: 0; }

@@ -6,3 +6,4 @@ from .routes import routes_bp
 from .contact_routes import contact_bp
 from .hpc_quota_routes import quota_bp
 from .login_routes import login_bp
+from .setting_routes import setting_bp

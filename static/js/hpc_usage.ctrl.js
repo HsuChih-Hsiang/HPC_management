@@ -31,6 +31,7 @@ angular.module('emailApp')
     $scope.totalPrepaidPages = 1;
     $scope.prepaidQuery = {
         filterExceeded: false,
+        minUsage: 10000, // 本年度使用量 (SU) 顯示門檻，可在畫面上動態調整
         page: 1,
         limit: 10
     };
@@ -91,8 +92,19 @@ angular.module('emailApp')
     $scope.loadSettings = function() {
         $http.get('/api/hpc-usage/settings')
             .then(function(response) {
-                if (response.data) {
-                    $scope.settings = response.data;
+                const data = response.data;
+                if (!data) return;
+
+                // 後端回傳的是 [{key, value, description, classification}, ...] 清單，
+                // 需轉換成 { key: value } 的扁平物件，表單的 ng-model 才抓得到值。
+                if (angular.isArray(data)) {
+                    const flatSettings = {};
+                    data.forEach(function(item) {
+                        flatSettings[item.key] = item.value;
+                    });
+                    $scope.settings = flatSettings;
+                } else {
+                    $scope.settings = data;
                 }
             }, function(error) {
                 console.error('載入設定時發生錯誤:', error);
@@ -194,7 +206,7 @@ angular.module('emailApp')
         $scope.prepaidQuery.page = page || 1;
 
         // 建立唯一快取鍵值
-        const cacheKey = `${$scope.prepaidQuery.filterExceeded}_${$scope.prepaidQuery.page}`;
+        const cacheKey = `${$scope.prepaidQuery.filterExceeded}_${$scope.prepaidQuery.minUsage}_${$scope.prepaidQuery.page}`;
 
         // 命中快取
         if (prepaidCache[cacheKey]) {
@@ -207,6 +219,7 @@ angular.module('emailApp')
         $scope.isLoadingPrepaid = true;
         const params = {
             filter_exceeded: $scope.prepaidQuery.filterExceeded,
+            min_usage: $scope.prepaidQuery.minUsage,
             page: $scope.prepaidQuery.page,
             limit: $scope.prepaidQuery.limit
         };
@@ -266,6 +279,76 @@ angular.module('emailApp')
                 $scope.clearPrepaidCacheAndFetch();
             }, function(error) {
                 showMessage('發送個人通知失敗。', 'error');
+            });
+    };
+
+    // ==========================================
+    // 3.5 確認信預設副本人員設定
+    // 對應 HPCSetting key='confirm_email_default_cc'，跟「HPC 帳號管理」頁面
+    // 呼叫的是同一組 /api/contacts/confirm-email-default-cc API，資料庫只有
+    // 一份，兩邊互通、任一邊儲存都會影響寄送確認信時的 Cc 名單。
+    // ==========================================
+    $scope.settingModalOpen = false;
+    $scope.defaultCcLoading = false;
+    $scope.defaultCcSaving = false;
+    $scope.defaultCcForm = { emails: [] };
+
+    $scope.openSettingModal = function() {
+        $scope.settingModalOpen = true;
+        $scope.defaultCcLoading = true;
+
+        $http.get('/api/contacts/confirm-email-default-cc')
+            .then(function(response) {
+                const emails = (response.data && response.data.emails) || [];
+                $scope.defaultCcForm = { emails: angular.isArray(emails) ? emails.slice() : [] };
+                $scope.defaultCcLoading = false;
+            }, function(error) {
+                console.error('載入預設副本人員失敗:', error);
+                $scope.defaultCcLoading = false;
+                $scope.settingModalOpen = false;
+                showMessage('載入預設副本人員設定失敗，請稍後再試。', 'error');
+            });
+    };
+
+    $scope.closeSettingModal = function() {
+        $scope.settingModalOpen = false;
+    };
+
+    $scope.onSettingModalBackdrop = function($event) {
+        if ($event.target && $event.target.id === 'settingModal') {
+            $scope.closeSettingModal();
+        }
+    };
+
+    $scope.addDefaultCcRow = function() {
+        $scope.defaultCcForm.emails.push('');
+    };
+
+    $scope.removeDefaultCcRow = function(index) {
+        $scope.defaultCcForm.emails.splice(index, 1);
+    };
+
+    $scope.saveDefaultCc = function() {
+        const emails = $scope.defaultCcForm.emails
+            .map(function(e) { return (e || '').trim(); })
+            .filter(function(e) { return e !== ''; });
+
+        $scope.defaultCcSaving = true;
+        $http.post('/api/contacts/confirm-email-default-cc', { emails: emails })
+            .then(function(response) {
+                $scope.defaultCcSaving = false;
+                const result = response.data || {};
+                if (result.success) {
+                    showMessage(result.message || '預設副本人員已成功儲存。', 'success');
+                    $scope.closeSettingModal();
+                } else {
+                    showMessage('儲存失敗: ' + (result.message || '未知錯誤'), 'error');
+                }
+            }, function(error) {
+                console.error('儲存預設副本人員失敗:', error);
+                $scope.defaultCcSaving = false;
+                const data = (error && error.data) || {};
+                showMessage('儲存失敗：' + (data.message || '請檢查網路或稍後再試'), 'error');
             });
     };
 

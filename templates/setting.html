@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/setting.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body ng-controller="SettingController" ng-cloak>
+
+    <button class="menu-button" ng-click="toggleMenu()" aria-label="開啟選單">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </button>
+
+    {% include 'sidebar.html' %}
+
+    <div class="main-layout-container">
+        <div class="right-editor-container container">
+            <h1>⚙️ 設定</h1>
+
+            <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
+
+            <div class="settings-section">
+                <h2>發信帳號設定</h2>
+                <p class="section-hint">
+                    系統寄送各類通知信時所使用的帳號。密碼在送出前會先於瀏覽器端以 RSA 加密，
+                    傳到後端解開後再以另一組金鑰加密存入資料庫，全程不會以明文儲存。<br>
+                    儲存後會同時寫入資料庫並更新執行中的設定，<strong>立即生效，不需重新啟動服務</strong>。
+                </p>
+
+                <form class="email-form" ng-submit="saveSmtp()" autocomplete="off">
+                    <div class="form-group">
+                        <label for="senderEmail">發信帳號</label>
+                        <input type="email" id="senderEmail" ng-model="smtp.sender_email"
+                               class="form-control" placeholder="example@ntu.edu.tw"
+                               autocomplete="off" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="senderPassword">發信密碼</label>
+                        <input type="password" id="senderPassword" ng-model="smtp.password"
+                               class="form-control"
+                               placeholder="[[ smtp.has_password ? '目前已設定密碼，留空表示不變更' : '請輸入發信密碼' ]]"
+                               autocomplete="new-password">
+                        <small class="field-hint" ng-show="smtp.has_password">
+                            🔒 已設定過密碼。若不需更換，請保持空白直接儲存。
+                        </small>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="send-button" ng-disabled="saving">
+                            <span ng-show="!saving">儲存設定</span>
+                            <span ng-show="saving">儲存中...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/setting.ctrl.js') }}"></script>
+</body>
+</html>

@@ -2,13 +2,14 @@ from flask import Flask, session, request, redirect, url_for
 from database.extensions import db
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from utils.hpc.hpc_setting_utils import init_hpc_settings
+from utils.hpc.hpc_setting_utils import init_hpc_settings, load_hpc_settings_by_classification
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
 from utils.login_utils import oauth, init_oauth
 from utils.crypto_utils import key_generate
 from utils.params import SECRET_KEY, DATABASE_URI
 from utils.session_interface import CustomSessionInterface
-from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp
+from utils.smtp_config import load_smtp_config_to_cache
+from server_route import mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp, contact_bp, quota_bp, login_bp, setting_bp
 
 app = Flask(__name__)
 
@@ -29,6 +30,7 @@ app.register_blueprint(routes_bp)
 app.register_blueprint(contact_bp)
 app.register_blueprint(quota_bp)
 app.register_blueprint(login_bp)
+app.register_blueprint(setting_bp)
 
 # --- 2. 全域登入防護 Middleware (before_request) ---
 @app.before_request
@@ -66,18 +68,27 @@ with app.app_context():
     init_oauth(app)
     key_generate()
     init_hpc_settings(app)
+    # 系統啟動時撈出發信帳密並解密，放進全域快取供寄信使用
+    load_smtp_config_to_cache()
 
 def check_hpc_usage_in_context():
     with app.app_context():
         check_hpc_usage_and_notify()
-    
+
+def get_hpc_check_interval_days():
+    """讀取 HPCSetting (classification=1) 的 check_interval，供 APScheduler 排程間隔使用。"""
+    with app.app_context():
+        settings_list = load_hpc_settings_by_classification(1)
+        setting = next((item for item in settings_list if item['key'] == 'check_interval'), None)
+        return setting['value'] if setting else 1
+
 # --- run server ---
 if __name__ == '__main__':
-    scheduler = BackgroundScheduler()
+    # scheduler = BackgroundScheduler()
     # scheduler.add_job(
     #     func=check_hpc_usage_in_context,
     #     trigger="interval",
-    #     days=load_hpc_settings()['check_interval'],
+    #     days=get_hpc_check_interval_days(),
     #     id='hpc_check_job'
     # )
     # scheduler.add_job(

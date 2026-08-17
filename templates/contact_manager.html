@@ -119,7 +119,7 @@
                     <button ng-click="loadData(1)" class="btn-search">🔍 搜尋</button>
                     <button ng-click="statisticsExport()" class="text-button btn-statistics">📊 HPC 統計資料</button>
                     <button ng-click="openModal()" class="add-contact-button">＋ 新增聯絡人</button>
-                    <button class="setting-button">⚙️</button>
+                    <button type="button" class="setting-button" ng-click="openSettingModal()" title="系統設定">⚙️</button>
                 </div>
             </div>
 
@@ -340,10 +340,15 @@
                 <div class="section-title">📋 其他聯絡人</div>
                 <div id="other-contacts-container">
                     <div class="contact-row" ng-repeat="row in contactRows" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                        <input type="radio" name="is_primary_contact" class="primary-radio" title="設為主要聯絡人"
-                               ng-checked="row.is_primary" ng-click="togglePrimaryContact(row, $event)">
+                        <input type="checkbox" class="primary-radio" title="設為主要聯絡人（可再次點擊取消）"
+                               ng-model="row.is_primary" ng-change="onPrimaryContactChange(row)">
                         <input type="text" class="contact-name" placeholder="姓名" ng-model="row.name">
                         <input type="text" class="contact-info" placeholder="聯絡資訊" ng-model="row.info">
+                        <button type="button" class="btn-toggle-email" ng-class="{'is-disabled': row.email_disabled}"
+                                ng-click="toggleContactEmail(row)" ng-disabled="!row.id"
+                                title="[[ !row.id ? '請先儲存聯絡人資料後才能設定' : (row.email_disabled ? '目前不會寄信給這位聯絡人，點擊重新開啟' : '目前會寄信給這位聯絡人，點擊關閉') ]]">
+                            [[ row.email_disabled ? '🔕 停用' : '🔔 寄信中' ]]
+                        </button>
                         <button type="button" class="btn-remove-row" ng-click="removeContactRow($index)">✕</button>
                     </div>
                 </div>
@@ -591,8 +596,8 @@
                     </div>
 
                     <div class="btn-action-group">
-                        <button type="button" class="btn-send-quotamail">
-                            <i class="fas fa-calculator"></i> 寄送確認信
+                        <button type="button" class="btn-send-quotamail" ng-click="sendQuotationCheckEmail()" ng-disabled="sendingConfirmEmail">
+                            <i class="fas fa-calculator"></i> [[ sendingConfirmEmail ? '寄送中...' : '寄送確認信' ]]
                         </button>
                         <button type="button" class="btn-save-quota" ng-click="handleConfirmDeduct()">
                             <i class="fas fa-calculator"></i> 額度扣款後,開立繳費單
@@ -693,6 +698,149 @@
         </form>
     </div>
 </div>
+
+    <div id="confirmEmailPreviewModal" class="hpc-modal" ng-cloak
+         ng-style="{display: confirmEmailPreviewModalOpen ? 'block' : 'none'}"
+         ng-click="onConfirmEmailPreviewBackdrop($event)">
+        <div class="hpc-modal-content modal-width-editor">
+            <div class="hpc-modal-header">
+                <h3><i class="fas fa-envelope-open-text"></i> 確認信內容預覽</h3>
+                <span class="hpc-close" ng-click="closeConfirmEmailPreviewModal()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+                <span ng-if="confirmEmailPreviewLoading" style="color:#999;">預覽產生中...</span>
+                <div ng-if="!confirmEmailPreviewLoading">
+                    <div class="detail-row"><span><strong>收件人 (To)：</strong></span><span>[[ confirmEmailPreview.to.join('、') || '（無）' ]]</span></div>
+                    <div class="detail-row"><span><strong>副本 (Cc)：</strong></span><span>[[ confirmEmailPreview.cc.join('、') || '（無）' ]]</span></div>
+                    <div class="detail-row"><span><strong>主旨：</strong></span><span>[[ confirmEmailPreview.subject ]]</span></div>
+                    <div class="confirm-email-preview-body" ng-bind-html="confirmEmailPreview.trustedHtml"></div>
+                </div>
+            </div>
+            <div class="hpc-modal-footer">
+                <button type="button" class="btn-secondary" ng-click="closeConfirmEmailPreviewModal()">取消</button>
+                <button type="button" class="btn-save-quota" ng-click="confirmSendQuotationCheckEmail()" ng-disabled="confirmEmailPreviewLoading || confirmEmailSending">
+                    <i class="fas fa-paper-plane"></i> [[ confirmEmailSending ? '寄送中...' : '內容無誤，確認寄送' ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingModal" class="hpc-modal" ng-cloak
+         ng-style="{display: settingModalOpen ? 'block' : 'none'}"
+         ng-click="onSettingModalBackdrop($event)">
+        <div class="hpc-modal-content modal-width-editor">
+            <div class="hpc-modal-header">
+                <h3>
+                    <button type="button" ng-if="settingView !== 'menu'" class="setting-back-arrow" ng-click="backToSettingMenu()" title="返回主選單">
+                        ← 返回主選單
+                    </button>
+                    <span ng-if="settingView === 'menu'">⚙️ [[ settingViewTitle ]]</span>
+                    <span ng-if="settingView !== 'menu'">[[ settingViewTitle ]]</span>
+                </h3>
+                <span class="hpc-close" ng-click="closeSettingModal()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+
+                <!-- 功能選單 -->
+                <div ng-if="settingView === 'menu'" class="setting-menu-list">
+                    <button type="button" class="setting-menu-item" ng-click="openSettingView('emailTemplate')">
+                        <i class="fas fa-envelope-open-text setting-menu-icon"></i>
+                        <span class="setting-menu-text">
+                            <strong>確認信範本設定</strong>
+                            <small>編輯寄送給聯絡人的確認信 HTML 內容</small>
+                        </span>
+                        <i class="fas fa-chevron-right setting-menu-chevron"></i>
+                    </button>
+                    <button type="button" class="setting-menu-item" ng-click="openSettingView('quotaSettings')">
+                        <i class="fas fa-graduation-cap setting-menu-icon"></i>
+                        <span class="setting-menu-text">
+                            <strong>學術獎勵額度與優惠區間</strong>
+                            <small>設定免費額度、學術獎勵額度與預繳優惠級距</small>
+                        </span>
+                        <i class="fas fa-chevron-right setting-menu-chevron"></i>
+                    </button>
+                    <button type="button" class="setting-menu-item" ng-click="openSettingView('defaultCc')">
+                        <i class="fas fa-users setting-menu-icon"></i>
+                        <span class="setting-menu-text">
+                            <strong>確認信預設副本人員</strong>
+                            <small>設定寄送確認信時要自動加入副本 (Cc) 的 Email</small>
+                        </span>
+                        <i class="fas fa-chevron-right setting-menu-chevron"></i>
+                    </button>
+                </div>
+
+                <!-- 確認信範本設定 -->
+                <div ng-if="settingView === 'emailTemplate'">
+                    <p class="quota-info-tip" style="margin-top:0;" ng-bind="emailTemplateHintText"></p>
+                    <span ng-if="emailTemplateLoading" style="color:#999;">範本載入中...</span>
+                    <div class="form-group full-width" style="margin:0;" ng-if="!emailTemplateLoading">
+                        <textarea tinymce-editor ng-model="emailTemplate.html" id="emailTemplateEditor"></textarea>
+                    </div>
+                </div>
+
+                <!-- 學術獎勵額度與優惠區間設定 -->
+                <div ng-if="settingView === 'quotaSettings'">
+                    <span ng-if="quotaSettingsLoading" style="color:#999;">設定載入中...</span>
+                    <div ng-if="!quotaSettingsLoading">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>免費額度<br><small style="font-weight:normal;color:#7f8c8d;">更新資料給的免費額度</small></label>
+                                <input type="number" class="form-input" min="0" step="1" ng-model="quotaSettingsForm.free_quota">
+                            </div>
+                            <div class="form-group">
+                                <label>學術獎勵額度<br><small style="font-weight:normal;color:#7f8c8d;">期刊論文給的額度(每篇1000,最高10篇)</small></label>
+                                <input type="number" class="form-input" min="0" step="1" ng-model="quotaSettingsForm.academic_quota">
+                            </div>
+                        </div>
+
+                        <div class="section-title">💰 預繳優惠區間</div>
+                        <p style="color:#7f8c8d; font-size:13px; margin:6px 0 12px;">預繳金額達到「門檻金額」時，改以「金額 ÷ 除數」計算最終可得的額度（除數越小，優惠越高）。</p>
+                        <div class="discount-row" ng-repeat="d in quotaSettingsForm.discounts">
+                            <input type="number" class="form-input" placeholder="門檻金額 (例如 100001)" min="0" ng-model="d.min_amount">
+                            <input type="number" class="form-input" placeholder="除數 (例如 0.36)" min="0" step="0.01" ng-model="d.divisor">
+                            <button type="button" class="btn-remove-row" ng-click="removeDiscountRow($index)">✕</button>
+                        </div>
+                        <button type="button" class="btn-add-row" ng-click="addDiscountRow()">＋ 新增優惠級距</button>
+                    </div>
+                </div>
+
+                <!-- 確認信預設副本人員設定 -->
+                <div ng-if="settingView === 'defaultCc'">
+                    <p class="quota-info-tip" style="margin-top:0;">此處設定的 Email，往後系統寄送確認信時都會自動加入副本 (Cc)。</p>
+                    <span ng-if="defaultCcLoading" style="color:#999;">設定載入中...</span>
+                    <div ng-if="!defaultCcLoading">
+                        <div class="discount-row" style="grid-template-columns: 1fr 45px;" ng-repeat="e in defaultCcForm.emails track by $index">
+                            <input type="email" class="form-input" placeholder="example@ntu.edu.tw" ng-model="defaultCcForm.emails[$index]">
+                            <button type="button" class="btn-remove-row" ng-click="removeDefaultCcRow($index)">✕</button>
+                        </div>
+                        <button type="button" class="btn-add-row" ng-click="addDefaultCcRow()">＋ 新增副本人員</button>
+                    </div>
+                </div>
+
+            </div>
+            <div class="hpc-modal-footer" ng-if="settingView === 'emailTemplate'">
+                <button type="button" class="btn-secondary" ng-click="restoreDefaultEmailTemplate()" ng-disabled="emailTemplateLoading || emailTemplateSaving">
+                    還原預設範本
+                </button>
+                <button type="button" class="btn-save-quota" ng-click="saveEmailTemplate()" ng-disabled="emailTemplateSaving">
+                    <i class="fas fa-save"></i> [[ emailTemplateSaving ? '儲存中...' : '儲存範本' ]]
+                </button>
+            </div>
+            <div class="hpc-modal-footer" ng-if="settingView === 'quotaSettings'">
+                <button type="button" class="btn-save-quota" ng-click="saveQuotaSettings()" ng-disabled="quotaSettingsSaving">
+                    <i class="fas fa-save"></i> [[ quotaSettingsSaving ? '儲存中...' : '儲存設定' ]]
+                </button>
+            </div>
+            <div class="hpc-modal-footer" ng-if="settingView === 'defaultCc'">
+                <button type="button" class="btn-save-quota" ng-click="saveDefaultCc()" ng-disabled="defaultCcSaving">
+                    <i class="fas fa-save"></i> [[ defaultCcSaving ? '儲存中...' : '儲存設定' ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TinyMCE：確認信範本設定 modal 使用的 HTML 編輯器 -->
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
     <!-- app.js 先載入：contactManagerApp 依賴其中的 emailApp 模組 -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/contact_manager.ctrl.js') }}"></script>

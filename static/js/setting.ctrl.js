@@ -1,28 +1,162 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
+// static/js/setting.ctrl.js
 
-// 假設這是您的儲存 SMTP 設定的 function
-$scope.saveSmtpConfig = function(smtpPassword) {
-    // 1. 先向後端拿最新的 RSA 公鑰
-    $http.get('/api/auth/public-key').then(function(response) {
-        const publicKey = response.data.public_key;
+// 獲取在 app.js 中已經定義好的 emailApp 主模組（注意：不要加第二個參數 []）
+var app = angular.module('emailApp');
 
-        // 2. 初始化加密器並放入公鑰
-        const encryptor = new JSEncrypt();
-        encryptor.setPublicKey(publicKey);
+// 配置該頁面的插值符號為 [[ ]]，防止與 Flask Jinja2 的 {{ }} 衝突
+app.config(['$interpolateProvider', function($interpolateProvider) {
+    $interpolateProvider.startSymbol('[[');
+    $interpolateProvider.endSymbol(']]');
+}]);
 
-        // 3. 對敏感資料（例如密碼或整個 JSON）進行加密
-        // 注意：Web Crypto API / JSEncrypt 預設通常使用 SHA1 或 SHA256，需與後端對齊
-        // 這裡我們直接加密密碼字串
-        const encryptedPassword = encryptor.encrypt(smtpPassword);
+app.controller('SettingController', ['$scope', '$http', '$timeout', function($scope, $http, $timeout) {
 
-        // 4. 把加密後的密文傳給後端
-        const payload = {
-            smtp_user: $scope.smtpUser,
-            encrypted_password: encryptedPassword // 這串在網路上是亂碼
-        };
+    // ==========================================
+    // 1. 初始化狀態
+    // ==========================================
+    $scope.message = { text: '', type: '', visible: false };
+    $scope.saving = false;
+    $scope.smtp = {
+        sender_email: '',
+        password: '',
+        has_password: false
+    };
 
-        $http.post('/api/user/save-smtp', payload).then(function(res) {
-            alert('儲存成功！');
+    var publicKeyPem = null;
+
+    function showMessage(text, type) {
+        $scope.message.text = text;
+        $scope.message.type = type;
+        $scope.message.visible = true;
+        $timeout(function() {
+            $scope.message.visible = false;
+        }, 5000);
+    }
+
+    // ==========================================
+    // 2. RSA 加密（使用瀏覽器內建的 Web Crypto API）
+    //
+    // 後端 decrypt_frontend_data() 使用的是
+    //   padding.OAEP(mgf=MGF1(SHA256), algorithm=SHA256)
+    // 因此這裡必須對應 RSA-OAEP + SHA-256，兩邊參數不一致會解不開。
+    //
+    // 注意：window.crypto.subtle 只在安全環境 (https 或 localhost) 下可用，
+    // 若正式機以純 http 對外提供服務，此處會取不到而無法加密。
+    // ==========================================
+    function pemToArrayBuffer(pem) {
+        var base64 = pem
+            .replace(/-----BEGIN PUBLIC KEY-----/, '')
+            .replace(/-----END PUBLIC KEY-----/, '')
+            .replace(/\s+/g, '');
+        var binary = window.atob(base64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function arrayBufferToBase64(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    function encryptPassword(plainPassword) {
+        if (!window.crypto || !window.crypto.subtle) {
+            return Promise.reject(new Error('瀏覽器不支援加密功能，或目前並非透過 https / localhost 連線。'));
+        }
+
+        return window.crypto.subtle.importKey(
+            'spki',
+            pemToArrayBuffer(publicKeyPem),
+            { name: 'RSA-OAEP', hash: 'SHA-256' },
+            false,
+            ['encrypt']
+        ).then(function(key) {
+            return window.crypto.subtle.encrypt(
+                { name: 'RSA-OAEP' },
+                key,
+                new TextEncoder().encode(plainPassword)
+            );
+        }).then(arrayBufferToBase64);
+    }
+
+    // ==========================================
+    // 3. API 串接
+    // ==========================================
+    function loadPublicKey() {
+        return $http.get('/api/auth/public-key').then(function(response) {
+            publicKeyPem = response.data && response.data.public_key;
+        }, function(error) {
+            console.error('取得公鑰失敗:', error);
+            showMessage('無法取得加密金鑰，將無法儲存密碼。', 'error');
         });
-    });
-};
+    }
+
+    function loadSmtpSetting() {
+        return $http.get('/api/setting/smtp').then(function(response) {
+            var data = response.data || {};
+            $scope.smtp.sender_email = data.sender_email || '';
+            $scope.smtp.has_password = !!data.has_password;
+        }, function(error) {
+            console.error('載入發信設定失敗:', error);
+            showMessage('無法載入目前的發信設定。', 'error');
+        });
+    }
+
+    $scope.saveSmtp = function() {
+        var senderEmail = ($scope.smtp.sender_email || '').trim();
+        var password = $scope.smtp.password || '';
+
+        if (!senderEmail) {
+            showMessage('請輸入發信帳號。', 'error');
+            return;
+        }
+
+        // 從未設定過密碼時，第一次儲存一定要填密碼
+        if (!password && !$scope.smtp.has_password) {
+            showMessage('請輸入發信密碼。', 'error');
+            return;
+        }
+
+        $scope.saving = true;
+
+        // 密碼留空 = 沿用原本已儲存的密碼，不需要重新加密送出
+        var payloadPromise = password
+            ? encryptPassword(password).then(function(encrypted) {
+                  return { sender_email: senderEmail, encrypted_password: encrypted };
+              })
+            : Promise.resolve({ sender_email: senderEmail });
+
+        payloadPromise.then(function(payload) {
+            return $http.post('/api/setting/smtp', payload);
+        }).then(function(response) {
+            var result = (response && response.data) || {};
+            if (result.success) {
+                showMessage(result.message || '發信設定已儲存。', 'success');
+                $scope.smtp.password = '';
+                $scope.smtp.has_password = true;
+            } else {
+                showMessage('儲存失敗: ' + (result.message || '未知錯誤'), 'error');
+            }
+        }).catch(function(error) {
+            console.error('儲存發信設定失敗:', error);
+            var data = (error && error.data) || {};
+            showMessage('儲存失敗：' + (data.message || error.message || '請檢查網路或稍後再試'), 'error');
+        }).finally(function() {
+            $scope.saving = false;
+            // Web Crypto 的 Promise 不在 Angular 的 digest 週期內，需手動觸發畫面更新
+            $scope.$applyAsync();
+        });
+    };
+
+    // ==========================================
+    // 4. 頁面初始化進入點
+    // ==========================================
+    loadPublicKey();
+    loadSmtpSetting();
+}]);
