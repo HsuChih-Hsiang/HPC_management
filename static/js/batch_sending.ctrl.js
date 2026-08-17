@@ -49,7 +49,9 @@ app.directive('tinymceEditor', ['$timeout', function($timeout) {
 // === 2. 舊有的控制器內容 ===
 app.controller('BatchSendingController', ['$scope', '$http', '$timeout', function($scope, $http, $timeout) {
     // === 狀態模型 ===
-    $scope.isMenuOpen = false;
+    // 側邊欄狀態統一由 app.js 的 $rootScope 管理（isMenuOpen / toggleMenu / closeMenu），
+    // 這裡不可再宣告同名的 $scope 屬性，否則會遮蔽掉 $rootScope 的版本，
+    // 導致 sidebar.html 的遮罩點擊（closeMenu）關不掉選單。
     $scope.showBcc = false;
     
     $scope.mailData = {
@@ -80,7 +82,7 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     };
 
     // === UI 互動 ===
-    $scope.toggleMenu = function() { $scope.isMenuOpen = !$scope.isMenuOpen; };
+    // toggleMenu 由 $rootScope 提供，此處不再覆寫
     $scope.toggleBcc = function() {
         $scope.showBcc = !$scope.showBcc;
         if (!$scope.showBcc) {

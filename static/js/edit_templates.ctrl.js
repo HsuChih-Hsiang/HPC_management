@@ -61,14 +61,10 @@ angular.module('emailApp')
     $scope.currentEditingTemplateId = null;
     $scope.message = { text: '', type: '', visible: false };
 
-    // 側邊欄狀態與邏輯
-    $scope.isMenuOpen = false;
-    $scope.toggleMenu = function() {
-        $scope.isMenuOpen = !$scope.isMenuOpen;
-    };
-    $scope.isActive = function(path) {
-        return $window.location.pathname === path;
-    };
+    // 側邊欄狀態與邏輯統一由 app.js 的 $rootScope 提供
+    // （isMenuOpen / toggleMenu / closeMenu / isActive）。
+    // 這裡若重複宣告同名 $scope 屬性會遮蔽掉 $rootScope 的版本，
+    // 導致 sidebar.html 的遮罩點擊（closeMenu）關不掉選單。
 
     // 顯示訊息提示框
     function showMessage(text, type) {

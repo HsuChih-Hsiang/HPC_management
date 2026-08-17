@@ -1,0 +1,447 @@
+/* 針對「權限管理」頁面的特定樣式 */
+.settings-section {
+    margin-bottom: 40px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.section-hint {
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 8px 0 20px;
+}
+
+.empty-hint {
+    color: #6c757d;
+    font-size: 14px;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    text-align: center;
+    margin: 0;
+}
+
+/* 按鈕在區塊標題列時不要撐滿整行 */
+.send-button.btn-inline {
+    width: auto;
+    padding: 10px 18px;
+    font-size: 15px;
+    margin: 0;
+}
+
+/* 待開通數量提示 */
+.pending-badge {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    border-radius: 11px;
+    background-color: #e53e3e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ===== 表格 ===== */
+.perm-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+
+.perm-table th,
+.perm-table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: middle;
+}
+
+.perm-table th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+}
+
+.assign-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.assign-row .form-control {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+.btn-assign {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background-color: #28a745;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-assign:hover:not(:disabled) {
+    background-color: #218838;
+}
+
+.btn-assign:disabled {
+    background-color: #cbd5e0;
+    cursor: not-allowed;
+}
+
+/* 目前群組標籤 */
+.group-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background-color: #e6f4ea;
+    color: #1e7e34;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.group-tag.is-none {
+    background-color: #fdecea;
+    color: #c53030;
+}
+
+/* ===== 群組卡片 ===== */
+.group-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    background-color: #fff;
+    transition: box-shadow 0.2s;
+}
+
+.group-card:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.group-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.group-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.group-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.system-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background-color: #ebf8ff;
+    color: #2b6cb0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.user-count {
+    color: #718096;
+    font-size: 13px;
+}
+
+.group-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.group-actions .text-button {
+    background: none;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: #4a5568;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.group-actions .text-button:hover:not(:disabled) {
+    background-color: #edf2f7;
+    border-color: #a0aec0;
+}
+
+.group-actions .text-button:disabled {
+    color: #cbd5e0;
+    border-color: #edf2f7;
+    cursor: not-allowed;
+}
+
+.group-actions .btn-danger:hover:not(:disabled) {
+    background-color: #fff5f5;
+    border-color: #fc8181;
+    color: #c53030;
+}
+
+.group-desc {
+    color: #718096;
+    font-size: 13px;
+    margin: 8px 0 12px;
+}
+
+/* 功能標籤：有權限的亮起，其餘淡化 */
+.feature-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.feature-tag {
+    padding: 4px 10px;
+    border-radius: 14px;
+    background-color: #f7fafc;
+    border: 1px solid #e2e8f0;
+    color: #cbd5e0;
+    font-size: 13px;
+    text-decoration: line-through;
+}
+
+.feature-tag.is-on {
+    background-color: #e6f4ea;
+    border-color: #9ae6b4;
+    color: #1e7e34;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* ===== Modal ===== */
+.perm-modal {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    /* 保險：極矮的視窗下遮罩本身也能捲動，不會讓內容完全構不到 */
+    overflow-y: auto;
+}
+
+.perm-modal-content {
+    background-color: #fff;
+    width: 560px;
+    max-width: 92vw;
+    /* 上下各留 5vh，加上本體最多 90vh 剛好塞滿視窗。
+       原本用 margin: 8%，百分比是相對「寬度」計算的，
+       寬螢幕時會變成一百多 px，跟 max-height 加起來超出視窗高度。 */
+    max-height: 90vh;
+    margin: 5vh auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: perm-fade-in 0.25s ease-out;
+}
+
+@keyframes perm-fade-in {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.perm-modal-header {
+    padding: 16px 24px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.perm-modal-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #2c3e50;
+}
+
+.perm-close {
+    font-size: 28px;
+    cursor: pointer;
+    color: #bbb;
+    transition: 0.2s;
+}
+
+.perm-close:hover { color: #e74c3c; }
+
+.perm-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    /* 關鍵：flex 子項目的 min-height 預設是 auto，不會縮到比內容還小，
+       因此內容一長就會把 footer（儲存按鈕）擠出 max-height 之外被裁掉。
+       必須明確設定 min-height: 0，overflow-y: auto 才會真的生效。 */
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.perm-modal-footer {
+    padding: 16px 24px;
+    background: #f8f9fa;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    /* footer 永遠固定在底部，不隨內容被壓縮或推出去 */
+    flex-shrink: 0;
+}
+
+.btn-secondary {
+    background: #95a5a6;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.btn-secondary:hover { background: #7f8c8d; }
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Modal 內的說明文字 */
+.modal-hint {
+    color: #6c757d;
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0 0 12px;
+    font-weight: normal;
+}
+
+/* 功能勾選 + 排序清單 */
+.feature-order-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #f8fafc;
+}
+
+.feature-order-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    background-color: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    transition: opacity 0.2s, border-color 0.2s;
+}
+
+.feature-order-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 未勾選的項目淡化，但仍可調整順序 */
+.feature-order-item.is-off {
+    opacity: 0.5;
+    background-color: #f7fafc;
+}
+
+.order-index {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 50%;
+    background-color: #edf2f7;
+    color: #4a5568;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.feature-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    font-weight: normal;
+    font-size: 14px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.feature-checkbox input:disabled {
+    cursor: not-allowed;
+}
+
+.order-buttons {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.btn-order {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background-color: #fff;
+    color: #4a5568;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-order:hover:not(:disabled) {
+    background-color: #edf2f7;
+    border-color: #a0aec0;
+}
+
+.btn-order:disabled {
+    color: #e2e8f0;
+    border-color: #edf2f7;
+    cursor: not-allowed;
+}

@@ -448,6 +448,65 @@ class UserAccounting(db.Model):
             'username': self.username
         }
     
+class PermissionGroup(db.Model):
+    """
+    權限群組。一個群組可被授予多項功能 (GroupPermission)，
+    使用者則歸屬於某一個群組；未歸屬任何群組者視為「尚未開通」。
+    """
+    __tablename__ = 'permission_groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    description = db.Column(db.String(255))
+    # is_system=True 的群組（admin）不可刪除、也不可移除其權限，
+    # 避免整個系統被改到沒有任何人能進入權限管理頁面而鎖死。
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    permissions = db.relationship(
+        'GroupPermission', backref='group', cascade='all, delete-orphan', lazy=True
+    )
+    users = db.relationship('AdUser', backref='group', lazy=True)
+
+    def feature_keys(self):
+        """依群組自訂的排序回傳功能代碼，此順序即該群組成員的側邊欄順序。"""
+        return [
+            p.feature_key
+            for p in sorted(self.permissions, key=lambda x: (x.sort_order, x.id))
+        ]
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description or '',
+            'is_system': bool(self.is_system),
+            'features': self.feature_keys(),
+            'user_count': len(self.users)
+        }
+
+    def __repr__(self):
+        return f'<PermissionGroup {self.name}>'
+
+
+class GroupPermission(db.Model):
+    """群組被授予的單一功能；feature_key 對應 utils/permission_utils.py 的 FEATURES。"""
+    __tablename__ = 'group_permissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('permission_groups.id'), nullable=False)
+    feature_key = db.Column(db.String(50), nullable=False)
+    # 側邊欄顯示順序，數字小的排前面；由權限管理頁面拖動排序後寫入
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'feature_key', name='_group_feature_uc'),
+    )
+
+    def __repr__(self):
+        return f'<GroupPermission group={self.group_id} feature={self.feature_key}>'
+
+
 class AdUser(db.Model):
     """登入使用者（Google OAuth），由 login_routes.py 建立與查詢。"""
     __tablename__ = 'ad_user'
@@ -457,6 +516,18 @@ class AdUser(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # 未指派群組 (NULL) = 等待管理員開通權限，登入後只會看到等候頁面
+    group_id = db.Column(db.Integer, db.ForeignKey('permission_groups.id'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'name': self.name or '',
+            'group_id': self.group_id,
+            'group_name': self.group.name if self.group else None,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
 
     def __repr__(self):
         return f'<AdUser {self.email}>'

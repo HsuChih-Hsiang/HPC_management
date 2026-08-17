@@ -4,8 +4,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 配置郵件伺服器
+# 發信設定的正式來源是資料庫（「設定」頁面，見 utils/smtp_config.py）。
+# 這裡的 .env 值只是「資料庫尚未設定時」的退路，全部允許不存在。
 SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT"))
+
+# 用 int() 直接包 getenv 的話，.env 少了 SMTP_PORT 會在 import 階段就丟
+# TypeError 讓整個服務起不來。這裡改為容錯：沒設定或格式錯誤都視為未提供。
+_smtp_port_raw = os.getenv("SMTP_PORT")
+try:
+    SMTP_PORT = int(_smtp_port_raw) if _smtp_port_raw else None
+except ValueError:
+    print(f"警告：.env 的 SMTP_PORT='{_smtp_port_raw}' 不是有效的數字，將視為未設定。")
+    SMTP_PORT = None
+
+# 帳號與密碼已改存於資料庫（密碼經 Fernet 加密），.env 中可不再保留。
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 DATABASE_URI = os.getenv('DATABASE_URI')

@@ -2,6 +2,7 @@ from flask import Blueprint, session, redirect, url_for, jsonify
 from database.extensions import db
 from database.hpc_model import AdUser
 from utils.login_utils import oauth
+from utils.permission_utils import get_user_ordered_features, get_landing_path
 
 login_bp = Blueprint('login', __name__)
 
@@ -32,7 +33,10 @@ def callback():
     session.permanent = True
     session['user_id'] = user.id
     session['user_name'] = user.name
-    return redirect(url_for('routes.batch_sending'))
+
+    # 依實際擁有的權限決定登入後的落地頁；尚未開通者會導向等候頁面。
+    # 使用有序清單，讓落地頁與該群組側邊欄的第一個項目一致。
+    return redirect(get_landing_path(get_user_ordered_features(user.id)))
 
 @login_bp.route('/logout')
 def logout():

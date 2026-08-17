@@ -251,11 +251,15 @@
     width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(3px);
+    /* 保險：極矮視窗下遮罩本身也能捲動 */
+    overflow-y: auto;
 }
 
 .hpc-modal-content {
     background-color: #ffffff;
-    margin: 8% auto;
+    /* 用 vh 而非 %：margin 的百分比是相對「寬度」計算的，
+       寬螢幕時 8% 會變成上百 px，與 max-height 相加後超出視窗高度。 */
+    margin: 5vh auto;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     overflow: hidden;
@@ -264,9 +268,13 @@
 
 .modal-width-editor { width: 800px; max-width: 92vw; }
 
-#settingModal .hpc-modal-content { max-height: 88vh; display: flex; flex-direction: column; }
-#settingModal .hpc-modal-body { overflow-y: auto; }
-#settingModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+#settingModal .hpc-modal-content { max-height: 90vh; display: flex; flex-direction: column; }
+/* flex 子項目的 min-height 預設為 auto，不會縮到比內容小，
+   副本人員一多就會把 footer（儲存按鈕）擠出可視範圍並被裁掉。
+   必須明確設 min-height: 0，overflow-y: auto 才會真的生效。 */
+#settingModal .hpc-modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+#settingModal .hpc-modal-header { flex-shrink: 0; }
+#settingModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
 #settingModal .hpc-modal-footer .btn-save-quota { flex: none !important; padding: 8px 18px !important; }
 
 @keyframes hpc-fade-in {

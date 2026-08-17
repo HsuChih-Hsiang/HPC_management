@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>權限不足</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="pending-icon">🔒</div>
+        <h1>權限不足</h1>
+        <p>
+            您沒有使用此功能的權限。<br>
+            若確實需要使用，請聯絡系統管理員為您的群組開通。
+        </p>
+
+        {% if sidebar_features %}
+        <div class="pending-account">
+            您目前可使用的功能：
+            <strong>{{ sidebar_features | map(attribute='label') | join('、') }}</strong>
+        </div>
+        <a href="{{ sidebar_features[0].path }}" class="google-login-btn" style="display:block;">
+            返回可用頁面
+        </a>
+        {% endif %}
+
+        <a href="/logout" class="pending-logout">登出</a>
+    </div>
+</body>
+</html>

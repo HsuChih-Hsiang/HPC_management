@@ -181,6 +181,24 @@ h1 { /* 保留，應用於 right-editor-container 內 */
     background-color: #0056b3;
 }
 
+/* 選單展開時把漢堡按鈕收起來。
+   .menu-button 的 z-index(1000) 高於 .side-menu(999)，
+   不收起來的話它會浮在展開的選單上方，擋住左上角的內容。 */
+.menu-button.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 選單背景遮罩（原本寫死在 sidebar.html 的 inline style，改用 class 管理） */
+.menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 998; /* 低於 .side-menu(999)，才不會擋住選單本身的點擊 */
+}
+
 .menu-button .bar {
     width: 25px;
     height: 3px;

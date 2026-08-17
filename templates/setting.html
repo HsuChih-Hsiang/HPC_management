@@ -13,12 +13,6 @@
 </head>
 <body ng-controller="SettingController" ng-cloak>
 
-    <button class="menu-button" ng-click="toggleMenu()" aria-label="開啟選單">
-        <div class="bar"></div>
-        <div class="bar"></div>
-        <div class="bar"></div>
-    </button>
-
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
@@ -36,6 +30,21 @@
                 </p>
 
                 <form class="email-form" ng-submit="saveSmtp()" autocomplete="off">
+                    <div class="form-row">
+                        <div class="form-group form-col-grow">
+                            <label for="smtpServer">郵件主機</label>
+                            <input type="text" id="smtpServer" ng-model="smtp.smtp_server"
+                                   class="form-control" placeholder="mail.ntu.edu.tw"
+                                   autocomplete="off" required>
+                        </div>
+                        <div class="form-group form-col-port">
+                            <label for="smtpPort">連接埠</label>
+                            <input type="number" id="smtpPort" ng-model="smtp.smtp_port"
+                                   class="form-control" placeholder="587"
+                                   min="1" max="65535" step="1" autocomplete="off" required>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="senderEmail">發信帳號</label>
                         <input type="email" id="senderEmail" ng-model="smtp.sender_email"

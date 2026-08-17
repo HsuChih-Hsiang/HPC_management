@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>等待權限開通</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body ng-controller="PendingApprovalController" ng-cloak>
+    <div class="auth-container">
+        <div class="pending-icon">⏳</div>
+        <h1>帳號等待開通中</h1>
+        <p>
+            您的帳號已建立完成，但尚未被指派使用權限。<br>
+            請聯絡系統管理員為您開通後即可使用，本頁面會自動偵測開通狀態。
+        </p>
+
+        <div class="pending-account"
+             ng-init="userName='{{ session.get('user_name', '') }}'" ng-show="userName">
+            登入帳號：<strong ng-bind="userName"></strong>
+        </div>
+
+        <div class="pending-status" ng-bind="statusText"></div>
+
+        <button class="google-login-btn" ng-click="checkNow()" ng-disabled="checking"
+                style="border:none; width:100%; cursor:pointer;">
+            <span ng-show="!checking">立即重新檢查</span>
+            <span ng-show="checking">檢查中...</span>
+        </button>
+
+        <a href="/logout" class="pending-logout">登出</a>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pending_approval.ctrl.js') }}"></script>
+</body>
+</html>

@@ -861,6 +861,9 @@ body {
     width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(3px);
+    /* 保險：極矮視窗下遮罩本身也能捲動，內容不會完全構不到。
+       （#quotaEditorModal 另有 overflow:hidden !important 覆寫，採內部捲動不受影響） */
+    overflow-y: auto;
 }
 
 /* --- 視窗容器 --- */
@@ -877,12 +880,21 @@ body {
 .modal-width-narrow { width: 400px; }
 .modal-width-editor { width: 800px; max-width: 92vw; }
 
+/* 這兩個彈窗內容可能很長（範本編輯器、信件預覽、副本人員清單），
+   必須讓 body 自己捲動、header/footer 固定，否則 footer 的儲存按鈕
+   會被內容擠出 max-height 之外並被 overflow:hidden 裁掉。
+   margin 改用 vh：百分比 margin 是相對「寬度」算的，
+   寬螢幕時 8% 會變成上百 px，與 max-height 相加後超出視窗。 */
 #settingModal .hpc-modal-content,
-#confirmEmailPreviewModal .hpc-modal-content { max-height: 88vh; display: flex; flex-direction: column; }
+#confirmEmailPreviewModal .hpc-modal-content { max-height: 90vh; margin: 5vh auto; display: flex; flex-direction: column; }
+/* flex 子項目的 min-height 預設是 auto，不會縮到比內容小，
+   少了 min-height: 0 的話 overflow-y: auto 形同虛設。 */
 #settingModal .hpc-modal-body,
-#confirmEmailPreviewModal .hpc-modal-body { overflow-y: auto; }
+#confirmEmailPreviewModal .hpc-modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+#settingModal .hpc-modal-header,
+#confirmEmailPreviewModal .hpc-modal-header { flex-shrink: 0; }
 #settingModal .hpc-modal-footer,
-#confirmEmailPreviewModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+#confirmEmailPreviewModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
 #settingModal .hpc-modal-footer .btn-secondary,
 #confirmEmailPreviewModal .hpc-modal-footer .btn-secondary { margin-right: 0; }
 #settingModal .hpc-modal-footer .btn-save-quota,
@@ -1260,6 +1272,9 @@ body {
     height: 100% !important;
     max-height: 80vh !important;
     overflow: hidden !important;
+    /* 這層也是 flex 子項目，同樣要允許縮小，
+       否則底下 body 的 min-height: 0 會被這一層擋住而失效。 */
+    min-height: 0 !important;
 }
 
 /* 讓中間的表單內容區塊自己負責高度和滾動，達到完美的滾動條效果 */
@@ -1267,6 +1282,9 @@ body {
     padding: 20px !important;           /* 💡 如果你想讓文字跟最外面的白框中間不要有任何留白，可以把這裡也改成 0 */
     overflow-y: auto !important;        /* 💡 讓滾動條完美出現在貼框內容的右側 */
     flex-grow: 1 !important;
+    /* 只有 flex-grow 還不夠：flex 子項目的 min-height 預設是 auto，
+       不會縮到比內容小，內容一長仍會把 footer 推出去。 */
+    min-height: 0 !important;
 }
 
 /* 修正頁首與頁尾的滿版間距（維持美觀） */
@@ -1274,6 +1292,7 @@ body {
     padding: 15px 20px !important;      /* 給予左右安全距離，使其貼齊視覺線 */
     margin: 0 !important;
     border-bottom: 1px solid #eee !important;
+    flex-shrink: 0 !important;
 }
 
 #quotaEditorModal .hpc-modal-footer {
@@ -1281,6 +1300,7 @@ body {
     margin: 0 !important;
     border-top: 1px solid #eee !important;
     background-color: #f8f9fa !important; /* 讓頁尾有淡淡的灰色底，呈現貼框的高級感 */
+    flex-shrink: 0 !important;
 }
 
 /* 調整費用核對與儲值區塊的間距，使其緊湊省空間 */

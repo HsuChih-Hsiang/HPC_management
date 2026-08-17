@@ -3,8 +3,12 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import request, jsonify, Blueprint
-from utils.params import UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME, SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
+from utils.params import UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME
 from utils.email_utils import load_mailboxes, save_mailboxes
+# SMTP 連線資訊統一透過 ensure_smtp_configured() 取得（來源為「設定」頁面的資料庫設定），
+# 不可再直接匯入 utils.params 的常數，
+# 否則使用者在畫面上改了發信設定，這支寄信 API 仍會走到舊值。
+from utils.smtp_config import ensure_smtp_configured
 
 email_bp = Blueprint('email', __name__)
 
@@ -49,17 +53,19 @@ def send_email():
         print("已將新的信箱新增至待分組信箱。")
 
     try:
+        smtp_server, smtp_port, sender_email, sender_password = ensure_smtp_configured()
+
         context = ssl.create_default_context()
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls(context=context)
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.login(sender_email, sender_password)
             for email in all_recipients_list:
                 if email in cc_recipients or email in bcc_recipients:
                     continue
 
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = subject
-                msg["From"] = SENDER_EMAIL
+                msg["From"] = sender_email
                 msg["To"] = email 
                 
                 if cc_recipients_str:
@@ -71,7 +77,7 @@ def send_email():
                 
                 msg.attach(part)
                 email = [email] + cc_recipients + bcc_recipients
-                server.sendmail(SENDER_EMAIL, email, msg.as_string())
+                server.sendmail(sender_email, email, msg.as_string())
         
         return jsonify({'success': True, 'message': '郵件已成功寄出！'})
     except Exception as e:

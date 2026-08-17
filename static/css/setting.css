@@ -23,6 +23,33 @@
     font-size: 13px;
 }
 
+/* 郵件主機與連接埠並排：主機吃剩餘寬度，連接埠固定較窄 */
+.form-row {
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+}
+
+.form-col-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.form-col-port {
+    flex: 0 0 130px;
+}
+
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    .form-col-port {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}
+
 .form-control {
     width: 100%;
     padding: 12px;

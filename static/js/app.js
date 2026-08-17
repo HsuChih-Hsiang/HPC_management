@@ -92,6 +92,16 @@ app.run(['$rootScope', function($rootScope) {
         $rootScope.isMenuOpen = !$rootScope.isMenuOpen;
     };
 
+    // 關閉選單一定要透過這個函式，不可在樣板裡直接寫 ng-click="isMenuOpen = false"。
+    // AngularJS 的 scope 是原型繼承：在子 scope（例如各頁 controller 的 scope）
+    // 對 isMenuOpen 這種基本型別直接賦值，並不會改到 $rootScope，
+    // 而是在子 scope 上「新建一個同名屬性」把父層的遮蔽掉。
+    // 一旦被遮蔽，之後 toggleMenu() 改的是 $rootScope，樣板讀到的卻是子 scope 的舊值，
+    // 於是漢堡按鈕就會變成點了沒反應。
+    $rootScope.closeMenu = function() {
+        $rootScope.isMenuOpen = false;
+    };
+
     $rootScope.isActive = function(path) {
         var currentPath = window.location.pathname;
         if (currentPath > 1 && currentPath.endsWith('/')) {

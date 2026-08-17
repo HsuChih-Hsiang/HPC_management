@@ -17,6 +17,8 @@ app.controller('SettingController', ['$scope', '$http', '$timeout', function($sc
     $scope.message = { text: '', type: '', visible: false };
     $scope.saving = false;
     $scope.smtp = {
+        smtp_server: '',
+        smtp_port: null,
         sender_email: '',
         password: '',
         has_password: false
@@ -100,6 +102,9 @@ app.controller('SettingController', ['$scope', '$http', '$timeout', function($sc
     function loadSmtpSetting() {
         return $http.get('/api/setting/smtp').then(function(response) {
             var data = response.data || {};
+            $scope.smtp.smtp_server = data.smtp_server || '';
+            // 後端可能回傳字串，轉成數字 input 才會正確帶值
+            $scope.smtp.smtp_port = data.smtp_port ? parseInt(data.smtp_port, 10) : null;
             $scope.smtp.sender_email = data.sender_email || '';
             $scope.smtp.has_password = !!data.has_password;
         }, function(error) {
@@ -109,8 +114,25 @@ app.controller('SettingController', ['$scope', '$http', '$timeout', function($sc
     }
 
     $scope.saveSmtp = function() {
+        var smtpServer = ($scope.smtp.smtp_server || '').trim();
+        var smtpPort = $scope.smtp.smtp_port;
         var senderEmail = ($scope.smtp.sender_email || '').trim();
         var password = $scope.smtp.password || '';
+
+        if (!smtpServer) {
+            showMessage('請輸入郵件主機位址。', 'error');
+            return;
+        }
+
+        if (!smtpPort) {
+            showMessage('請輸入連接埠。', 'error');
+            return;
+        }
+
+        if (smtpPort < 1 || smtpPort > 65535) {
+            showMessage('連接埠必須介於 1 到 65535 之間。', 'error');
+            return;
+        }
 
         if (!senderEmail) {
             showMessage('請輸入發信帳號。', 'error');
@@ -125,12 +147,18 @@ app.controller('SettingController', ['$scope', '$http', '$timeout', function($sc
 
         $scope.saving = true;
 
+        var basePayload = {
+            smtp_server: smtpServer,
+            smtp_port: smtpPort,
+            sender_email: senderEmail
+        };
+
         // 密碼留空 = 沿用原本已儲存的密碼，不需要重新加密送出
         var payloadPromise = password
             ? encryptPassword(password).then(function(encrypted) {
-                  return { sender_email: senderEmail, encrypted_password: encrypted };
+                  return angular.extend({}, basePayload, { encrypted_password: encrypted });
               })
-            : Promise.resolve({ sender_email: senderEmail });
+            : Promise.resolve(basePayload);
 
         payloadPromise.then(function(payload) {
             return $http.post('/api/setting/smtp', payload);
