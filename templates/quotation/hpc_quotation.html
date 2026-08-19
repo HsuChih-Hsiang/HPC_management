@@ -22,7 +22,11 @@
 /* 1. 定義源流明體 */
 @font-face {
     font-family: 'GenRyuMin';
-    src: url('/usr/share/fonts/truetype/custom/GenRyuMin2TW-R.ttf') format('truetype');
+    /* 字型檔放在專案的 source/ 底下，由 routes.quotation_font 提供。
+       原本寫死 /usr/share/fonts/... 的絕對路徑，在瀏覽器裡會被當成網址
+       送回 Flask 而 404（這份 HTML 會在「寄送繳費單」的預覽視窗中顯示）。
+       轉 PDF 時不走這裡：@font-face 會被剝掉，改由 reportlab 直接註冊字型。 */
+    src: url('{{ url_for("routes.quotation_font", filename="GenRyuMin2TW-R.ttf") }}') format('truetype');
     font-weight: normal;
     font-style: normal;
 }
@@ -30,7 +34,7 @@
 /* 2. 定義台北黑體 */
 @font-face {
     font-family: 'TaipeiSans';
-    src: url('/usr/share/fonts/truetype/custom/TaipeiSansTCBeta-Regular.ttf') format('truetype');
+    src: url('{{ url_for("routes.quotation_font", filename="TaipeiSansTCBeta-Regular.ttf") }}') format('truetype');
     font-weight: normal;
     font-style: normal;
 }
@@ -62,6 +66,7 @@ ruby
  font-weight:400;
  font-style:normal;
  font-family:'GenRyuMin', serif;
+ }
 .font12
  {
  color:#000000;
@@ -77,6 +82,7 @@ ruby
  font-style:normal;
  font-family:'TaipeiSans', sans-serif; }
 td
+ {
  text-align:general;
  vertical-align:middle;
  white-space:nowrap;
@@ -1021,28 +1027,29 @@ td
  <tr style='height:28.5pt'>
 <td style='height:28.5pt;'></td>
 <td class='x49'>客戶名稱 :&nbsp;</td>
-<td class='x51'>國立臺灣大學農經系林柏熊教授</td>
+<td class='x51'>{{ customer_name }}</td>
 <td class='x35'></td>
 <td class='x52'>報價日期：</td>
-<td class='x65'>2026/05/13</td>
+<td class='x65'>{{ quote_date }}</td>
  </tr>
  <tr style='height:24.75pt'>
 <td style='height:24.75pt;'></td>
 <td class='x50'><font class="font12" style="text-decoration: none;">連<span style='mso-spacerun:yes;'>&nbsp; </span>絡<span style='mso-spacerun:yes;'>&nbsp; </span>人&nbsp;</font><font class="font13" style="text-decoration: none;">:&nbsp;</font></td>
-<td class='x87'>林柏熊教授</td>
+<td class='x87'>{{ contact_person }}</td>
 <td class='x31'></td>
 <td class='x53'>使用期間：</td>
-<td class='x66'>2026/02/01-2026/04/30</td>
+<td class='x66'>{{ usage_period }}</td>
  </tr>
  <tr style='height:27pt'>
 <td style='height:27pt;'></td>
 <td class='x50'><font class="font12" style="text-decoration: none;">連絡電話&nbsp;</font><font class="font13" style="text-decoration: none;">:&nbsp;</font></td>
-<td colspan='4' style='border-right:2px solid windowtext;'></td>
+<td class='x87'>{{ contact_phone }}</td>
+<td colspan='3' class='x31' style='border-right:2px solid windowtext;'></td>
  </tr>
  <tr style='height:24.75pt'>
 <td style='height:24.75pt;'></td>
 <td class='x62'>電子信箱：</td>
-<td class='x68'><a href="mailto:pakhunglam@ntu.edu.tw" target="_parent"><span style='font-size:12pt;color:#0000FF;font-weight:400;text-decoration: underline;text-underline-style:single;font-family:'GenRyuMin', serif;'>pakhunglam@ntu.edu.tw</span></a></td>
+<td class='x68'><a href="mailto:{{ contact_email }}" target="_parent"><span style='font-size:12pt;color:#0000FF;font-weight:400;text-decoration: underline;text-underline-style:single;font-family:'GenRyuMin', serif;'>{{ contact_email }}</span></a></td>
 <td colspan='3' class='x31' style='border-right:2px solid windowtext;'></td>
  </tr>
  <tr style='height:34.5pt'>
@@ -1052,35 +1059,14 @@ td
 <td class='x63'>使用量（核心小時）</td>
 <td class='x64'><span style='mso-spacerun:yes;'>&nbsp; </span>總價</td>
  </tr>
- <tr style='height:20.25pt'>
+ {% for row in quotation_rows %}{% for entry in row.entries %}<tr style='height:20.25pt'>
 <td style='height:20.25pt;'></td>
-<td colspan='2' class='x76' style='border-right:1px solid windowtext;border-bottom:1px solid windowtext;'>一般計算節點 h81 主機 (2016)</td>
-<td class='x38'>0.21</td>
-<td class='x69'>0&nbsp;</td>
-<td class='x39' align='right' x:fmla='=D8*E8'>$0</td>
+{% if loop.first %}<td colspan='2' rowspan='{{ row.entry_count }}' class='x76' style='border-right:1px solid windowtext;border-bottom:1px solid windowtext;'>{{ row.label }}</td>{% endif %}
+<td class='x33' align='left' style='text-align:left;'>{{ entry.coefficient_text }}{% if entry.queue_label %} <span style='font-size:9pt;color:#555555;'>({{ entry.queue_label }})</span>{% endif %}</td>
+<td class='x32' align='right'>{{ entry.core_hours_text }}&nbsp;</td>
+<td class='x39' align='right'>{{ entry.amount_text }}</td>
  </tr>
- <tr style='height:20.25pt'>
-<td style='height:20.25pt;'></td>
-<td colspan='2' class='x76' style='border-right:1px solid windowtext;border-bottom:1px solid windowtext;'>一般計算節點 h71 主機 (2014)</td>
-<td class='x33'>0.16</td>
-<td class='x32' align='right'>0&nbsp;</td>
-<td class='x39' align='right' x:fmla='=D9*E9'>$0</td>
- </tr>
- <tr style='height:20.25pt'>
-<td style='height:20.25pt;'></td>
-<td colspan='2' class='x76' style='border-right:1px solid windowtext;border-bottom:1px solid windowtext;'>一般計算節點 i90 主機 (2024)</td>
-<td class='x33'>0.26</td>
-<td class='x32' align='right'>384,619&nbsp;</td>
-<td class='x39' align='right' x:fmla='=D10*E10'>$100,001</td>
- </tr>
- <tr style='height:21pt'>
-<td style='height:21pt;'></td>
-<td colspan='2' class='x71' style='border-right:1px solid windowtext;'>GPU/Phi 計算節點</td>
-<td class='x40'>2.1</td>
-<td class='x70'>0&nbsp;</td>
-<td class='x39' align='right' x:fmla='=D11*E11'>$0</td>
- </tr>
- <tr style='height:20.25pt'>
+{% endfor %}{% endfor %} <tr style='height:20.25pt'>
 <td style='height:20.25pt;'></td>
 <td colspan='2' class='x73' style='border-right:2px solid windowtext;border-bottom:1px solid windowtext;'></td>
 <td class='x46'></td>
@@ -1092,7 +1078,7 @@ td
 <td colspan='2' class='x76' style='border-right:2px solid windowtext;border-bottom:1px solid windowtext;'></td>
 <td class='x43'></td>
 <td class='x54'>小計</td>
-<td class='x36' align='right' x:fmla='=SUM(F8:F11)'>$100,001</td>
+<td class='x36' align='right'>{{ subtotal_text }}</td>
  </tr>
  <tr style='height:20.25pt'>
 <td style='height:20.25pt;'></td>
@@ -1106,7 +1092,7 @@ td
 <td colspan='2' class='x78' style='border-right:2px solid windowtext;border-bottom:2px solid windowtext;'></td>
 <td class='x44'></td>
 <td class='x55'>總價</td>
-<td class='x37' align='right' x:fmla='=SUM(F8:F11)'>$100,001</td>
+<td class='x37' align='right'>{{ total_text }}</td>
  </tr>
  <tr style='height:20.25pt'>
 <td colspan='6' style='height:20.25pt;'></td>

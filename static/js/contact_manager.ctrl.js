@@ -126,6 +126,29 @@
     }]);
 
     /* -------------------------------------------------------------------
+     * bill-preview-srcdoc 指令
+     *
+     * 繳費單 (hpc_quotation.html) 是一份完整的 HTML 文件：有自己的 <head>、
+     * 大量 Excel 匯出的 CSS（.x30 ~ .x87 這種類名），還有一張內嵌的
+     * base64 圖章。直接用 ng-bind-html 塞進頁面，那些樣式會外洩污染整個
+     * 額度視窗，而 ngSanitize 也會把大部分 inline style 洗掉，
+     * 預覽就跟實際寄出的 PDF 長得不一樣了。
+     *
+     * 因此改放進 iframe 用 srcdoc 隔離：樣式互不干擾，看到的排版
+     * 也才是報價單真正的樣子。
+     * ------------------------------------------------------------------- */
+    app.directive('billPreviewSrcdoc', function () {
+        return {
+            restrict: 'A',
+            link: function (scope, element, attrs) {
+                scope.$watch(attrs.billPreviewSrcdoc, function (html) {
+                    element.attr('srcdoc', html || '');
+                });
+            }
+        };
+    });
+
+    /* -------------------------------------------------------------------
      * pagination-render 指令
      *
      * contact.css 對分頁有「結構型」選擇器：
@@ -975,6 +998,9 @@
                 discountDetails: null,
                 rechargeHistory: null,
                 consumptionHistory: null,
+                // 兩份歷史紀錄各自的年份篩選（空字串 = 所有年份）
+                rechargeYear: '',
+                consumptionYear: '',
                 bills: null,
                 billsLoading: false
             };
@@ -982,9 +1008,93 @@
             $scope.pendingBill = {
                 amount: '', date: '', notes: '',
                 placeholder: '請輸入核對後的金額',
-                notesColor: '', notesBold: false
+                notesColor: '', notesBold: false,
+                // 開啟視窗時後端試算出來的建議金額與自動帶入的備註，
+                // 用來判斷「金額被改過但備註還是系統自動產生的那句」
+                suggestedAmount: null,
+                autoNotes: ''
             };
             $scope.addQuota = { amount: '0', purchaseDate: '' };
+
+            // ---- 儲值紀錄 / 消費紀錄的年份篩選 ----
+            // 儲值紀錄本身就有 year 欄位；消費紀錄只有 created_at，取前四碼當年份。
+            function collectYears(list, getYear) {
+                var seen = {};
+                var years = [];
+                (list || []).forEach(function (item) {
+                    var y = getYear(item);
+                    if (y && !seen[y]) {
+                        seen[y] = true;
+                        years.push(y);
+                    }
+                });
+                // 新的年份排前面
+                years.sort(function (a, b) { return Number(b) - Number(a); });
+                return years;
+            }
+
+            function rechargeYearOf(item) {
+                return item && item.year ? String(item.year) : '';
+            }
+
+            function consumptionYearOf(tx) {
+                return tx && tx.created_at ? String(tx.created_at).substring(0, 4) : '';
+            }
+
+            $scope.rechargeYearOptions = function () {
+                return collectYears($scope.quota.rechargeHistory, rechargeYearOf);
+            };
+
+            $scope.consumptionYearOptions = function () {
+                return collectYears($scope.quota.consumptionHistory, consumptionYearOf);
+            };
+
+            $scope.filteredRechargeHistory = function () {
+                var list = $scope.quota.rechargeHistory || [];
+                if (!$scope.quota.rechargeYear) return list;
+                return list.filter(function (item) {
+                    return rechargeYearOf(item) === String($scope.quota.rechargeYear);
+                });
+            };
+
+            $scope.filteredConsumptionHistory = function () {
+                var list = $scope.quota.consumptionHistory || [];
+                if (!$scope.quota.consumptionYear) return list;
+                return list.filter(function (tx) {
+                    return consumptionYearOf(tx) === String($scope.quota.consumptionYear);
+                });
+            };
+
+            /* ------------------------------------------------------------
+             * 金額被人工調整過時，強制要求備註也要自己寫過。
+             *
+             * 不能用「備註有沒有文字」判斷：視窗一開啟備註就會自動帶入系統
+             * 產生的說明（例如「2025 年度合計 123 筆作業，系統自動統計費用。」），
+             * 所以「有文字」永遠成立。真正要擋的是「金額被改了，備註卻還是
+             * 系統自動帶入的那一句」——那張單日後沒人說得出金額為什麼不一樣。
+             *
+             * 後端 validate_amount_and_notes() 會用同一套規則再擋一次，
+             * 這裡只是先在前端給出即時提示。
+             * ------------------------------------------------------------ */
+            function checkNotesEditedWhenAmountChanged(amount) {
+                var suggested = $scope.pendingBill.suggestedAmount;
+                if (suggested === null || suggested === undefined) return null;
+
+                var submitted = parseFloat(amount);
+                if (isNaN(submitted)) return '金額格式不正確。';
+                if (submitted.toFixed(2) === Number(suggested).toFixed(2)) return null;
+
+                var notes = ($scope.pendingBill.notes || '').trim();
+                if (!notes) {
+                    return '本期應收總金額已與系統試算金額不同，請於「核對備註說明」填寫調整原因後再送出。';
+                }
+                if (notes === ($scope.pendingBill.autoNotes || '').trim()) {
+                    return '本期應收總金額已由系統試算的 $' + Number(suggested).toLocaleString() +
+                           ' 調整為 $' + submitted.toLocaleString() +
+                           '，請一併修改「核對備註說明」寫出調整原因（目前仍是系統自動帶入的文字）。';
+                }
+                return null;
+            }
 
             // 原 handleQuotaButtonClick
             $scope.handleQuotaButtonClick = function ($event, id, applicant, isCourse, isTrial) {
@@ -1016,6 +1126,8 @@
                     discountDetails: null,      // null = 顯示「資料載入中...」
                     rechargeHistory: null,      // null = 顯示「歷史紀錄載入中...」
                     consumptionHistory: null,   // null = 顯示「消費與扣款明細載入中...」
+                    rechargeYear: '',
+                    consumptionYear: '',
                     bills: null,
                     billsLoading: true
                 };
@@ -1024,8 +1136,13 @@
                 $scope.pendingBill = {
                     amount: '', date: '', notes: '',
                     placeholder: '計算建議金額中...',
-                    notesColor: '', notesBold: false
+                    notesColor: '', notesBold: false,
+                    suggestedAmount: null,
+                    autoNotes: ''
                 };
+
+                // 四顆按鈕在流程狀態回來之前一律停用，避免搶在狀態載入前按下去
+                loadBillingWorkflow(targetId);
 
                 // 將新增購買額度區塊也同步重設
                 $scope.addQuota = { amount: '0', purchaseDate: getTodayDateString() };
@@ -1068,6 +1185,11 @@
                     $scope.pendingBill.placeholder = '';
                     $scope.pendingBill.date = billData.bill_date || getTodayDateString();
                     $scope.pendingBill.notes = billData.notes || '';
+
+                    // 留存後端的試算結果，供「金額改了、備註沒改」的檢查比對
+                    $scope.pendingBill.suggestedAmount = billData.suggested_amount !== undefined
+                        ? billData.suggested_amount : null;
+                    $scope.pendingBill.autoNotes = billData.notes || '';
 
                     // 若備註包含警告標籤(⚠️)或成功標籤(✅)，調整輸入框提示顏色
                     var notes = billData.notes || '';
@@ -1244,6 +1366,17 @@
                     return;
                 }
 
+                if (!$scope.billingWorkflow.can_direct_bill) {
+                    alert($scope.billingWorkflow.direct_blocked_reason || '目前無法執行此步驟。');
+                    return;
+                }
+
+                var notesError = checkNotesEditedWhenAmountChanged(amount);
+                if (notesError) {
+                    alert('🛑 ' + notesError);
+                    return;
+                }
+
                 if (!confirm('【確認直接開立繳費單？】\n\n系統將跳過預付額度扣款，直接建立一筆 $' + amount + ' 元的未繳帳單。')) {
                     return;
                 }
@@ -1289,6 +1422,17 @@
                     return;
                 }
 
+                if (!$scope.billingWorkflow.can_deduct) {
+                    alert($scope.billingWorkflow.deduct_blocked_reason || '目前無法執行此步驟。');
+                    return;
+                }
+
+                var deductNotesError = checkNotesEditedWhenAmountChanged(amount);
+                if (deductNotesError) {
+                    alert('🛑 ' + deductNotesError);
+                    return;
+                }
+
                 // 2. 執行前二次確認
                 if (!confirm('【確認執行額度扣款？】\n系統將優先扣除該帳號的預付優惠額度。\n若額度不足，將自動就剩餘差額生成未繳繳費單。 \n學術獎勵要先點選才折抵。')) {
                     return;
@@ -1328,89 +1472,237 @@
                 });
             };
 
-            // ============================================================
-            // 兩階段驗證：先檢視 PDF 繳費單，確認無誤後再寄送（原 handlePreviewAndSend）
-            // ============================================================
-            $scope.handlePreviewAndSend = function () {
-                console.log('🚀 handlePreviewAndSend 被點擊了！');
+            /* ============================================================
+             * 開單流程狀態
+             *
+             * 四顆按鈕（寄送確認信 → 額度扣款後開單／開立繳費單 → 寄送繳費單）
+             * 的啟用狀態完全由後端 billing-workflow API 決定，進度存在
+             * billing_workflows 表，所以重新整理網頁後仍記得走到哪一步。
+             *
+             * 每次開啟額度視窗、以及每次流程往前一步之後都要重新載入，
+             * 按鈕狀態才會即時反映。
+             * ============================================================ */
+            $scope.billingWorkflowLoading = false;
+            $scope.billingWorkflow = {
+                can_send_confirm_email: false,
+                can_deduct: false,
+                can_direct_bill: false,
+                can_send_quotation: false,
+                can_send_prepaid_quotation: false
+            };
 
+            function loadBillingWorkflow(contactId) {
+                $scope.billingWorkflowLoading = true;
+                return $http.get('/api/contacts/' + contactId + '/billing-workflow').then(function (res) {
+                    $scope.billingWorkflow = res.data || {};
+                    $scope.billingWorkflowLoading = false;
+                }, function (err) {
+                    console.error('載入開單流程狀態失敗:', err);
+                    // 讀不到狀態時一律當成「不能操作」，寧可擋住也不要讓人跳過步驟
+                    $scope.billingWorkflow = {
+                        can_send_confirm_email: true,
+                        can_deduct: false,
+                        can_direct_bill: false,
+                        can_send_quotation: false,
+                        can_send_prepaid_quotation: false,
+                        deduct_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。',
+                        direct_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。',
+                        quotation_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。'
+                    };
+                    $scope.billingWorkflowLoading = false;
+                });
+            }
+
+            // 按鈕底下那行提示：告訴使用者現在該按哪一顆
+            $scope.billingWorkflowHint = function () {
+                var w = $scope.billingWorkflow || {};
+                if (!w.confirm_email_sent) return '流程第一步：請先「寄送確認信」，寄出後才能開立繳費單。';
+                if (!w.bill_issued) return '確認信已寄出，請擇一執行「額度扣款後,開立繳費單」或「開立繳費單」（兩者只能選一個）。';
+                if (!w.quotation_sent) return '繳費單已開立，可以「寄送繳費單」了。';
+                return '本年度流程已全部完成。';
+            };
+
+            /* ============================================================
+             * 寄送繳費單 —— 步驟一：選擇帳單種類
+             *
+             * 有「尚未繳款的預繳紀錄」時才能選「開立預繳帳單」；
+             * 沒有的話那個選項會是停用狀態（後端也會再擋一次）。
+             * ============================================================ */
+            $scope.billKindChooserOpen = false;
+
+            $scope.openBillSendChooser = function () {
+                if (!$scope.billingWorkflow.can_send_quotation) {
+                    alert($scope.billingWorkflow.quotation_blocked_reason || '目前無法寄送繳費單。');
+                    return;
+                }
+                $scope.billKindChooserOpen = true;
+            };
+
+            $scope.closeBillKindChooser = function () {
+                $scope.billKindChooserOpen = false;
+            };
+
+            $scope.onBillKindChooserBackdrop = function ($event) {
+                if ($event.target && $event.target.id === 'billKindChooserModal') { $scope.closeBillKindChooser(); }
+            };
+
+            /* ============================================================
+             * 寄送繳費單 —— 步驟二：確認信件內容後寄出
+             *
+             * 這是與「寄送確認信」完全獨立的一條流程：
+             *   - 信件本文＝繳費單通知信範本渲染的 HTML
+             *   - 附件    ＝繳費單 (hpc_quotation.html) 轉成的 PDF
+             *
+             * 表頭那幾格不讓人直接改 HTML，而是用視窗裡的表格逐格填寫，
+             * 開啟時自動帶入聯絡人資料；改完按「重新產生預覽」重新渲染，
+             * 送出時再把同一份欄位交給後端，確保看到的就是寄出的。
+             * ============================================================ */
+            $scope.billEmailModalOpen = false;
+            $scope.billEmailLoading = false;
+            $scope.billEmailRefreshing = false;
+            $scope.billEmailSending = false;
+            $scope.billEmail = { kind: 'normal', to: [], cc: [], subject: '', fields: {} };
+
+            // 繳費單原尺寸是 880pt 寬，塞進彈窗會看不清楚，所以提供縮放。
+            var QUOTATION_ZOOM_STEPS = [0.4, 0.5, 0.6, 0.75, 0.9, 1.0, 1.25, 1.5];
+            var QUOTATION_ZOOM_DEFAULT = 0.6;
+
+            function applyBillEmailPreview(data) {
+                // 縮放比例是使用者的檢視偏好，重新產生預覽時不該被重設
+                var zoom = ($scope.billEmail && $scope.billEmail.zoom) || QUOTATION_ZOOM_DEFAULT;
+
+                $scope.billEmail = {
+                    kind: data.kind || 'normal',
+                    to: data.to || [],
+                    cc: data.cc || [],
+                    subject: data.subject || '',
+                    fields: data.fields || {},
+                    prepaid_targets: data.prepaid_targets || [],
+                    rows: data.rows || [],
+                    total_text: data.total_text || '',
+                    unmatched: data.unmatched || [],
+                    unmatched_amount: data.unmatched_amount || 0,
+                    // Serverlist 查無費率的用量：算不出金額，但一定要讓開單的人知道
+                    unpriced: data.unpriced || [],
+                    // 兩份預覽都是完整的 HTML 文件，一律放進 iframe 隔離：
+                    // 直接塞進頁面的話，它們 <style> 裡的 table / td 裸選擇器
+                    // 會外洩到整個管理頁面，把外面的清單表格一起改掉。
+                    notificationHtml: data.notification_html || '',
+                    quotationHtml: data.quotation_html || '',
+                    zoom: zoom
+                };
+            }
+
+            $scope.zoomQuotationPreview = function (direction) {
+                var current = $scope.billEmail.zoom || QUOTATION_ZOOM_DEFAULT;
+                var index = QUOTATION_ZOOM_STEPS.indexOf(current);
+                if (index === -1) index = QUOTATION_ZOOM_STEPS.indexOf(QUOTATION_ZOOM_DEFAULT);
+                index = Math.min(QUOTATION_ZOOM_STEPS.length - 1, Math.max(0, index + direction));
+                $scope.billEmail.zoom = QUOTATION_ZOOM_STEPS[index];
+            };
+
+            $scope.resetQuotationZoom = function () {
+                $scope.billEmail.zoom = QUOTATION_ZOOM_DEFAULT;
+            };
+
+            function fetchBillEmailPreview(contactId, kind, fields) {
+                var params = angular.extend({ kind: kind }, fields || {});
+                return $http.get('/api/contacts/' + contactId + '/bill-email-preview', { params: params });
+            }
+
+            $scope.openBillEmailModal = function (kind) {
                 var contactId = $scope.quotaTargetId;
-                var amount = $scope.pendingBill.amount;
-                var billDate = $scope.pendingBill.date || '';
-                var notes = $scope.pendingBill.notes || '管理員手動直接開單';
-                var recipientEmail = $scope.currentContactEmail || '';
-
                 if (!contactId) {
                     alert('🛑 前端錯誤：找不到必要的網頁元素！');
                     return;
                 }
 
-                if (!amount || parseFloat(amount) <= 0) {
-                    alert('請輸入有效的繳費單金額以產生帳單項目');
+                if (kind === 'prepaid' && !$scope.billingWorkflow.can_send_prepaid_quotation) {
+                    alert('該帳號沒有尚未繳款的預繳紀錄，無法開立預繳帳單。');
+                    return;
+                }
+                if (kind === 'normal' && !$scope.billingWorkflow.can_send_normal_quotation) {
+                    alert('尚未開立本年度繳費單，請先完成「額度扣款後,開立繳費單」或「開立繳費單」。');
                     return;
                 }
 
-                if (!recipientEmail) {
-                    alert('無法取得客戶電子郵件，請確認外圍畫面的 Email 欄位設定正確');
-                    return;
-                }
-
-                var payloadData = {
-                    recipient: recipientEmail,
-                    title: 'HPC 運算服務繳費通知單',
-                    executor: '系統管理員',
-                    date: billDate,
-                    items: [{ name: notes, amount: parseFloat(amount) }]
+                $scope.closeBillKindChooser();
+                $scope.billEmail = {
+                    kind: kind, to: [], cc: [], subject: '', fields: {},
+                    prepaid_targets: [], zoom: QUOTATION_ZOOM_DEFAULT
                 };
+                $scope.billEmailLoading = true;
+                $scope.billEmailModalOpen = true;
 
-                alert('系統即將產生繳費單 PDF 預覽，請在即將開啟的新分頁中進行核對。');
+                // 第一次開啟不帶 overrides，讓後端自動帶入聯絡人資料當預設值
+                fetchBillEmailPreview(contactId, kind, null).then(function (res) {
+                    applyBillEmailPreview(res.data || {});
+                    $scope.billEmailLoading = false;
+                }, function (err) {
+                    $scope.billEmailLoading = false;
+                    $scope.billEmailModalOpen = false;
+                    var data = (err && err.data) || {};
+                    alert('❌ 無法產生繳費單預覽：' + (data.message || ('HTTP ' + (err && err.status))));
+                });
+            };
 
-                // 階段一：發送預覽請求並開啟新分頁檢視
+            $scope.refreshBillEmailPreview = function () {
+                var contactId = $scope.quotaTargetId;
+                if (!contactId) return;
+
+                $scope.billEmailRefreshing = true;
+                fetchBillEmailPreview(contactId, $scope.billEmail.kind, $scope.billEmail.fields).then(function (res) {
+                    applyBillEmailPreview(res.data || {});
+                    $scope.billEmailRefreshing = false;
+                }, function (err) {
+                    $scope.billEmailRefreshing = false;
+                    var data = (err && err.data) || {};
+                    alert('❌ 重新產生預覽失敗：' + (data.message || ('HTTP ' + (err && err.status))));
+                });
+            };
+
+            $scope.closeBillEmailModal = function () {
+                $scope.billEmailModalOpen = false;
+            };
+
+            $scope.onBillEmailModalBackdrop = function ($event) {
+                if ($event.target && $event.target.id === 'billEmailModal') { $scope.closeBillEmailModal(); }
+            };
+
+            $scope.confirmSendBillEmail = function () {
+                var contactId = $scope.quotaTargetId;
+                if (!contactId) {
+                    alert('🛑 前端錯誤：找不到必要的網頁元素！');
+                    return;
+                }
+
+                var recipients = ($scope.billEmail.to || []).concat($scope.billEmail.cc || []);
+                if (!confirm('【確認寄出繳費單？】\n\n收件人：' + recipients.join('、') +
+                             '\n金額：' + ($scope.billEmail.total_text || '') +
+                             '\n\n繳費單會轉成 PDF 附件一併寄出。')) {
+                    return;
+                }
+
+                $scope.billEmailSending = true;
                 $http({
                     method: 'POST',
-                    url: '/api/contacts/send-quotation',
+                    url: '/api/contacts/' + contactId + '/send-bill-email',
                     headers: { 'Content-Type': 'application/json' },
-                    data: angular.extend({}, payloadData, { preview: true }),
-                    responseType: 'blob'
+                    data: { kind: $scope.billEmail.kind, fields: $scope.billEmail.fields }
                 }).then(function (res) {
-                    var blob = new Blob([res.data], { type: 'application/pdf' });
-                    var pdfUrl = URL.createObjectURL(blob);
-                    var previewWindow = window.open(pdfUrl, '_blank');
-
-                    if (!previewWindow) {
-                        alert('偵測到瀏覽器封鎖了彈出視窗，請允許彈出視窗以檢視 PDF 帳單！');
+                    $scope.billEmailSending = false;
+                    var data = res.data || {};
+                    if (data.success) {
+                        alert('✅ ' + data.message);
+                        $scope.closeBillEmailModal();
+                        loadBillingWorkflow(contactId);
+                    } else {
+                        alert('❌ 寄送失敗：' + (data.message || '未知錯誤'));
                     }
-
-                    // 階段二：留在原分頁等待管理員核對
-                    $timeout(function () {
-                        var isConfirmed = confirm('【繳費單檢視確認】\n\n請確認新分頁中的 PDF 帳單明細。\n\n金額：$' +
-                            amount + ' 元\n收件人：' + recipientEmail +
-                            '\n\n確認內容完全無誤並現在寄出信件嗎？');
-
-                        if (!isConfirmed) return;
-
-                        $http({
-                            method: 'POST',
-                            url: '/api/contacts/send-quotation',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: angular.extend({}, payloadData, { preview: false })
-                        }).then(function (res2) {
-                            var result = res2.data || {};
-                            if (result.status === 'success') {
-                                alert('✅ 信件發送成功：' + result.message);
-                                $scope.pendingBill.amount = '';
-                                $scope.pendingBill.notes = '';
-                            } else {
-                                alert('❌ 寄送失敗：' + result.message);
-                            }
-                        }, function (err) {
-                            alert('系統發生異常: ' + ((err && err.data && err.data.message) || ('HTTP ' + (err && err.status))));
-                        });
-                    }, 800);
                 }, function (err) {
-                    // 統一捕捉階段一的所有連線與系統異常
-                    var msg = (err && err.data && err.data.message) ? err.data.message : '無法生成預覽檔';
-                    alert('系統發生異常: ' + msg);
+                    $scope.billEmailSending = false;
+                    var data = (err && err.data) || {};
+                    alert('❌ 寄送失敗：' + (data.message || ('HTTP ' + (err && err.status))));
                 });
             };
 
@@ -1483,6 +1775,8 @@
                     if (data.success) {
                         alert('✅ ' + data.message);
                         $scope.closeConfirmEmailPreviewModal();
+                        // 確認信是流程第一步，寄出後要立刻刷新狀態才會解鎖後面兩顆開單按鈕
+                        loadBillingWorkflow(contactId);
                     } else {
                         alert('❌ 寄送失敗：' + (data.message || '未知錯誤'));
                     }
@@ -1569,19 +1863,9 @@
                 $scope.statisticsModalOpen = false;
             };
 
-            // ============================================================
-            // 銷帳按鈕
-            // 註：原版 contact_manager.js 從未定義 triggerManualWriteOff，
-            //     點下去會是 ReferenceError（既有缺陷）。
-            //     這裡保留呼叫點，若他處（例如 index.js）有定義就轉呼叫。
-            // ============================================================
-            $scope.triggerManualWriteOff = function (billId, amount) {
-                if (typeof window.triggerManualWriteOff === 'function') {
-                    window.triggerManualWriteOff(billId, amount);
-                    return;
-                }
-                console.warn('triggerManualWriteOff 尚未實作（沿用原始程式行為）', billId, amount);
-            };
+            // 註：「繳費單紀錄明細」原本有一欄「操作」放銷帳按鈕，但該功能從未實作
+            //     （點下去是 ReferenceError）。銷帳實際上是在「HPC 帳務審核」頁面
+            //     進行的，因此該欄位與 triggerManualWriteOff 一併移除。
 
             // ============================================================
             // ⚙️ 系統設定 Modal（原 setting-button）
@@ -1594,6 +1878,7 @@
                 menu: { title: '系統設定', icon: 'fa-cog' },
                 emailTemplate: { title: '確認信範本設定', icon: 'fa-envelope-open-text' },
                 quotaSettings: { title: '學術獎勵額度與優惠區間設定', icon: 'fa-graduation-cap' },
+                quotationItems: { title: '繳費單格式設定', icon: 'fa-file-invoice-dollar' },
                 defaultCc: { title: '確認信預設副本人員', icon: 'fa-users' }
             };
 
@@ -1627,6 +1912,8 @@
                     loadEmailTemplateView();
                 } else if (view === 'quotaSettings') {
                     loadQuotaSettingsView();
+                } else if (view === 'quotationItems') {
+                    loadQuotationItemsView();
                 } else if (view === 'defaultCc') {
                     loadDefaultCcView();
                 }
@@ -1840,8 +2127,157 @@
                 });
             };
 
+            /* ------------------------------------------------------------
+             * 子功能 3：繳費單格式設定 (QuotationItem)
+             *
+             * 對應繳費單 (hpc_quotation.html) 上「計算資源 / 收費係數 /
+             * 使用量（核心小時）/ 總價」那張表的每一列。機器會汰換也會新增，
+             * 所以列的內容不寫死在 HTML 裡。
+             *
+             * 一台主機底下可能有多個 queue、不同 queue 單價也不同：
+             *   - 想分開列 → 建兩列，各自勾選不同的 queue
+             *   - 想合併成一列 → 建一列，把兩個 queue 都勾起來
+             * 未勾選任何 queue = 涵蓋該主機的全部 queue。
+             *
+             * 儲存採整批覆蓋：畫面上所有列一次送回後端，由後端比對 id
+             * 做新增／更新／刪除。
+             * ------------------------------------------------------------ */
+            $scope.quotationItemsLoading = false;
+            $scope.quotationItemsSaving = false;
+            $scope.quotationItemsForm = { items: [] };
+            $scope.serverOptions = [];
+
+            function loadQuotationItemsView() {
+                $scope.quotationItemsLoading = true;
+                $scope.quotationItemsSaving = false;
+
+                // 主機/queue 清單與設定內容要一起到齊，畫面才有辦法把已勾選的 queue 標出來
+                var serversPromise = $http.get('/api/contacts/quotation-items/servers').then(function (res) {
+                    $scope.serverOptions = res.data || [];
+                }, function (error) {
+                    console.error('載入主機清單失敗:', error);
+                    $scope.serverOptions = [];
+                });
+
+                var itemsPromise = $http.get('/api/contacts/quotation-items').then(function (res) {
+                    var data = res.data || {};
+                    $scope.quotationItemsForm = {
+                        items: (data.items || []).map(function (item) {
+                            return {
+                                id: item.id,
+                                label: item.label,
+                                coefficient: item.coefficient,
+                                is_active: item.is_active !== false,
+                                targets: (item.targets || []).map(function (t) {
+                                    return { server: t.server, queues: (t.queues || []).slice() };
+                                })
+                            };
+                        })
+                    };
+                }, function (error) {
+                    console.error('載入繳費單格式設定失敗:', error);
+                    $scope.quotationItemsForm = { items: [] };
+                    throw error;
+                });
+
+                serversPromise.then(function () {
+                    return itemsPromise;
+                }).then(function () {
+                    $scope.quotationItemsLoading = false;
+                }, function () {
+                    $scope.quotationItemsLoading = false;
+                    $scope.backToSettingMenu();
+                    alert('載入繳費單格式設定失敗，請稍後再試。');
+                });
+            }
+
+            // 某台主機底下有哪些 queue（含單價，讓管理員判斷要不要合併成同一列）
+            $scope.queuesOf = function (server) {
+                if (!server) return [];
+                var found = $scope.serverOptions.filter(function (s) { return s.server === server; })[0];
+                return (found && found.queues) || [];
+            };
+
+            $scope.addQuotationItem = function () {
+                $scope.quotationItemsForm.items.push({
+                    id: null, label: '', coefficient: null, is_active: true,
+                    targets: [{ server: '', queues: [] }]
+                });
+            };
+
+            $scope.removeQuotationItem = function (index) {
+                $scope.quotationItemsForm.items.splice(index, 1);
+            };
+
+            $scope.addQuotationTarget = function (item) {
+                item.targets.push({ server: '', queues: [] });
+            };
+
+            $scope.removeQuotationTarget = function (item, index) {
+                item.targets.splice(index, 1);
+            };
+
+            // 換主機時要清掉已勾選的 queue，否則會留下不屬於新主機的 queue 名稱
+            $scope.onQuotationTargetServerChange = function (target) {
+                target.queues = [];
+            };
+
+            $scope.toggleQuotationQueue = function (target, queue) {
+                var index = target.queues.indexOf(queue);
+                if (index === -1) {
+                    target.queues.push(queue);
+                } else {
+                    target.queues.splice(index, 1);
+                }
+            };
+
+            $scope.saveQuotationItems = function () {
+                var items = $scope.quotationItemsForm.items || [];
+
+                for (var i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    if (!(item.label || '').trim()) {
+                        alert('第 ' + (i + 1) + ' 列缺少「顯示名稱」。');
+                        return;
+                    }
+                    var validTargets = (item.targets || []).filter(function (t) { return !!t.server; });
+                    if (validTargets.length === 0) {
+                        alert('「' + item.label + '」至少要指定一台主機，否則這一列在繳費單上永遠是 0 元。');
+                        return;
+                    }
+                }
+
+                $scope.quotationItemsSaving = true;
+                $http.post('/api/contacts/quotation-items', {
+                    items: items.map(function (item) {
+                        return {
+                            id: item.id,
+                            label: (item.label || '').trim(),
+                            coefficient: (item.coefficient === '' ? null : item.coefficient),
+                            is_active: item.is_active !== false,
+                            targets: (item.targets || []).filter(function (t) { return !!t.server; })
+                                .map(function (t) { return { server: t.server, queues: t.queues || [] }; })
+                        };
+                    })
+                }).then(function (res) {
+                    $scope.quotationItemsSaving = false;
+                    var result = res.data || {};
+                    if (result.success) {
+                        alert(result.message || '繳費單格式設定已成功儲存。');
+                        $scope.backToSettingMenu();
+                    } else {
+                        alert('儲存失敗: ' + (result.message || '未知錯誤'));
+                    }
+                }, function (error) {
+                    console.error('儲存繳費單格式設定失敗:', error);
+                    $scope.quotationItemsSaving = false;
+                    var data = (error && error.data) || {};
+                    alert('儲存失敗：' + (data.message || '請檢查網路或稍後再試'));
+                });
+            };
+
             // ------------------------------------------------------------
-            // 子功能 3：確認信預設副本人員
+            // 子功能 4：確認信預設副本人員
             //
             // 對應 HPCSetting key='confirm_email_default_cc'（一個 Email 字串陣列）。
             // 寄送確認信時，後端會自動把這份清單併入 Cc。

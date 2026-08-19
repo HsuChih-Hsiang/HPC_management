@@ -1,7 +1,8 @@
+import os
 from urllib.parse import urlparse
 
-from flask import Blueprint, session, redirect, url_for, request
-from flask import render_template
+from flask import Blueprint, session, redirect, url_for, request, abort
+from flask import render_template, send_from_directory, current_app
 from utils.permission_utils import get_user_ordered_features, get_landing_path
 
 routes_bp = Blueprint('routes', __name__)
@@ -56,6 +57,35 @@ def hpc_billing_review():
 def space_stats():
     """Space 統計資料：目前僅先建立頁面與側邊欄連結，功能待後續補上。"""
     return render_template('space_stats.html')
+
+
+# 報價單 (templates/quotation/*.html) 會在「寄送繳費單」的預覽視窗中以
+# iframe 顯示，其 @font-face 需要真的抓得到字型檔。字型放在專案的
+# source/ 底下（不在 static/），所以另開這支路由提供。
+#
+# 只允許這份白名單內的檔名：檔名來自網址，屬於使用者可控輸入，
+# 限定清單可杜絕任何路徑穿越或把 source/ 當成任意檔案下載點的可能。
+QUOTATION_FONTS = {
+    'GenRyuMin2TW-R.ttf',
+    'TaipeiSansTCBeta-Regular.ttf',
+}
+
+
+@routes_bp.route('/fonts/<path:filename>')
+def quotation_font(filename):
+    if filename not in QUOTATION_FONTS:
+        abort(404)
+
+    source_dir = os.path.join(current_app.root_path, 'source')
+    # 這兩個字型檔各約 20MB，內容也不會變動，
+    # 因此給長效快取並開啟條件式請求（ETag/Last-Modified），
+    # 讓瀏覽器只在第一次真的下載，之後都走 304。
+    return send_from_directory(
+        source_dir, filename,
+        mimetype='font/ttf',
+        conditional=True,
+        max_age=60 * 60 * 24 * 30
+    )
 
 @routes_bp.route('/setting')
 def setting():

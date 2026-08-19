@@ -1,9 +1,60 @@
 import ast
 import json
 from flask import current_app
+from sqlalchemy import inspect
 from database.extensions import db
 from database.hpc_model import HPCSetting
 from utils.params import DEFAULT_HPC_SETTINGS
+
+
+def check_billing_tables(app):
+    """
+    啟動時確認開單流程需要的兩張資料表已建立。
+
+    本專案沒有使用 migration 工具，也沒有呼叫 db.create_all()，新表要靠
+    sql/ 底下的檔案手動建立。少了表卻直接查詢時，SQLAlchemy 只會丟出難以
+    理解的 ProgrammingError，且會出現在完全無關的 API 上，所以在啟動時
+    就先把話講清楚（沿用權限管理／個人資料欄位的既有做法）。
+    """
+    with app.app_context():
+        inspector = inspect(db.engine)
+        missing = {'billing_workflows', 'quotation_items'} - set(inspector.get_table_names())
+        if missing:
+            print('=' * 70)
+            print(f"[繳費單流程] 缺少資料表: {', '.join(sorted(missing))}")
+            print("請先執行 sql/20260819_add_billing_workflow_and_quotation_items.sql 後再啟動服務。")
+            print('=' * 70)
+
+        check_serverlist_rates()
+
+
+def check_serverlist_rates():
+    """
+    啟動時檢查費率表的資料健康度。
+
+    計價是靠 accounting_price_join() 依 job 年份挑出唯一一筆費率，
+    同一個 (server, queue, year) 若重複，它只能以 id 較小者為準 ——
+    不會再重複計費，但「到底該用哪個價」已經是人為決定不了的了，
+    所以要在啟動時講出來讓人去清資料。
+
+    （同一個 (server, queue) 有多個「不同年份」的費率是正常的調價歷史，
+      不在此列。）
+    """
+    from database.hpc_model import Serverlist
+    from sqlalchemy import func
+
+    duplicates = db.session.query(
+        Serverlist.server, Serverlist.queue, Serverlist.year, func.count('*').label('n')
+    ).group_by(Serverlist.server, Serverlist.queue, Serverlist.year)\
+     .having(func.count('*') > 1).all()
+
+    if duplicates:
+        print('=' * 70)
+        print('[費率設定] serverlist 有同年份重複的費率，計價時只會採用 id 較小的那一筆：')
+        for server, queue, year, count in duplicates:
+            print(f'    {server}/{queue} {year} 年 共 {count} 筆')
+        print('請清理重複資料，確保每個 (server, queue, 年份) 只有一筆費率。')
+        print('=' * 70)
 
 
 def _convert_value_to_type(key, value_str):

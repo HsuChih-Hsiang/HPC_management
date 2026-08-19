@@ -8,7 +8,8 @@ from database.hpc_model import Accounting, MailboxGroup, MailboxEmail, HPCSettin
 # 不在此直接匯入 utils.params 的常數，避免有人改了設定卻仍走到舊值；
 # 設定不完整時它會丟出明確的錯誤，而不是讓 smtplib 噴難懂的訊息。
 from utils.smtp_config import ensure_smtp_configured
-from utils.params import CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY
+from utils.params import (CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY,
+                          BILL_NOTIFICATION_TEMPLATE_KEY)
 from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -182,6 +183,70 @@ def render_usage_table_html(usage):
     return Markup(''.join(html))
 
 
+def read_default_bill_notification_template():
+    """讀取預設的繳費單通知信範本 templates/email/bill_notification.html。"""
+    default_path = os.path.join(current_app.root_path, 'templates', 'email', 'bill_notification.html')
+    with open(default_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
+def get_bill_notification_template_html():
+    """
+    「寄送繳費單」信件本文的範本：優先取資料庫中的自訂版本
+    (HPCSetting.key == 'bill_notification_template')，尚未自訂過則退回預設檔案。
+
+    與確認信刻意分開兩份範本、兩支流程：確認信是年度用量核對，
+    繳費單信則帶著報價單 PDF 附件，內容與收件對象的判斷都不同。
+    """
+    setting = HPCSetting.query.filter_by(key=BILL_NOTIFICATION_TEMPLATE_KEY).first()
+    if setting and setting.value:
+        return setting.value
+
+    return read_default_bill_notification_template()
+
+
+def send_email_with_pdf(recipients, subject, html_body, pdf_bytes, filename,
+                        cc=None):
+    """
+    寄送「HTML 內文 + PDF 附件」的信件，供寄送繳費單使用。
+
+    內文是 HTML（繳費單通知信範本渲染的結果），附件是報價單 PDF。
+    副本沿用 send_hpc_notification_email 的規則：Cc 標頭只是顯示用，
+    實際投遞名單要把 to + cc 一起交給 sendmail，否則副本收不到信。
+
+    回傳 (成功與否, 錯誤訊息)。
+    """
+    try:
+        smtp_server, smtp_port, sender_email, sender_password = ensure_smtp_configured()
+
+        cc = cc or []
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['From'] = sender_email
+        msg['To'] = ', '.join(recipients)
+        if cc:
+            msg['Cc'] = ', '.join(cc)
+
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(pdf_bytes)
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+        msg.attach(part)
+
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls(context=context)
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipients + cc, msg.as_string())
+
+        return True, None
+    except Exception as e:
+        current_app.logger.error(f'繳費單信件寄送失敗: {e}')
+        return False, str(e)
+
+
 def get_confirm_email_default_cc():
     """
     讀取「確認信預設副本人員」清單 (HPCSetting.key == 'confirm_email_default_cc')。
@@ -208,37 +273,4 @@ def get_user_email_from_db(username):
     if user:
         return user.email
     return None
-
-
-def send_pdf_email(recipient_email, subject, body_text, pdf_bytes, filename="report.pdf"):
-    smtp_server, smtp_port, sender_email, sender_password = ensure_smtp_configured()
-
-    # 建立多部分郵件物件
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = recipient_email
-    msg['Subject'] = subject
-
-    # 附加信件純文字內文
-    msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
-
-    # 建立 PDF 附件物件 (直接讀取記憶體中的 bytes)
-    part = MIMEBase('application', 'octet-stream')
-    part.set_payload(pdf_bytes)
-    
-    # 使用 Base64 編碼附件
-    encoders.encode_base64(part)
-    
-    # 設定附件檔名
-    part.add_header(
-        'Content-Disposition',
-        f'attachment; filename="{filename}"'
-    )
-    msg.attach(part)
-
-    # 透過 SMTP 發送信件
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()  # 啟用安全傳輸
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipient_email, msg.as_string())
 

@@ -487,11 +487,19 @@
                         </div>
                     </div>
 
-                    <h4 class="sub-section-title"><i class="fas fa-history"></i> 儲值紀錄明細</h4>
+                    <h4 class="sub-section-title-flex">
+                        <span><i class="fas fa-history"></i> 儲值紀錄明細</span>
+                        <select class="history-year-select" ng-model="quota.rechargeYear"
+                                ng-disabled="quota.rechargeHistory === null">
+                            <option value="">所有年份</option>
+                            <option ng-repeat="y in rechargeYearOptions()" ng-value="y">[[ y ]] 年</option>
+                        </select>
+                    </h4>
                     <div id="recharge_history_list" class="scroll-history-list">
                         <span ng-if="quota.rechargeHistory === null" style="color: #999;">歷史紀錄載入中...</span>
                         <span ng-if="quota.rechargeHistory !== null && quota.rechargeHistory.length === 0" style="color: #999;">目前無任何儲值歷史紀錄</span>
-                        <div ng-repeat="item in quota.rechargeHistory"
+                        <span ng-if="quota.rechargeHistory !== null && quota.rechargeHistory.length > 0 && filteredRechargeHistory().length === 0" style="color: #999;">[[ quota.rechargeYear ]] 年無任何儲值紀錄</span>
+                        <div ng-repeat="item in filteredRechargeHistory()"
                              style="margin-bottom: 10px; padding: 10px; border-radius: 5px; display: block;"
                              ng-style="{'background-color': item.is_paid ? '#f0fff4' : '#fff5f5','border-left': item.is_paid ? '4px solid #38a169' : '4px solid #e53e3e'}">
                             <div style="font-weight: bold; color: #2d3748; margin-bottom: 6px;">
@@ -512,12 +520,18 @@
 
                     <div class="consumption-history-wrapper">
                         <h4 class="sub-section-title-flex">
-                            <i class="fas fa-receipt"></i> 歷史消費與扣款日期明細
+                            <span><i class="fas fa-receipt"></i> 歷史消費與扣款日期明細</span>
+                            <select class="history-year-select" ng-model="quota.consumptionYear"
+                                    ng-disabled="quota.consumptionHistory === null">
+                                <option value="">所有年份</option>
+                                <option ng-repeat="y in consumptionYearOptions()" ng-value="y">[[ y ]] 年</option>
+                            </select>
                         </h4>
                         <div id="consumption_history_list" class="scroll-consumption-list">
                             <span ng-if="quota.consumptionHistory === null" style="color: #999; padding: 10px; display: block;">消費與扣款明細載入中...</span>
                             <span ng-if="quota.consumptionHistory !== null && quota.consumptionHistory.length === 0" style="color: #999; padding: 10px; display: block;">目前無任何消費與扣款明細紀錄</span>
-                            <div ng-repeat="tx in quota.consumptionHistory"
+                            <span ng-if="quota.consumptionHistory !== null && quota.consumptionHistory.length > 0 && filteredConsumptionHistory().length === 0" style="color: #999; padding: 10px; display: block;">[[ quota.consumptionYear ]] 年無任何消費與扣款紀錄</span>
+                            <div ng-repeat="tx in filteredConsumptionHistory()"
                                  style="margin-bottom: 10px; padding: 10px; border-radius: 5px;"
                                  ng-style="{'background-color': tx.tx_type === 'deduct' ? '#fff5f5' : (tx.tx_type === 'refund' ? '#ebf8ff' : ((tx.tx_type === 'charge' || tx.tx_type === 'bonus') ? '#f0fff4' : '#f7fafc')),'border-left': tx.tx_type === 'deduct' ? '4px solid #e53e3e' : (tx.tx_type === 'refund' ? '4px solid #3182ce' : ((tx.tx_type === 'charge' || tx.tx_type === 'bonus') ? '4px solid #38a169' : 'none'))}">
                                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
@@ -589,24 +603,49 @@
                                ng-style="{color: pendingBill.notesColor, 'font-weight': pendingBill.notesBold ? 'bold' : 'normal'}">
                     </div>
 
+                    <!--
+                      這四顆按鈕有嚴格的先後順序，狀態由後端
+                      GET /api/contacts/<id>/billing-workflow 提供（存在 billing_workflows 表），
+                      重新整理網頁後仍會記得走到哪一步：
+
+                        寄送確認信 → 額度扣款後開立繳費單 ／ 開立繳費單（擇一）→ 寄送繳費單
+
+                      ng-disabled 只是提示，後端每一支 API 都會再檢查一次順序。
+                    -->
                     <div class="btn-action-group">
-                        <button type="button" class="btn-send-quotamail" ng-click="sendQuotationCheckEmail()" ng-disabled="sendingConfirmEmail">
+                        <button type="button" class="btn-send-quotamail" ng-click="sendQuotationCheckEmail()"
+                                ng-disabled="sendingConfirmEmail || billingWorkflowLoading">
                             <i class="fas fa-calculator"></i> [[ sendingConfirmEmail ? '寄送中...' : '寄送確認信' ]]
+                            <span ng-if="billingWorkflow.confirm_email_sent" title="已於 [[ billingWorkflow.confirm_email_sent_at ]] 寄出">✔</span>
                         </button>
-                        <button type="button" class="btn-save-quota" ng-click="handleConfirmDeduct()">
+                        <button type="button" class="btn-save-quota" ng-click="handleConfirmDeduct()"
+                                ng-disabled="billingWorkflowLoading || !billingWorkflow.can_deduct"
+                                title="[[ billingWorkflow.deduct_blocked_reason || '' ]]">
                             <i class="fas fa-calculator"></i> 額度扣款後,開立繳費單
+                            <span ng-if="billingWorkflow.bill_action === 'deduct'">✔</span>
                         </button>
-                        <button type="button" class="btn-outline-bill" ng-click="submitDirectBill()">
+                        <button type="button" class="btn-outline-bill" ng-click="submitDirectBill()"
+                                ng-disabled="billingWorkflowLoading || !billingWorkflow.can_direct_bill"
+                                title="[[ billingWorkflow.direct_blocked_reason || '' ]]">
                             <i class="fas fa-file-invoice"></i> 開立繳費單
+                            <span ng-if="billingWorkflow.bill_action === 'direct'">✔</span>
                         </button>
-                        <button type="button" class="btn-send-bill" ng-click="handlePreviewAndSend()">
+                        <button type="button" class="btn-send-bill" ng-click="openBillSendChooser()"
+                                ng-disabled="billingWorkflowLoading || !billingWorkflow.can_send_quotation"
+                                title="[[ billingWorkflow.quotation_blocked_reason || '' ]]">
                             <i class="fas fa-paper-plane"></i> 寄送繳費單
+                            <span ng-if="billingWorkflow.quotation_sent">✔</span>
                         </button>
                     </div>
 
+                    <p class="quota-info-tip" ng-if="!billingWorkflowLoading && billingWorkflowHint()"
+                       style="margin-top:8px;">
+                        <i class="fas fa-info-circle"></i> [[ billingWorkflowHint() ]]
+                    </p>
+
                     <div class="bill-record-wrapper">
                         <h5 class="bill-record-title">
-                            <i class="fas fa-history"></i> 繳費單紀錄明細與銷帳
+                            <i class="fas fa-history"></i> 繳費單紀錄明細
                         </h5>
                         
                         <div class="table-responsive-scroll">
@@ -617,15 +656,14 @@
                                         <th class="text-right">金額</th>
                                         <th class="text-center">狀態</th>
                                         <th class="text-left">備註</th>
-                                        <th class="text-center">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="billsTableBody">
                                     <tr ng-if="quota.billsLoading">
-                                        <td colspan="5" class="table-placeholder" style="text-align:center; color:#999; padding:12px;">帳單紀錄載入中...</td>
+                                        <td colspan="4" class="table-placeholder" style="text-align:center; color:#999; padding:12px;">帳單紀錄載入中...</td>
                                     </tr>
                                     <tr ng-if="!quota.billsLoading && quota.bills !== null && quota.bills.length === 0">
-                                        <td colspan="5" class="table-placeholder" style="text-align: center; color: #999; padding: 20px;">該聯絡人查無歷史繳費單紀錄。</td>
+                                        <td colspan="4" class="table-placeholder" style="text-align: center; color: #999; padding: 20px;">該聯絡人查無歷史繳費單紀錄。</td>
                                     </tr>
                                     <tr ng-repeat="bill in quota.bills">
                                         <td class="text-left" style="padding: 10px; font-size: 13px; color:#4a5568;">[[ bill.created_at || '---' ]]</td>
@@ -636,10 +674,6 @@
                                             <span ng-if="bill.status !== 'paid' && bill.status !== 'unpaid'" style="background-color: #718096; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">[[ bill.status ]]</span>
                                         </td>
                                         <td class="text-left" style="padding: 10px; font-size: 12px; color: #718096; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="[[ bill.notes || '' ]]">[[ bill.notes || '---' ]]</td>
-                                        <td class="text-center" style="padding: 10px;">
-                                            <button ng-if="bill.status === 'unpaid'" type="button" ng-click="triggerManualWriteOff(bill.id, bill.amount)" style="background-color: #3182ce; color: white; border: none; padding: 3px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;"><i class="fas fa-check"></i> 銷帳</button>
-                                            <span ng-if="bill.status !== 'unpaid'" style="color: #cbd5e0; font-size: 11px;">無</span>
-                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -719,6 +753,179 @@
         </div>
     </div>
 
+    <!--
+      寄送繳費單 —— 步驟一：先選要開哪一種帳單。
+      沒有「尚未繳款的預繳紀錄」時，「開立預繳帳單」不可選，
+      否則等於憑空生出一筆不存在的應收款。
+    -->
+    <div id="billKindChooserModal" class="hpc-modal" ng-cloak
+         ng-style="{display: billKindChooserOpen ? 'block' : 'none'}"
+         ng-click="onBillKindChooserBackdrop($event)">
+        <div class="hpc-modal-content modal-width-narrow">
+            <div class="hpc-modal-header">
+                <h3><i class="fas fa-paper-plane"></i> 寄送繳費單</h3>
+                <span class="hpc-close" ng-click="closeBillKindChooser()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+                <p class="quota-info-tip" style="margin-top:0;">請選擇這次要開立並寄送的帳單種類。</p>
+
+                <div class="bill-kind-options">
+                    <button type="button" class="bill-kind-option"
+                            ng-click="openBillEmailModal('normal')"
+                            ng-disabled="!billingWorkflow.can_send_normal_quotation"
+                            title="[[ billingWorkflow.can_send_normal_quotation ? '' : '請先完成開立繳費單' ]]">
+                        <strong><i class="fas fa-file-invoice"></i> 開立帳單</strong>
+                        <small ng-if="billingWorkflow.can_send_normal_quotation">依 [[ billingWorkflow.year ]] 年度實際使用量計價，明細由「繳費單格式設定」決定。</small>
+                        <small ng-if="!billingWorkflow.can_send_normal_quotation" style="color:#e53e3e;">
+                            尚未開立本年度繳費單，請先完成「額度扣款後,開立繳費單」或「開立繳費單」。
+                        </small>
+                    </button>
+
+                    <button type="button" class="bill-kind-option"
+                            ng-click="openBillEmailModal('prepaid')"
+                            ng-disabled="!billingWorkflow.can_send_prepaid_quotation"
+                            title="[[ billingWorkflow.has_unpaid_prepaid ? '' : '該帳號沒有尚未繳款的預繳紀錄' ]]">
+                        <strong><i class="fas fa-wallet"></i> 開立預繳帳單</strong>
+                        <small ng-if="billingWorkflow.has_unpaid_prepaid">
+                            共 [[ billingWorkflow.unpaid_prepaid_count ]] 筆尚未繳款的預繳紀錄，
+                            合計 $[[ toLocale(billingWorkflow.unpaid_prepaid_total) ]] 元。
+                        </small>
+                        <small ng-if="!billingWorkflow.has_unpaid_prepaid" style="color:#e53e3e;">
+                            該帳號沒有尚未繳款的預繳紀錄，無法使用。
+                        </small>
+                    </button>
+                </div>
+            </div>
+            <div class="hpc-modal-footer">
+                <button type="button" class="btn-secondary" ng-click="closeBillKindChooser()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!--
+      寄送繳費單 —— 步驟二：確認信件內容。
+      分成兩個部分：上半是通知信（信件本文），下半是繳費單（會轉成 PDF 當附件）。
+      表頭那幾格不讓人直接改 HTML，而是用底下的表格逐格填寫／自動帶入，
+      改完按「重新產生預覽」就會看到套用後的結果。
+    -->
+    <div id="billEmailModal" class="hpc-modal" ng-cloak
+         ng-style="{display: billEmailModalOpen ? 'block' : 'none'}"
+         ng-click="onBillEmailModalBackdrop($event)">
+        <div class="hpc-modal-content modal-width-editor">
+            <div class="hpc-modal-header">
+                <!-- 預繳帳單刻意不特別標示：對客戶而言就是一張繳費單 -->
+                <h3><i class="fas fa-file-invoice-dollar"></i> 繳費單內容確認</h3>
+                <span class="hpc-close" ng-click="closeBillEmailModal()">&times;</span>
+            </div>
+            <div class="hpc-modal-body">
+                <span ng-if="billEmailLoading" style="color:#999;">預覽產生中...</span>
+
+                <div ng-if="!billEmailLoading">
+                    <div class="detail-row"><span><strong>收件人 (To)：</strong></span><span>[[ billEmail.to.join('、') || '（無）' ]]</span></div>
+                    <div class="detail-row"><span><strong>副本 (Cc)：</strong></span><span>[[ billEmail.cc.join('、') || '（無）' ]]</span></div>
+                    <div class="detail-row"><span><strong>主旨：</strong></span><span>[[ billEmail.subject ]]</span></div>
+
+                    <div class="bill-warning" ng-if="billEmail.unmatched && billEmail.unmatched.length > 0">
+                        <strong>⚠️ 有用量沒有被任何一列「繳費單格式設定」涵蓋到，這筆金額不會出現在繳費單上：</strong>
+                        <div ng-repeat="u in billEmail.unmatched">
+                            [[ u.server ]] / [[ u.queue ]]：$[[ toLocale(u.amount) ]]
+                        </div>
+                        <div>合計短少 $[[ toLocale(billEmail.unmatched_amount) ]] 元，請至「⚙️ 設定 → 繳費單格式設定」補上對應的列。</div>
+                    </div>
+
+                    <div class="bill-warning" ng-if="billEmail.unpriced && billEmail.unpriced.length > 0">
+                        <strong>⚠️ 以下用量在主機費率設定 (serverlist) 中查無單價，因此完全沒有被計費：</strong>
+                        <div ng-repeat="u in billEmail.unpriced">
+                            [[ u.server ]] / [[ u.queue ]]：[[ toLocale(u.core_hours) ]] 核心小時（[[ u.job_count ]] 筆作業）
+                        </div>
+                        <div>金額無法計算，需先補上該 queue 的費率設定，否則這段用量會從帳單上消失。</div>
+                    </div>
+
+                    <div class="section-title">✏️ 繳費單表頭欄位</div>
+                    <p class="quota-info-tip" style="margin-top:0;">
+                        以下欄位已自動帶入該聯絡人的資料，可逐格修改；改完請按「重新產生預覽」確認。
+                    </p>
+                    <table class="hpc-table bill-fields-table">
+                        <tbody>
+                            <tr>
+                                <th>客戶名稱</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.customer_name"></td>
+                                <th>報價日期</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.quote_date" placeholder="2026/05/13"></td>
+                            </tr>
+                            <tr>
+                                <th>連絡人</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.contact_person"></td>
+                                <th>使用期間</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.usage_period" placeholder="2026/01/01-2026/12/31"></td>
+                            </tr>
+                            <tr>
+                                <th>連絡電話</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.contact_phone" placeholder="02-33665026"></td>
+                                <th>電子信箱</th>
+                                <td><input type="text" class="hpc-input" ng-model="billEmail.fields.contact_email"></td>
+                            </tr>
+                            <!-- 預繳帳單專用：這筆錢要算在哪一項計算資源上（用來回推核心小時數） -->
+                            <tr ng-if="billEmail.prepaid_targets && billEmail.prepaid_targets.length > 0">
+                                <th>計入項目</th>
+                                <td colspan="3">
+                                    <select class="hpc-input" ng-model="billEmail.fields.prepaid_target"
+                                            ng-change="refreshBillEmailPreview()">
+                                        <option ng-repeat="t in billEmail.prepaid_targets" ng-value="t.key">
+                                            [[ t.label ]]（係數 [[ t.coefficient ]]）
+                                        </option>
+                                    </select>
+                                    <small style="color:#7f8c8d;">預繳金額會計入此項目，並依其收費係數換算成對應的核心小時數。</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="text-align:right; margin:10px 0 20px;">
+                        <button type="button" class="btn-secondary" ng-click="refreshBillEmailPreview()" ng-disabled="billEmailRefreshing">
+                            <i class="fas fa-sync"></i> [[ billEmailRefreshing ? '產生中...' : '重新產生預覽' ]]
+                        </button>
+                    </div>
+
+                    <!--
+                      兩份預覽都放進 iframe 隔離。
+                      這兩份都是完整的 HTML 文件，若直接以 ng-bind-html 塞進頁面，
+                      它們 <style> 區塊裡的 table / td 這類裸選擇器會外洩到整個
+                      管理頁面，把外面的清單表格一起改掉。範本又是可自訂的，
+                      無法保證內容裡不會出現 <style>，所以一律隔離最保險。
+                    -->
+                    <div class="section-title">① 通知信內容（信件本文）</div>
+                    <div class="quotation-preview-frame">
+                        <iframe class="notification-preview-iframe" bill-preview-srcdoc="billEmail.notificationHtml"></iframe>
+                    </div>
+
+                    <div class="section-title preview-section-title">
+                        <span>② 繳費單內容（將轉成 PDF 附件寄出）</span>
+                        <span class="preview-zoom">
+                            <button type="button" ng-click="zoomQuotationPreview(-1)" title="縮小">−</button>
+                            <span class="preview-zoom-value">[[ (billEmail.zoom * 100) | number:0 ]]%</span>
+                            <button type="button" ng-click="zoomQuotationPreview(1)" title="放大">＋</button>
+                            <button type="button" ng-click="resetQuotationZoom()" title="回到預設大小">預設</button>
+                        </span>
+                    </div>
+                    <div class="quotation-preview-frame quotation-preview-scroll">
+                        <iframe class="quotation-preview-iframe"
+                                bill-preview-srcdoc="billEmail.quotationHtml"
+                                ng-style="{width: (100 / billEmail.zoom) + '%',
+                                           height: (760 / billEmail.zoom) + 'px',
+                                           transform: 'scale(' + billEmail.zoom + ')'}"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="hpc-modal-footer">
+                <button type="button" class="btn-secondary" ng-click="closeBillEmailModal()">取消</button>
+                <button type="button" class="btn-save-quota" ng-click="confirmSendBillEmail()"
+                        ng-disabled="billEmailLoading || billEmailSending || billEmailRefreshing">
+                    <i class="fas fa-paper-plane"></i> [[ billEmailSending ? '寄送中...' : '內容無誤，確認寄送' ]]
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="settingModal" class="hpc-modal" ng-cloak
          ng-style="{display: settingModalOpen ? 'block' : 'none'}"
          ng-click="onSettingModalBackdrop($event)">
@@ -750,6 +957,14 @@
                         <span class="setting-menu-text">
                             <strong>學術獎勵額度與優惠區間</strong>
                             <small>設定免費額度、學術獎勵額度與預繳優惠級距</small>
+                        </span>
+                        <i class="fas fa-chevron-right setting-menu-chevron"></i>
+                    </button>
+                    <button type="button" class="setting-menu-item" ng-click="openSettingView('quotationItems')">
+                        <i class="fas fa-file-invoice-dollar setting-menu-icon"></i>
+                        <span class="setting-menu-text">
+                            <strong>繳費單格式設定</strong>
+                            <small>設定繳費單上「計算資源」要列出哪些主機與收費係數</small>
                         </span>
                         <i class="fas fa-chevron-right setting-menu-chevron"></i>
                     </button>
@@ -798,6 +1013,67 @@
                     </div>
                 </div>
 
+                <!--
+                  繳費單格式設定
+
+                  對應繳費單 (hpc_quotation.html) 上「計算資源 / 收費係數 /
+                  使用量（核心小時）/ 總價」那張表的每一列。機器會汰換也會新增，
+                  所以列的內容不寫死在 HTML 裡，改由這裡維護。
+
+                  一台主機底下可能有多個 queue、不同 queue 單價也不同：
+                    - 想分開列 → 建兩列，各自指定 queue
+                    - 想合併成一列 → 建一列，把兩個 queue 都勾起來
+                -->
+                <div ng-if="settingView === 'quotationItems'">
+                    <p class="quota-info-tip" style="margin-top:0;">
+                        每一列對應繳費單上的一行計算資源。金額一律以資料庫中該 queue 的實際單價計算，
+                        「收費係數」只是繳費單上要印出來的數字；留空時，若該列涵蓋的 queue 單價一致會自動帶入，
+                        不一致則印「-」。
+                    </p>
+                    <span ng-if="quotationItemsLoading" style="color:#999;">設定載入中...</span>
+
+                    <div ng-if="!quotationItemsLoading">
+                        <div class="quotation-item-row" ng-repeat="item in quotationItemsForm.items">
+                            <div class="quotation-item-head">
+                                <input type="text" class="form-input" placeholder="顯示名稱（例如：一般計算節點 i90 主機 (2024)）"
+                                       ng-model="item.label">
+                                <input type="number" class="form-input" placeholder="收費係數（可留空）"
+                                       min="0" step="0.0001" ng-model="item.coefficient">
+                                <label class="quotation-item-active" title="取消勾選即不出現在繳費單上">
+                                    <input type="checkbox" ng-model="item.is_active"> 啟用
+                                </label>
+                                <button type="button" class="btn-remove-row" ng-click="removeQuotationItem($index)">✕</button>
+                            </div>
+
+                            <div class="quotation-item-targets">
+                                <div class="quotation-item-target" ng-repeat="t in item.targets">
+                                    <select class="form-input" ng-model="t.server" ng-change="onQuotationTargetServerChange(t)">
+                                        <option value="">請選擇主機</option>
+                                        <option ng-repeat="s in serverOptions" ng-value="s.server">[[ s.server ]]</option>
+                                    </select>
+                                    <div class="quotation-item-queues">
+                                        <span class="quotation-item-queue-hint" ng-if="!t.server">選擇主機後可指定 queue</span>
+                                        <span class="quotation-item-queue-hint" ng-if="t.server && queuesOf(t.server).length === 0">此主機無 queue 資料</span>
+                                        <label class="quotation-item-queue" ng-repeat="q in queuesOf(t.server)">
+                                            <input type="checkbox" ng-checked="t.queues.indexOf(q.queue) !== -1"
+                                                   ng-click="toggleQuotationQueue(t, q.queue)">
+                                            [[ q.queue || '(空白)' ]]
+                                            <small ng-if="q.price !== null">$[[ q.price ]]</small>
+                                        </label>
+                                        <span class="quotation-item-queue-hint" ng-if="t.server && t.queues.length === 0">
+                                            未勾選任何 queue = 涵蓋此主機全部 queue
+                                        </span>
+                                    </div>
+                                    <button type="button" class="btn-remove-row" ng-click="removeQuotationTarget(item, $index)">✕</button>
+                                </div>
+                                <button type="button" class="btn-add-row" ng-click="addQuotationTarget(item)">＋ 新增主機</button>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn-add-row" ng-click="addQuotationItem()">＋ 新增計算資源列</button>
+                    </div>
+                </div>
+
                 <!-- 確認信預設副本人員設定 -->
                 <div ng-if="settingView === 'defaultCc'">
                     <p class="quota-info-tip" style="margin-top:0;">此處設定的 Email，往後系統寄送確認信時都會自動加入副本 (Cc)。</p>
@@ -823,6 +1099,11 @@
             <div class="hpc-modal-footer" ng-if="settingView === 'quotaSettings'">
                 <button type="button" class="btn-save-quota" ng-click="saveQuotaSettings()" ng-disabled="quotaSettingsSaving">
                     <i class="fas fa-save"></i> [[ quotaSettingsSaving ? '儲存中...' : '儲存設定' ]]
+                </button>
+            </div>
+            <div class="hpc-modal-footer" ng-if="settingView === 'quotationItems'">
+                <button type="button" class="btn-save-quota" ng-click="saveQuotationItems()" ng-disabled="quotationItemsSaving">
+                    <i class="fas fa-save"></i> [[ quotationItemsSaving ? '儲存中...' : '儲存設定' ]]
                 </button>
             </div>
             <div class="hpc-modal-footer" ng-if="settingView === 'defaultCc'">

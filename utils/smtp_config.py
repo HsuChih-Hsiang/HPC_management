@@ -21,19 +21,9 @@
 from database.extensions import db
 from database.hpc_model import HPCSetting
 from utils.crypto_utils import encrypt_for_storage, decrypt_from_storage
-from utils.params import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD
-
-SMTP_SERVER_KEY = 'smtp_server'
-SMTP_PORT_KEY = 'smtp_port'
-SMTP_SENDER_EMAIL_KEY = 'smtp_sender_email'
-SMTP_SENDER_PASSWORD_KEY = 'smtp_sender_password'
-SMTP_SETTING_CLASSIFICATION = 3  # 3 = 系統發信設定（1: 用量通知、2: 額度與優惠）
-
-# --- 執行期全域變數（系統啟動時填入） ---
-_RUNTIME_SMTP_SERVER = None
-_RUNTIME_SMTP_PORT = None
-_RUNTIME_SENDER_EMAIL = None
-_RUNTIME_SENDER_PASSWORD = None
+from utils.params import (SMTP_SERVER, SMTP_PORT, SMTP_SERVER_KEY,
+                          SMTP_PORT_KEY, SMTP_SENDER_EMAIL_KEY, SMTP_SENDER_PASSWORD_KEY,SMTP_SETTING_CLASSIFICATION,
+                          _RUNTIME_SMTP_SERVER, _RUNTIME_SMTP_PORT, _RUNTIME_SENDER_EMAIL, _RUNTIME_SENDER_PASSWORD)
 
 
 def _get_setting(key):
@@ -62,7 +52,9 @@ def _upsert_setting(key, value, description):
 def load_smtp_config_to_cache():
     """
     系統啟動時呼叫：從資料庫撈出發信設定、解密後放入全域變數。
-    資料庫沒有設定時保持 None，寄信時會自動退回 .env 的設定值。
+
+    主機與連接埠在資料庫沒設定時會退回 .env；發信帳號與密碼則沒有退路，
+    資料庫沒有就是沒有，寄信時由 ensure_smtp_configured() 擋下並提示去哪裡設定。
     """
     global _RUNTIME_SMTP_SERVER, _RUNTIME_SMTP_PORT
     global _RUNTIME_SENDER_EMAIL, _RUNTIME_SENDER_PASSWORD
@@ -87,7 +79,8 @@ def load_smtp_config_to_cache():
         server, port, email, _ = get_smtp_settings()
         print(f"已從資料庫載入發信設定：{email} @ {server}:{port}")
     else:
-        print("資料庫尚無發信設定，將沿用 .env 的 SMTP_SERVER / SMTP_PORT / SENDER_EMAIL / SENDER_PASSWORD。")
+        print("資料庫尚無發信設定，請至「設定」頁面填寫發信帳號與密碼後才能寄信"
+              "（主機與連接埠可沿用 .env 的 SMTP_SERVER / SMTP_PORT）。")
 
     return get_smtp_settings()
 
@@ -125,15 +118,19 @@ def save_smtp_config(smtp_server, smtp_port, sender_email, sender_password):
 def get_smtp_settings():
     """
     取得目前實際要用來寄信的完整設定 (server, port, email, password)。
-    優先使用資料庫設定（啟動時載入的全域變數），沒有才退回 .env 的值，
-    確保尚未在畫面上設定過的環境仍可正常寄信。
+
+    主機與連接埠：優先使用資料庫設定（啟動時載入的全域變數），沒有才退回 .env，
+                  讓尚未在畫面上設定過的環境仍有可用的預設值。
+    帳號與密碼  ：只認資料庫，沒有 .env 退路（原因見下方註解）。
     """
     server = _RUNTIME_SMTP_SERVER or SMTP_SERVER
     # 連接埠可能是 0 以外的任何數字，但 0 不是合法的埠號，用 or 判斷即可
     port = _RUNTIME_SMTP_PORT or SMTP_PORT
-    email = _RUNTIME_SENDER_EMAIL or SENDER_EMAIL
-    password = _RUNTIME_SENDER_PASSWORD or SENDER_PASSWORD
-    return server, port, email, password
+    # 發信帳號與密碼只認資料庫，沒有 .env 退路：
+    # 密碼一律經 Fernet 加密後儲存，若還留著 .env 的明文退路，
+    # 等於加密白做了，也會讓「畫面上改了帳號卻仍用舊帳號寄信」這種
+    # 難以察覺的狀況有機可乘。缺設定時由 ensure_smtp_configured() 擋下並提示。
+    return server, port, _RUNTIME_SENDER_EMAIL, _RUNTIME_SENDER_PASSWORD
 
 
 def get_smtp_credentials():

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>HPC 運算服務繳費通知</title>
+</head>
+<!--
+  樣式一律寫成 inline style，不要用 <style> 區塊：
+    1. 這份內容會在「寄送繳費單」的預覽視窗中顯示，<style> 裡的
+       table / td 這類裸選擇器會外洩、把整個管理頁面的表格重新上色。
+    2. 多數郵件客戶端（Gmail、Outlook）會直接把 <style> 區塊剝掉，
+       inline style 才是 HTML 信件真正可靠的做法。
+-->
+<body style="font-family: 'Microsoft JhengHei', Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 20px;">
+
+    <p><strong>親愛的 HPC 使用者您好：</strong></p>
+
+    <p>
+        檢附貴團隊 {{ usage_year }} 年度使用本中心高效能運算 (HPC) 服務的費用明細，詳如附件 PDF。<br>
+        使用期間：<strong>{{ usage_period }}</strong><br>
+        本期應繳金額：<strong>{{ total_text }}</strong>
+    </p>
+
+    <h3 style="color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px;">各計算資源花費明細</h3>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #dddddd; padding: 8px; text-align: left;">計算資源</th>
+                <th style="border: 1px solid #dddddd; padding: 8px; text-align: left;">收費係數</th>
+                <th style="border: 1px solid #dddddd; padding: 8px; text-align: right;">使用量（核心小時）</th>
+                <th style="border: 1px solid #dddddd; padding: 8px; text-align: right;">總價</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in quotation_rows %}{% for entry in row.entries %}
+            <tr>
+                {% if loop.first %}<td style="border: 1px solid #dddddd; padding: 8px; text-align: left;" rowspan="{{ row.entry_count }}">{{ row.label }}</td>{% endif %}
+                <!-- 係數靠左：數字一律從同一個左邊界起算，queue 註記緊接在後面 -->
+                <td style="border: 1px solid #dddddd; padding: 8px; text-align: left;">{{ entry.coefficient_text }}{% if entry.queue_label %} <span style="font-size: 12px; color: #777777;">({{ entry.queue_label }})</span>{% endif %}</td>
+                <td style="border: 1px solid #dddddd; padding: 8px; text-align: right;">{{ entry.core_hours_text }}</td>
+                <td style="border: 1px solid #dddddd; padding: 8px; text-align: right;">{{ entry.amount_text }}</td>
+            </tr>
+            {% endfor %}{% endfor %}
+            <tr style="background-color: #fafafa; font-weight: bold;">
+                <td style="border: 1px solid #dddddd; padding: 8px; text-align: left;" colspan="3">合計</td>
+                <td style="border: 1px solid #dddddd; padding: 8px; text-align: right;">{{ subtotal_text }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="margin-top: 20px;">
+        如對帳目內容有任何疑問，或需要調整繳款方式，懇請與本中心聯絡，我們會盡快協助處理。
+    </p>
+
+    <p style="text-align: right; font-weight: bold;">國立臺灣大學 計算機及資訊網路中心 HPC 服務團隊 敬上</p>
+
+    <hr style="border: 0; border-top: 1px solid #dddddd;">
+    <p style="font-size: 13px; color: #777777;">
+        聯絡電話：02-33665026　｜　聯絡信箱：ntucloud@ntu.edu.tw<br>
+        聯絡地址：10617 臺北市大安區羅斯福路四段一號　國立臺灣大學 計算機及資訊網路中心
+    </p>
+
+</body>
+</html>

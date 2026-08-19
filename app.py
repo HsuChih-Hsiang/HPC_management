@@ -2,7 +2,8 @@ from flask import Flask, session, request, redirect, url_for, jsonify, render_te
 from database.extensions import db
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from utils.hpc.hpc_setting_utils import init_hpc_settings, load_hpc_settings_by_classification
+from utils.hpc.hpc_setting_utils import (init_hpc_settings, load_hpc_settings_by_classification,
+                                          check_billing_tables)
 from utils.hpc.hpc_notify_utils import check_hpc_usage_and_notify
 from utils.login_utils import oauth, init_oauth
 from utils.crypto_utils import key_generate
@@ -130,6 +131,8 @@ with app.app_context():
     # 缺少 contact_email 欄位時，之後每一次 AdUser 查詢都會失敗，
     # 所以要排在 init_permission_groups（會查 ad_user）之前先把話講清楚。
     check_profile_columns(app)
+    # 開單流程（billing_workflows）與繳費單格式設定（quotation_items）所需的資料表
+    check_billing_tables(app)
     # 確保 admin 群組存在且擁有全部權限（含防鎖死保護）
     init_permission_groups(app)
 

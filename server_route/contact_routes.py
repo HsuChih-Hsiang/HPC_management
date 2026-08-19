@@ -7,9 +7,10 @@ from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
 from database.hpc_model import (Contact, SecondaryContact, CourseStudent, ContactAccountMapping,
                                 Serverlist, UserAccounting, Bill, Accounting, PrepaidAmount, HPCSetting,
-                                EMAIL_PATTERN)
+                                QuotationItem, EMAIL_PATTERN)
 from utils.email_utils import (get_confirm_email_template_html, read_default_confirm_email_template,
                                 CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY)
+from utils.hpc.hpc_bill_utils import get_default_quotation_items, accounting_price_join
 
 contact_bp = Blueprint('contact', __name__)
 
@@ -453,9 +454,9 @@ def get_hpc_statistics():
             func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
             func.count(Accounting.jobid).label('job_count')
         ).join(
-            # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
-            # 否則同一筆 job 會對到多筆價格造成金額被重複加總
-            Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)
+            # 計價一律走 accounting_price_join()：同一個 (server, queue) 會有多筆
+            # 歷史費率，它會依 job 年份挑出唯一適用的那一筆（見該函式說明）
+            Serverlist, accounting_price_join()
         ).filter(
             func.extract('year', Accounting.endtime) == year,
             or_(
@@ -514,6 +515,156 @@ def save_confirm_email_template():
 
     db.session.commit()
     return jsonify({'success': True, 'message': '確認信範本已成功儲存。'})
+
+# =========================================================================
+# 繳費單格式設定 (QuotationItem)
+#
+# 報價單 templates/quotation/hpc_quotation.html 上「計算資源」那張表，
+# 每一列要顯示什麼名稱、涵蓋哪些 server/queue、收費係數印幾，
+# 全部由這裡維護 —— 機器會汰換也會新增，不能寫死在 HTML 裡。
+#
+# 儲存採「整批覆蓋」：前端把畫面上所有列一次送回來，後端比對 id 做
+# 新增／更新／刪除。這比逐列各開一支 API 單純，也不會有前端刪了一列
+# 卻忘了呼叫刪除 API 的落差。
+# =========================================================================
+@contact_bp.route('/api/contacts/quotation-items', methods=['GET'])
+def get_quotation_items():
+    items = QuotationItem.query.order_by(QuotationItem.sort_order.asc(), QuotationItem.id.asc()).all()
+
+    # 一列都還沒設定時，回傳依 Serverlist 自動產生的建議內容當作起點，
+    # 讓管理員在上面改，而不是面對一張空白的設定頁。
+    if items:
+        return jsonify({'items': [item.to_dict() for item in items], 'is_default': False})
+
+    return jsonify({'items': get_default_quotation_items(), 'is_default': True})
+
+
+@contact_bp.route('/api/contacts/quotation-items/servers', methods=['GET'])
+def get_quotation_item_servers():
+    """
+    設定畫面用的 server / queue 選單來源。
+
+    直接讀 Serverlist（含每個 queue 的單價），讓管理員知道
+    「這個 server 底下有哪些 queue、各自多少錢」，
+    才能判斷要不要把它們合併成同一列。
+    """
+    rows = Serverlist.query.filter_by(status=True)\
+        .order_by(Serverlist.server.asc(), Serverlist.queue.asc()).all()
+
+    grouped = {}
+    for row in rows:
+        if not row.server:
+            continue
+        grouped.setdefault(row.server, [])
+        grouped[row.server].append({
+            'queue': row.queue or '',
+            'price': float(row.price) if row.price is not None else None
+        })
+
+    return jsonify([
+        {'server': server, 'queues': queues}
+        for server, queues in sorted(grouped.items())
+    ])
+
+
+@contact_bp.route('/api/contacts/quotation-items', methods=['POST'])
+def save_quotation_items():
+    data = request.get_json() or {}
+    items = data.get('items')
+
+    if not isinstance(items, list):
+        return jsonify({'success': False, 'message': '格式不正確。'}), 400
+
+    cleaned = []
+    for index, raw in enumerate(items):
+        if not isinstance(raw, dict):
+            return jsonify({'success': False, 'message': f'第 {index + 1} 列格式不正確。'}), 400
+
+        label = (raw.get('label') or '').strip()
+        if not label:
+            return jsonify({'success': False, 'message': f'第 {index + 1} 列缺少「顯示名稱」。'}), 400
+
+        targets = raw.get('targets') or []
+        if not isinstance(targets, list) or not targets:
+            return jsonify({
+                'success': False,
+                'message': f'「{label}」至少要指定一台主機，否則這一列在報價單上永遠是 0 元。'
+            }), 400
+
+        cleaned_targets = []
+        for target in targets:
+            if not isinstance(target, dict):
+                continue
+            server = (target.get('server') or '').strip()
+            if not server:
+                continue
+            queues = target.get('queues') or []
+            if not isinstance(queues, list):
+                queues = []
+            cleaned_targets.append({
+                'server': server,
+                # queues 留空代表「該 server 底下的所有 queue」
+                'queues': [str(q).strip() for q in queues if str(q).strip()]
+            })
+
+        if not cleaned_targets:
+            return jsonify({
+                'success': False,
+                'message': f'「{label}」至少要指定一台主機，否則這一列在報價單上永遠是 0 元。'
+            }), 400
+
+        coefficient = raw.get('coefficient')
+        if coefficient in (None, ''):
+            coefficient = None
+        else:
+            try:
+                coefficient = float(coefficient)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'message': f'「{label}」的收費係數格式不正確。'}), 400
+            if coefficient < 0:
+                return jsonify({'success': False, 'message': f'「{label}」的收費係數不可為負數。'}), 400
+
+        raw_id = raw.get('id')
+        cleaned.append({
+            'id': int(raw_id) if isinstance(raw_id, int) or (isinstance(raw_id, str) and raw_id.isdigit()) else None,
+            'label': label,
+            'targets': cleaned_targets,
+            'coefficient': coefficient,
+            'sort_order': index,
+            'is_active': bool(raw.get('is_active', True))
+        })
+
+    try:
+        existing = {item.id: item for item in QuotationItem.query.all()}
+        kept_ids = set()
+
+        for entry in cleaned:
+            item = existing.get(entry['id']) if entry['id'] else None
+            if item is None:
+                item = QuotationItem()
+                db.session.add(item)
+
+            item.label = entry['label']
+            item.targets = json.dumps(entry['targets'], ensure_ascii=False)
+            item.coefficient = entry['coefficient']
+            item.sort_order = entry['sort_order']
+            item.is_active = entry['is_active']
+
+            if entry['id']:
+                kept_ids.add(entry['id'])
+
+        # 畫面上被刪掉的列，資料庫也要跟著刪
+        for item_id, item in existing.items():
+            if item_id not in kept_ids:
+                db.session.delete(item)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': '繳費單格式設定已成功儲存。'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'儲存失敗：{e}'}), 500
+
 
 @contact_bp.route('/api/contacts/confirm-email-default-cc', methods=['GET'])
 def get_confirm_email_default_cc():

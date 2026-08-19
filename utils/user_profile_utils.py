@@ -11,17 +11,10 @@
 呼叫端（profile_routes）必須一併更新 session，否則要重新登入才會看到新名字。
 """
 
-import re
 from sqlalchemy import inspect
 from database.extensions import db
 from database.hpc_model import AdUser
-
-# 基本格式檢查即可：真正能不能收信只有寄出去才知道，
-# 這裡擋的是明顯的錯字（少了 @、少了網域）。
-EMAIL_PATTERN = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-
-NAME_MAX_LENGTH = 100
-CONTACT_EMAIL_MAX_LENGTH = 120
+from utils.params import EMAIL_PATTERN, NAME_MAX_LENGTH, CONTACT_EMAIL_MAX_LENGTH
 
 
 def check_profile_columns(app):

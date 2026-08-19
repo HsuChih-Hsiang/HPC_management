@@ -991,6 +991,207 @@ body {
     box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
 }
 
+/* =====================================================================
+   繳費單格式設定 (⚙️ 設定 → 繳費單格式設定)
+   每一列 = 繳費單上的一行計算資源，底下可掛多台主機/queue
+   ===================================================================== */
+.quotation-item-row {
+    background-color: #f8fafc;
+    border: 1px solid #edf2f7;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+.quotation-item-head {
+    display: grid;
+    grid-template-columns: 1fr 180px 70px 45px;
+    gap: 10px;
+    align-items: center;
+}
+.quotation-item-head input[type="text"],
+.quotation-item-head input[type="number"] {
+    height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.quotation-item-active {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #4a5568;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.quotation-item-targets {
+    margin-top: 10px;
+    padding-left: 12px;
+    border-left: 3px solid #e2e8f0;
+}
+.quotation-item-target {
+    display: grid;
+    grid-template-columns: 160px 1fr 45px;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 8px;
+}
+.quotation-item-target select {
+    height: 34px;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.quotation-item-queues {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 7px;
+}
+.quotation-item-queue {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #2d3748;
+    cursor: pointer;
+}
+.quotation-item-queue small { color: #718096; font-size: 11.5px; }
+.quotation-item-queue-hint { font-size: 12px; color: #a0aec0; }
+
+/* =====================================================================
+   寄送繳費單：帳單種類選擇 + 內容確認視窗
+   ===================================================================== */
+.bill-kind-options { display: flex; flex-direction: column; gap: 12px; }
+.bill-kind-option {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.bill-kind-option:hover:not(:disabled) {
+    border-color: #673ab7;
+    background: #f5f3fb;
+    box-shadow: 0 2px 8px rgba(103, 58, 183, 0.08);
+}
+.bill-kind-option:disabled { opacity: 0.55; cursor: not-allowed; }
+.bill-kind-option strong { color: #2d3748; font-size: 15px; }
+.bill-kind-option small { color: #7f8c8d; font-size: 12.5px; line-height: 1.5; }
+
+/* 有用量沒被任何一列格式設定涵蓋到時的警示（那筆錢不會出現在繳費單上） */
+.bill-warning {
+    margin: 12px 0;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid #e53e3e;
+    background: #fff5f5;
+    color: #742a2a;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* 繳費單表頭欄位的填寫表格 */
+.bill-fields-table { width: 100%; }
+.bill-fields-table th {
+    width: 90px;
+    text-align: right;
+    padding-right: 10px;
+    font-size: 13px;
+    color: #4a5568;
+    white-space: nowrap;
+}
+.bill-fields-table td { padding: 5px 8px 5px 0; }
+.bill-fields-table .hpc-input { width: 100%; box-sizing: border-box; }
+
+/* 通知信與繳費單都是完整 HTML 文件，用 iframe 隔離避免樣式互相污染
+   （它們 <style> 裡的 table / td 裸選擇器會外洩到整個管理頁面） */
+.quotation-preview-frame {
+    margin-top: 12px;
+    border: 1px solid #edf2f7;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+}
+.notification-preview-iframe {
+    width: 100%;
+    height: 420px;
+    border: none;
+    display: block;
+}
+
+/* 繳費單原尺寸 880pt 寬，用 transform 縮放後再讓外層捲動 */
+.quotation-preview-scroll { overflow: auto; max-height: 640px; }
+.quotation-preview-iframe {
+    border: none;
+    display: block;
+    transform-origin: 0 0;
+}
+
+.preview-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.preview-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+}
+.preview-zoom button {
+    min-width: 30px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    background: #fff;
+    color: #4a5568;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.preview-zoom button:hover { border-color: #673ab7; color: #673ab7; }
+.preview-zoom-value {
+    min-width: 46px;
+    text-align: center;
+    font-size: 13px;
+    color: #4a5568;
+}
+
+#billEmailModal .hpc-modal-content,
+#billKindChooserModal .hpc-modal-content { max-height: 90vh; margin: 5vh auto; display: flex; flex-direction: column; }
+#billEmailModal .hpc-modal-body,
+#billKindChooserModal .hpc-modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+#billEmailModal .hpc-modal-header,
+#billKindChooserModal .hpc-modal-header { flex-shrink: 0; }
+#billEmailModal .hpc-modal-footer,
+#billKindChooserModal .hpc-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+#billEmailModal .hpc-modal-footer .btn-secondary,
+#billKindChooserModal .hpc-modal-footer .btn-secondary { margin-right: 0; }
+#billEmailModal .hpc-modal-footer .btn-save-quota { flex: none !important; padding: 8px 18px !important; }
+
+/* 流程未走到的按鈕：明確做成停用狀態，避免使用者以為是壞掉 */
+.btn-action-group button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(35%);
+}
+
 @keyframes hpc-fade-in {
     from { transform: translateY(-20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -1400,6 +1601,25 @@ body {
     align-items: center;
     gap: 6px;
 }
+
+/* 儲值紀錄／消費紀錄標題右側的年份篩選下拉選單 */
+.history-year-select {
+    margin-left: auto;
+    height: 28px;
+    padding: 2px 8px;
+    border: 1px solid #cbd5e0;
+    border-radius: 5px;
+    background: #fff;
+    font-size: 12.5px;
+    color: #4a5568;
+    cursor: pointer;
+}
+.history-year-select:focus {
+    border-color: #4285f4;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+.history-year-select:disabled { background: #f7fafc; cursor: not-allowed; color: #a0aec0; }
 
 .bill-record-title {
     margin-top: 0;

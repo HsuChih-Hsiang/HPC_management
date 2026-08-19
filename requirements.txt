@@ -4,4 +4,13 @@ Flask-SQLAlchemy
 APScheduler
 gunicorn
 Jinja2
+# 報價單轉 PDF 的退路（Chromium 不可用時使用，版面會與預覽有落差）
 xhtml2pdf
+# 報價單轉 PDF 的主要途徑：用 Chromium 列印，版面才會跟預覽視窗一致。
+# 安裝後還要下載瀏覽器本體（部署時務必執行）：
+#     python -m playwright install chromium
+# Linux 另需系統相依套件：
+#     python -m playwright install-deps chromium
+playwright
+# 修復 source/GenRyuMin2TW-R.ttf 用（tools/repair_quotation_font.py）
+fonttools

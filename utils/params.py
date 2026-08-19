@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,8 +19,6 @@ except ValueError:
     SMTP_PORT = None
 
 # 帳號與密碼已改存於資料庫（密碼經 Fernet 加密），.env 中可不再保留。
-SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 DATABASE_URI = os.getenv('DATABASE_URI')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
@@ -145,3 +144,27 @@ RESEARCH_BONUS_SOURCE_PREFIX = 'RESEARCH_'
 
 CONFIRM_EMAIL_TEMPLATE_KEY = 'confirm_email_template'
 CONFIRM_EMAIL_DEFAULT_CC_KEY = 'confirm_email_default_cc'
+
+# 「寄送繳費單」用的通知信範本（信件本文；報價單本身另外轉成 PDF 當附件）。
+# 與確認信範本一樣採「資料庫有自訂版就用自訂版，否則退回 templates/ 底下的檔案」。
+BILL_NOTIFICATION_TEMPLATE_KEY = 'bill_notification_template'
+
+# user profile utils
+# 基本格式檢查即可：真正能不能收信只有寄出去才知道，
+# 這裡擋的是明顯的錯字（少了 @、少了網域）。
+EMAIL_PATTERN = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+NAME_MAX_LENGTH = 100
+CONTACT_EMAIL_MAX_LENGTH = 120
+
+# smpt config
+SMTP_SERVER_KEY = 'smtp_server'
+SMTP_PORT_KEY = 'smtp_port'
+SMTP_SENDER_EMAIL_KEY = 'smtp_sender_email'
+SMTP_SENDER_PASSWORD_KEY = 'smtp_sender_password'
+SMTP_SETTING_CLASSIFICATION = 3  # 3 = 系統發信設定（1: 用量通知、2: 額度與優惠）
+
+# --- 執行期全域變數（系統啟動時填入） ---
+_RUNTIME_SMTP_SERVER = None
+_RUNTIME_SMTP_PORT = None
+_RUNTIME_SENDER_EMAIL = None
+_RUNTIME_SENDER_PASSWORD = None

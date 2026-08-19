@@ -19,10 +19,11 @@
 </o:DocumentProperties>
 </xml><![endif]-->
 <style>
-@font-face {
-            font-family: 'CustomFont';
-            src: url('/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc');
-        }
+/* 原本這裡有一個 'CustomFont' 的 @font-face，src 寫死
+   /usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc。
+   但整份檔案的 font-family 用的都是 'GenRyuMin' 與 'TaipeiSans'，
+   從來沒有引用過 'CustomFont'，所以它唯一的作用就是讓瀏覽器
+   對一個不存在的網址發出 404 請求。已移除。 */
 <!--table
 
 a{

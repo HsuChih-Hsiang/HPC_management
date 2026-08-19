@@ -1,15 +1,19 @@
-import io
+import base64
 import uuid
-from xhtml2pdf import pisa
-from flask import request, jsonify, Blueprint, render_template, render_template_string, send_file
+from flask import request, jsonify, Blueprint, render_template_string
 from utils.hpc.hpc_bill_utils import (calculate_prepaid_quota, get_account_last_year_usage_details,
-                                      is_research_bonus, RESEARCH_BONUS_SOURCE_PREFIX)
+                                      is_research_bonus, RESEARCH_BONUS_SOURCE_PREFIX,
+                                      accounting_price_join)
 from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
+from utils.hpc.hpc_quotation_utils import (build_quotation_context, render_quotation_html,
+                                           render_bill_notification_html, quotation_html_to_pdf,
+                                           build_quotation_filename, get_unpaid_prepaids)
+from utils.hpc import hpc_workflow_utils as workflow_utils
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
 from sqlalchemy import func, cast, Numeric, and_
 from datetime import datetime, date
-from utils.email_utils import (send_pdf_email, send_hpc_notification_email,
+from utils.email_utils import (send_hpc_notification_email, send_email_with_pdf,
                                 get_confirm_email_template_html, get_confirm_email_default_cc,
                                 render_usage_table_html)
 
@@ -205,68 +209,132 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str, bill_id=Non
 # =========================================================================
 # 1. 動態計算該帳號尚未扣款的「建議帳單金額」 (供管理員核對)
 # =========================================================================
+def compute_suggested_bill(contact, id):
+    """
+    算出「本期應收總金額」的建議值與自動帶入的核對備註說明。
+
+    抽成共用函式的原因：這組「建議金額 + 自動備註」除了給前端預先填入之外，
+    送出開單／扣款時後端還要再算一次，用來判斷管理員是否改了金額卻沒有
+    一併修改備註（見 validate_amount_and_notes）。兩邊必須是同一份邏輯，
+    否則前端顯示的跟後端檢查的會對不起來。
+
+    Returns:
+        dict: {'suggested_amount', 'bill_date', 'notes'}；
+              未對應正式帳號時 suggested_amount 為 None（代表無法試算）。
+    """
+    formal_account_info = contact.get_formal_account()
+    username = (formal_account_info if isinstance(formal_account_info, str)
+                else getattr(formal_account_info, 'username', None))
+
+    if not username:
+        return {
+            'suggested_amount': None,
+            'bill_date': datetime.now().strftime('%Y-%m-%d'),
+            'notes': '未對應正式帳號，無法試算'
+        }
+
+    last_year = datetime.now().year - 1
+
+    # 優先判斷之前有沒有開過「扣款後因額度不足自動補開」的帳單
+    # 透過關鍵字『額度不足自動補開單』與『特定年份』進行精準比對
+    existing_bill = Bill.query.filter(
+        Bill.contact_id == id,
+        Bill.notes.like('%額度不足自動補開單%'),
+        Bill.notes.like(f'%{last_year}%'),  # 👈 確保是針對同一個計算年份
+        Bill.status.in_(['unpaid', 'paid'])  # 排除已取消 (cancelled) 的帳單
+    ).order_by(Bill.created_at.desc()).first()
+
+    if existing_bill:
+        # 1. 若該帳單為「未繳費」，直接改成顯示該帳單剩餘金額
+        if existing_bill.status == 'unpaid':
+            return {
+                'suggested_amount': round(float(existing_bill.amount), 2),
+                'bill_date': existing_bill.created_at.strftime('%Y-%m-%d'),
+                'notes': f"⚠️ 系統提示：該帳號先前已執行過扣款，此金額為【未繳費】的差額帳單內容 (帳單 ID: {existing_bill.id})。"
+            }
+
+        # 2. 若該帳單「已繳費」，直接顯示 0.0 元
+        return {
+            'suggested_amount': 0.0,
+            'bill_date': datetime.now().strftime('%Y-%m-%d'),
+            'notes': f"✅ 系統提示：該年度扣款後補開的差額帳單 (帳單 ID: {existing_bill.id}) 【已完成繳費】，此年度無需再執行扣款。"
+        }
+
+    # -----------------------------------------------------------------
+    # 若先前「沒有」開過相關帳單，才執行原本的 HPC 使用量動態計算邏輯
+    # -----------------------------------------------------------------
+    result = db.session.query(
+        func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
+        func.count(Accounting.jobid).label('job_count')
+    ).join(
+        # 計價一律走 accounting_price_join()：同一個 (server, queue) 會有多筆
+        # 歷史費率，它會依 job 年份挑出唯一適用的那一筆（見該函式說明）
+        Serverlist, accounting_price_join()
+    ).filter(
+        Accounting.username == username,
+        func.extract('year', Accounting.endtime) == last_year
+    ).first()
+
+    final_amount = round(float(result.total_price or 0), 2)
+    job_count = result.job_count or 0
+
+    return {
+        'suggested_amount': final_amount,
+        'bill_date': datetime.now().strftime('%Y-%m-%d'),
+        'notes': f"{last_year} 年度合計 {job_count} 筆作業，系統自動統計費用。"
+    }
+
+
+def validate_amount_and_notes(contact, id, submitted_amount, submitted_notes):
+    """
+    金額被改過時，強制要求管理員也自己寫過「核對備註說明」。
+
+    為什麼不是「有沒有填文字」就好：備註欄一開啟就會自動帶入系統產生的說明
+    （例如「2025 年度合計 123 筆作業，系統自動統計費用。」），所以「有文字」
+    永遠成立，擋不住任何東西。真正要擋的是「金額被人工調整過，備註卻還是
+    系統自動產生的那一句」—— 那張單日後沒有人說得出金額為什麼不一樣。
+
+    因此比對的是「備註是否仍等於系統當下會自動產生的那句話」。
+    前端會做同樣的檢查，這裡是後端的第二道關卡（前端可以被繞過）。
+
+    Returns:
+        None 代表通過；否則回傳給前端顯示的錯誤訊息。
+    """
+    suggestion = compute_suggested_bill(contact, id)
+    suggested_amount = suggestion['suggested_amount']
+
+    # 無法試算（未對應正式帳號）時不做這項檢查，否則會擋死正常的手動開單
+    if suggested_amount is None:
+        return None
+
+    try:
+        amount = round(float(submitted_amount), 2)
+    except (TypeError, ValueError):
+        return '金額格式不正確。'
+
+    if amount == round(float(suggested_amount), 2):
+        return None
+
+    notes = (submitted_notes or '').strip()
+    if not notes:
+        return ('本期應收總金額已與系統試算金額不同，請於「核對備註說明」填寫調整原因後再送出。')
+
+    if notes == suggestion['notes'].strip():
+        return (f"本期應收總金額已由系統試算的 ${suggested_amount:,.2f} 調整為 ${amount:,.2f}，"
+                "請一併修改「核對備註說明」寫出調整原因（目前仍是系統自動帶入的文字）。")
+
+    return None
+
+
 @quota_bp.route('/api/contacts/<int:id>/calculate_pending_bill', methods=['GET'])
 def calculate_pending_bill(id):
     contact = Contact.query.get_or_404(id)
-    formal_account_info = contact.get_formal_account()
-    
-    username = formal_account_info if isinstance(formal_account_info, str) else getattr(formal_account_info, 'username', None)
-    if not username:
-        return jsonify({'suggested_amount': 0.0, 'notes': '未對應正式帳號，無法試算'}), 200
 
-    last_year = datetime.now().year - 1
-    
     try:
-        # 核心新增：優先判斷之前有沒有開過「扣款後因額度不足自動補開」的帳單
-        # 透過關鍵字『額度不足自動補開單』與『特定年份』進行精準比對
-        existing_bill = Bill.query.filter(
-            Bill.contact_id == id,
-            Bill.notes.like('%額度不足自動補開單%'),
-            Bill.notes.like(f'%{last_year}%'),  # 👈 確保是針對同一個計算年份
-            Bill.status.in_(['unpaid', 'paid']) # 排除已取消 (cancelled) 的帳單
-        ).order_by(Bill.created_at.desc()).first()
-
-        if existing_bill:
-            # 1. 若該帳單為「未繳費」，直接改成顯示該帳單剩餘金額
-            if existing_bill.status == 'unpaid':
-                return jsonify({
-                    'suggested_amount': round(float(existing_bill.amount), 2),
-                    'bill_date': existing_bill.created_at.strftime('%Y-%m-%d'),
-                    'notes': f"⚠️ 系統提示：該帳號先前已執行過扣款，此金額為【未繳費】的差額帳單內容 (帳單 ID: {existing_bill.id})。"
-                }), 200
-            
-            # 2. 若該帳單「已繳費」，直接顯示 0.0 元
-            elif existing_bill.status == 'paid':
-                return jsonify({
-                    'suggested_amount': 0.0,
-                    'bill_date': datetime.now().strftime('%Y-%m-%d'),
-                    'notes': f"✅ 系統提示：該年度扣款後補開的差額帳單 (帳單 ID: {existing_bill.id}) 【已完成繳費】，此年度無需再執行扣款。"
-                }), 200
-
-        # -----------------------------------------------------------------
-        # 若先前「沒有」開過相關帳單，才執行原本的 HPC 使用量動態計算邏輯
-        # -----------------------------------------------------------------
-        result = db.session.query(
-            func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price).label('total_price'),
-            func.count(Accounting.jobid).label('job_count')
-        ).join(
-            # Serverlist 同一個 server 可能有多筆不同 queue 的價格，join 一定要帶上 queue，
-            # 否則同一筆 job 會對到多筆價格造成金額被重複加總
-            Serverlist, and_(Accounting.host == Serverlist.server, Accounting.queue == Serverlist.queue)
-        ).filter(
-            Accounting.username == username,
-            func.extract('year', Accounting.endtime) == last_year
-        ).first()
-
-        final_amount = round(float(result.total_price or 0), 2)
-        job_count = result.job_count or 0
-        notes = f"{last_year} 年度合計 {job_count} 筆作業，系統自動統計費用。"
-
-        return jsonify({
-            'suggested_amount': final_amount,
-            'bill_date': datetime.now().strftime('%Y-%m-%d'),
-            'notes': notes
-        }), 200
+        suggestion = compute_suggested_bill(contact, id)
+        if suggestion['suggested_amount'] is None:
+            return jsonify({'suggested_amount': 0.0, 'notes': suggestion['notes']}), 200
+        return jsonify(suggestion), 200
 
     except Exception as e:
         db.session.rollback()
@@ -290,6 +358,18 @@ def confirm_deduct(id):
         return jsonify({'message': '請輸入有效的扣款金額'}), 400
     if final_amount == 0:
         return jsonify({'message': '扣款金額為 0，無需執行'}), 200
+
+    contact = Contact.query.get_or_404(id)
+
+    # 流程順序把關：一定要先寄過確認信，且本年度尚未執行過另一種開單動作
+    order_error = workflow_utils.ensure_can_issue_bill(contact, workflow_utils.ACTION_DEDUCT)
+    if order_error:
+        return jsonify({'message': order_error}), 400
+
+    # 金額被人工調整過時，備註必須是管理員自己寫的，不能還是系統自動帶入的那句
+    notes_error = validate_amount_and_notes(contact, id, final_amount, data.get('notes'))
+    if notes_error:
+        return jsonify({'message': notes_error}), 400
 
     last_year = datetime.now().year - 1
 
@@ -341,8 +421,13 @@ def confirm_deduct(id):
         for tx in tx_logs:
             tx.bill_id = new_bill.id
             db.session.add(tx)
-            
-        # 5. 統一提交（Bill、PrepaidAmount 的扣減、QuotaTransaction 流水帳會封裝在同一個交易中）
+
+        # 記錄流程進度：本年度已用「額度扣款後開立繳費單」開過單，
+        # 之後「開立繳費單」就會被鎖住，而「寄送繳費單」則解鎖
+        workflow_utils.mark_bill_issued(id, workflow_utils.ACTION_DEDUCT, new_bill.id)
+
+        # 5. 統一提交（Bill、PrepaidAmount 的扣減、QuotaTransaction 流水帳、
+        #    流程進度會封裝在同一個交易中）
         db.session.commit()
 
         # 如果有產生差額繳費單
@@ -379,6 +464,18 @@ def create_bill(id):
     if amount is None or float(amount) <= 0:
         return jsonify({'message': '請輸入有效的開單金額'}), 400
 
+    contact = Contact.query.get_or_404(id)
+
+    # 流程順序把關：一定要先寄過確認信，且本年度尚未執行過額度扣款開單
+    order_error = workflow_utils.ensure_can_issue_bill(contact, workflow_utils.ACTION_DIRECT)
+    if order_error:
+        return jsonify({'message': order_error}), 400
+
+    # 金額被人工調整過時，備註必須是管理員自己寫的，不能還是系統自動帶入的那句
+    notes_error = validate_amount_and_notes(contact, id, amount, data.get('notes'))
+    if notes_error:
+        return jsonify({'message': notes_error}), 400
+
     last_year = datetime.now().year - 1
 
     try:
@@ -405,8 +502,15 @@ def create_bill(id):
             notes=notes
         )
         db.session.add(new_bill)
+        # 先 flush 逼出 new_bill.id，才能把它記進流程進度
+        db.session.flush()
+
+        # 記錄流程進度：本年度已用「開立繳費單」開過單，
+        # 之後「額度扣款後開立繳費單」就會被鎖住，而「寄送繳費單」則解鎖
+        workflow_utils.mark_bill_issued(id, workflow_utils.ACTION_DIRECT, new_bill.id)
+
         db.session.commit()
-        
+
         return jsonify({
             'status': 'success',
             'message': f'成功開立未繳繳費單，金額: ${round(float(amount), 2)} 元！'
@@ -498,78 +602,189 @@ def send_confirm_email(id):
     if not sent:
         return jsonify({'success': False, 'message': '確認信寄送失敗，請確認 SMTP 設定或稍後再試。'}), 500
 
+    # 記錄流程進度：確認信是開單流程的第一步，寄出後才會解鎖後面兩顆開單按鈕。
+    # 確認信允許重寄（例如上次寄錯人），重寄只會更新時間，不影響已走到的步驟。
+    workflow_utils.mark_confirm_email_sent(id)
+    db.session.commit()
+
     all_recipients = result['to'] + result['cc']
     return jsonify({'success': True, 'message': f"確認信已成功寄送給：{', '.join(all_recipients)}。"})
 
 
-@quota_bp.route('/api/contacts/send-quotation', methods=['POST'])
-def send_hpc_quotation():
+# =========================================================================
+# 開單流程狀態：四顆按鈕的啟用/停用完全由這支 API 決定
+#
+#   寄送確認信 → 額度扣款後開立繳費單 ／ 開立繳費單（擇一）→ 寄送繳費單
+#
+# 前端的 ng-disabled 只是提示，每一支 API 內部都會再檢查一次，
+# 所以直接打 API 也跳不過順序。
+# =========================================================================
+@quota_bp.route('/api/contacts/<int:id>/billing-workflow', methods=['GET'])
+def get_billing_workflow(id):
+    contact = Contact.query.get_or_404(id)
+    unpaid_prepaids = get_unpaid_prepaids(contact.get_formal_account())
+    state = workflow_utils.build_workflow_state(contact, has_unpaid_prepaid=bool(unpaid_prepaids))
+    state['unpaid_prepaid_total'] = round(sum(float(p.amount or 0) for p in unpaid_prepaids), 2)
+    state['unpaid_prepaid_count'] = len(unpaid_prepaids)
+    return jsonify(state)
+
+
+# =========================================================================
+# 寄送繳費單（與寄送確認信是兩條完全獨立的流程）
+#
+#   - 信件本文：templates/email/bill_notification.html（可在設定中自訂）
+#   - 附件    ：templates/quotation/hpc_quotation.html 轉成的 PDF 報價單
+#
+# 報價單表頭那幾格（客戶名稱／連絡人／連絡電話／電子信箱／報價日期／使用期間）
+# 由前端以表格逐格填寫，開啟時會自動帶入聯絡人資料；金額相關的欄位一律
+# 以資料庫實算為準，不接受前端覆寫。
+#
+# preview 與 send 共用 _build_bill_email_content，確保「預覽看到的」
+# 就是「實際寄出的」。
+# =========================================================================
+def _build_bill_email_content(contact, kind, overrides):
+    """回傳 (result, error)；result 內含收件人、主旨、通知信 HTML、報價單 HTML 與欄位預設值。"""
+    recipients = contact.get_confirm_email_recipients()
+    to_emails = recipients['to']
+    cc_emails = list(recipients['cc'])
+
+    if not to_emails:
+        return None, '找不到聯絡人的 Email，請至「其他聯絡人」欄位確認至少有一筆包含有效 Email 的聯絡資訊。'
+
+    # 併入預設副本人員，並避免跟收件人/既有副本重複
+    seen = set(to_emails) | set(cc_emails)
+    for email in get_confirm_email_default_cc():
+        if email not in seen:
+            cc_emails.append(email)
+            seen.add(email)
+
+    year = workflow_utils.get_billing_year()
+    context, error = build_quotation_context(contact, year, kind=kind, overrides=overrides)
+    if error:
+        return None, error
+
     try:
-        post_data = request.get_json()
-        if not post_data:
-            return jsonify({"status": "error", "message": "缺少 JSON 請求內文"}), 400
-
-        # 取得收件者與模板資料
-        recipient = post_data.get("recipient")
-        if not recipient:
-            return jsonify({"status": "error", "message": "缺少收件者 email (recipient)"}), 400
-
-        title = post_data.get("title", "自動生成報告")
-        executor = post_data.get("executor", "系統管理員")
-        bill_date = post_data.get("date") or date.today().isoformat()
-        items = post_data.get("items", [])
-        
-        # 🌟 新增控制參數：是否僅為預覽模式 (預設為 False)
-        preview_only = post_data.get("preview", False)
-
-        # Step 1: Jinja2 渲染 HTML
-        rendered_html = render_template(
-            'quotation/quotation.html', 
-            title=title, 
-            executor=executor, 
-            date=bill_date, 
-            items=items
-        )
-
-        # Step 2: xhtml2pdf 轉成 PDF bytes (不落地)
-        pdf_buffer = io.BytesIO()
-        pisa_status = pisa.pisaDocument(
-            src=io.BytesIO(rendered_html.encode('utf-8')),
-            dest=pdf_buffer
-        )
-
-        if pisa_status.err:
-            return jsonify({"status": "error", "message": "PDF 轉換失敗"}), 500
-
-        pdf_buffer.seek(0)
-        pdf_bytes = pdf_buffer.getvalue()
-
-        # 🌟 核心新增：如果是預覽模式，直接將 PDF 檔案流回傳給前端瀏覽器
-        if preview_only:
-            return send_file(
-                io.BytesIO(pdf_bytes),
-                mimetype='application/pdf',
-                as_attachment=False,  # False 表示讓瀏覽器直接線上開啟，而非強制下載
-                download_name=f"preview_{bill_date}.pdf"
-            )
-
-        # Step 3: 呼叫寄信函式 (非預覽模式，執行真正寄信)
-        email_subject = f"【系統自動通知】{title}"
-        email_body = f"您好：\n\n附件為系統自動產生的「{title}」，請查收。\n\n此信件為系統自動發送，請勿直接回信。"
-        
-        send_pdf_email(
-            recipient_email=recipient,
-            subject=email_subject,
-            body_text=email_body,
-            pdf_bytes=pdf_bytes,
-            filename="hpc_report.pdf"
-        )
-
-        return jsonify({"status": "success", "message": f"成功生成 PDF 並已寄送至 {recipient}"}), 200
-
+        quotation_html = render_quotation_html(context)
     except Exception as e:
-        return jsonify({"status": "error", "message": f"伺服器錯誤: {str(e)}"}), 500
-    
+        return None, f'報價單範本渲染失敗：{e}'
+
+    try:
+        notification_html = render_bill_notification_html(context)
+    except Exception as e:
+        return None, ('繳費單通知信範本渲染失敗，請至「⚙️ 設定」確認範本內容格式正確'
+                      f'（變數請維持 {{{{ 變數名 }}}} 格式）：{e}')
+
+    # 主旨要能一眼分辨是哪一種單：
+    #   一般帳單 → 結算的是「去年度」的實際用量，所以掛帳務年度 (year)
+    #   預繳帳單 → 收的是當年度要預繳的款項，與去年度用量無關，所以掛當年度
+    # （視窗標題與信件內文仍不特別標示「預繳」，對客戶而言就是一張繳費單。）
+    if kind == workflow_utils.KIND_PREPAID:
+        subject = f"HPC 運算服務 {datetime.now().year} 年度預繳繳費單"
+    else:
+        subject = f"HPC 運算服務 {year} 年度繳費單"
+
+    return {
+        'to': to_emails,
+        'cc': cc_emails,
+        'subject': subject,
+        'kind': kind,
+        'year': year,
+        'notification_html': notification_html,
+        'quotation_html': quotation_html,
+        # 給前端表格用的欄位值（開啟時自動帶入，可逐格修改後再送出）
+        'fields': {
+            'customer_name': context['customer_name'],
+            'contact_person': context['contact_person'],
+            'contact_phone': context['contact_phone'],
+            'contact_email': context['contact_email'],
+            'quote_date': context['quote_date'],
+            'usage_period': context['usage_period'],
+            # 預繳帳單專用：金額要計入哪一項計算資源
+            'prepaid_target': context.get('prepaid_target', '')
+        },
+        # 預繳帳單可選的計入位置（一般帳單為空清單）
+        'prepaid_targets': context.get('prepaid_targets') or [],
+        'rows': context['quotation_rows'],
+        'total_text': context['total_text'],
+        'total': context['total'],
+        # 兩種「錢會從帳單上無聲消失」的情況都要講出來：
+        #   unmatched 有費率但沒被任何一列格式設定涵蓋到
+        #   unpriced  Serverlist 根本沒有該 (server, queue) 的費率，連金額都算不出來
+        'unmatched': context['unmatched'],
+        'unmatched_amount': context['unmatched_amount'],
+        'unpriced': context['unpriced']
+    }, None
+
+
+@quota_bp.route('/api/contacts/<int:id>/bill-email-preview', methods=['GET'])
+def preview_bill_email(id):
+    """開啟「寄送繳費單」視窗時取得預覽內容與可編輯欄位的預設值。"""
+    contact = Contact.query.get_or_404(id)
+    kind = request.args.get('kind', workflow_utils.KIND_NORMAL)
+
+    unpaid_prepaids = get_unpaid_prepaids(contact.get_formal_account())
+    order_error = workflow_utils.ensure_can_send_quotation(contact, kind, bool(unpaid_prepaids))
+    if order_error:
+        return jsonify({'success': False, 'message': order_error}), 400
+
+    # 前端會把使用者改過的欄位透過 query string 帶回來重新預覽
+    overrides = {key: request.args.get(key) for key in
+                 ('customer_name', 'contact_person', 'contact_phone', 'contact_email',
+                  'quote_date', 'usage_period', 'prepaid_target')}
+
+    result, error = _build_bill_email_content(contact, kind, overrides)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+
+    return jsonify(dict(success=True, **result))
+
+
+@quota_bp.route('/api/contacts/<int:id>/send-bill-email', methods=['POST'])
+def send_bill_email(id):
+    """把繳費單通知信寄出：報價單轉成 PDF 當附件，通知信 HTML 當信件本文。"""
+    contact = Contact.query.get_or_404(id)
+    data = request.get_json() or {}
+    kind = data.get('kind', workflow_utils.KIND_NORMAL)
+
+    unpaid_prepaids = get_unpaid_prepaids(contact.get_formal_account())
+    order_error = workflow_utils.ensure_can_send_quotation(contact, kind, bool(unpaid_prepaids))
+    if order_error:
+        return jsonify({'success': False, 'message': order_error}), 400
+
+    result, error = _build_bill_email_content(contact, kind, data.get('fields') or {})
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+
+    pdf_bytes, pdf_error = quotation_html_to_pdf(result['quotation_html'])
+    if pdf_error:
+        return jsonify({'success': False, 'message': pdf_error}), 500
+
+    filename = build_quotation_filename(contact, {'kind': kind, 'usage_year': result['year']})
+    sent, send_error = send_email_with_pdf(
+        recipients=result['to'],
+        subject=result['subject'],
+        html_body=result['notification_html'],
+        pdf_bytes=pdf_bytes,
+        filename=filename,
+        cc=result['cc']
+    )
+
+    if not sent:
+        return jsonify({
+            'success': False,
+            'message': f"繳費單寄送失敗，請確認 SMTP 設定或稍後再試。（{send_error}）"
+        }), 500
+
+    workflow_utils.mark_quotation_sent(id, kind)
+    db.session.commit()
+
+    all_recipients = result['to'] + result['cc']
+    return jsonify({
+        'success': True,
+        'message': f"繳費單已成功寄送給：{', '.join(all_recipients)}。"
+    })
+
+
 @quota_bp.route('/api/contacts/<int:id>/research_bonus', methods=['POST'])
 def grant_research_bonus(id):
     """管理員後台連動：合併為單一 API，支援單次批次發放多種類型額度"""

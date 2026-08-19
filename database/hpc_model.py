@@ -130,6 +130,133 @@ class HPCSetting(db.Model):
     def __repr__(self):
         return f'<HPCSetting (key={self.key}, value={self.value})>'
 
+class QuotationItem(db.Model):
+    """
+    繳費單（報價單）的計算資源列設定 —— 對應 templates/quotation/hpc_quotation.html
+    中「計算資源 / 收費係數 / 使用量（核心小時）/ 總價」那張表的每一列。
+
+    機器未來會汰換、也會新增，所以報價單上要出現哪幾列不能寫死在 HTML 裡，
+    改由「⚙️ 設定 → 繳費單格式設定」維護：
+
+      label       報價單上顯示的名稱，例如「一般計算節點 i90 主機 (2024)」
+      targets     這一列涵蓋哪些 Accounting 紀錄，JSON 格式：
+                    [{"server": "i90", "queues": ["cpu", "gpu"]}, ...]
+                  queues 留空陣列代表「該 server 底下的所有 queue」。
+                  同一個 server 的不同 queue 可能單價不同，需要拆成不同列時，
+                  就在 targets 裡各自指定 queue。
+      coefficient 報價單「收費係數」欄要顯示的數字；留空 (None) 代表由
+                  Serverlist.price 自動帶入（多個 queue 單價不一致時顯示「-」）。
+                  ⚠️ 這只影響「顯示」，總價一律以 Serverlist 的實際單價計算，
+                  避免有人改了這裡的顯示值就讓帳單金額跟著失真。
+      sort_order  報價單上的列順序，數字小的排前面。
+      is_active   取消勾選即不出現在報價單上（保留設定不必刪除）。
+    """
+    __tablename__ = 'quotation_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    label = db.Column(db.String(255), nullable=False)
+    targets = db.Column(db.Text, nullable=False, default='[]')
+    coefficient = db.Column(db.Numeric(10, 4), nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    def get_targets(self):
+        """把 targets 欄位解析成 [{'server': str, 'queues': [str, ...]}, ...]，格式壞掉時回傳空清單。"""
+        raw = self.targets
+        if isinstance(raw, list):
+            parsed = raw
+        else:
+            try:
+                parsed = json.loads(raw or '[]')
+            except (json.JSONDecodeError, TypeError):
+                return []
+
+        if not isinstance(parsed, list):
+            return []
+
+        result = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            server = (item.get('server') or '').strip()
+            if not server:
+                continue
+            queues = item.get('queues') or []
+            if not isinstance(queues, list):
+                queues = []
+            result.append({
+                'server': server,
+                'queues': [str(q).strip() for q in queues if str(q).strip()]
+            })
+        return result
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'label': self.label,
+            'targets': self.get_targets(),
+            'coefficient': float(self.coefficient) if self.coefficient is not None else None,
+            'sort_order': self.sort_order,
+            'is_active': bool(self.is_active)
+        }
+
+    def __repr__(self):
+        return f'<QuotationItem {self.id} {self.label}>'
+
+
+class BillingWorkflow(db.Model):
+    """
+    一個聯絡人在某個帳務年度的「開單流程進度」。
+
+    畫面上那四顆按鈕是有先後順序的，而且重新整理網頁後仍要記得走到哪一步，
+    所以進度不能只存在前端 scope，必須落地：
+
+        寄送確認信
+          └→ 額度扣款後開立繳費單  ／  開立繳費單   （兩者只能擇一）
+                └→ 寄送繳費單
+
+    bill_action   'deduct'（額度扣款後開單）或 'direct'（直接開單）；
+                  只要其中一個做過，另一個就永遠不能再按。
+    quotation_kind 寄送繳費單時選的種類：'normal'（一般帳單）或 'prepaid'（預繳帳單）。
+    """
+    __tablename__ = 'billing_workflows'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id'), nullable=False, index=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+
+    confirm_email_sent_at = db.Column(db.DateTime, nullable=True)
+    bill_action = db.Column(db.String(20), nullable=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
+    bill_created_at = db.Column(db.DateTime, nullable=True)
+    quotation_sent_at = db.Column(db.DateTime, nullable=True)
+    quotation_kind = db.Column(db.String(20), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('contact_id', 'year', name='_contact_year_workflow_uc'),
+    )
+
+    def to_dict(self):
+        def fmt(dt):
+            return dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None
+
+        return {
+            'contact_id': self.contact_id,
+            'year': self.year,
+            'confirm_email_sent': self.confirm_email_sent_at is not None,
+            'confirm_email_sent_at': fmt(self.confirm_email_sent_at),
+            'bill_action': self.bill_action,
+            'bill_id': self.bill_id,
+            'bill_created_at': fmt(self.bill_created_at),
+            'quotation_sent': self.quotation_sent_at is not None,
+            'quotation_sent_at': fmt(self.quotation_sent_at),
+            'quotation_kind': self.quotation_kind
+        }
+
+    def __repr__(self):
+        return f'<BillingWorkflow contact={self.contact_id} year={self.year} action={self.bill_action}>'
+
+
 class MailboxGroup(db.Model):
     __tablename__ = 'mailbox_groups'
     
