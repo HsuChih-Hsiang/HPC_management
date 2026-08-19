@@ -44,20 +44,31 @@ body {
     box-sizing: border-box;
 }
 
-/* 工具列響應式：縮小時改為上下排列 */
+/* =========================================================================
+ * 頂部標題與工具列佈局
+ *
+ * ⚠️ 這裡是 .header-section / .action-tools 唯一的定義，請不要再另外複製一份。
+ * 之前檔案裡各有 2~3 份重複定義，後面那幾份都少了 flex-wrap，
+ * 依 CSS 層疊規則由後者勝出，等於前面寫的響應式設定從來沒生效過。
+ *
+ * 一般寬度維持原本的單行排版（下方這組預設值就是原本實際生效的樣子）；
+ * 真的擠不下時才由檔案底部的 @media (max-width: 960px) 接手改成換行。
+ * 960px 這個斷點是實測出來的：原排版在視窗 920px 左右開始超出卡片右緣
+ * （920px 剩 3px、900px 就超出 11px），取 960px 留一點餘裕。
+ * ========================================================================= */
 .header-section {
     display: flex;
-    flex-wrap: wrap; /* 內容多時自動換行 */
     justify-content: space-between;
-    gap: 15px;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #f0f2f5;
+    padding-bottom: 20px;
 }
 
 .action-tools {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
+    align-items: center;
 }
 
 /* 下拉選單與搜尋框在小螢幕自動調整寬度 */
@@ -89,21 +100,8 @@ body {
     }
 }
 
-/* 頂部標題與工具列佈局 */
-.header-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #f0f2f5;
-    padding-bottom: 20px;
-}
-
-.action-tools {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
+/* .header-section 與 .action-tools 的定義已統一移到檔案上方，
+   這裡原本的重複定義因為少了 flex-wrap 而蓋掉上面的設定，已移除。 */
 
 /* 搜尋框優化 */
 .search-box input {
@@ -155,23 +153,30 @@ body {
 .col-quota-total { width: 12%; }
 
 /* 操作欄位必須夠寬，防止按鈕上下疊在一起 */
-.col-action { 
-    width: 180px; 
+.col-action {
+    width: 180px;
     min-width: 180px;
-    text-align: center; 
+    text-align: center;
 }
 
+/* =========================================================================
+ * 操作欄（編輯 / 額度 / 刪除）
+ *
+ * ⚠️ 這裡是 .action-buttons / .text-button 唯一的定義，請不要再複製一份。
+ * 以下為原本實際生效的樣子（單行、不換行）；空間不足時的換行處理
+ * 統一放在檔案底部的 @media (max-width: 960px)。
+ * ========================================================================= */
 .action-buttons {
     display: flex;
-    gap: 5px;
-    justify-content: center;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
 }
 
-/* 讓按鈕文字垂直置中 */
 .text-button {
-    padding: 5px 10px;
-    font-size: 13px;
-    white-space: nowrap;
+    white-space: nowrap;   /* 按鈕文字本身不折斷，要換就整顆按鈕換行 */
+    padding: 6px 12px;
+    cursor: pointer;
 }
 
 /* 讓 ... 按鈕更美觀 */
@@ -318,12 +323,8 @@ body {
     border: 1px solid #bd2130;
 }
 
-/* --- 工具列佈局 --- */
-.action-tools {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
+/* --- 工具列佈局 ---
+   .action-tools 的定義已統一移到檔案上方（含 flex-wrap），這裡不再重複定義。 */
 
 .filter-select, .search-box input {
     height: 40px;
@@ -650,20 +651,8 @@ body {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* 讓按鈕容器變成 Flex 佈局 */
-.action-buttons {
-    display: flex;       /* 啟用彈性佈局 */
-    flex-direction: row; /* 水平排列 (預設值) */
-    gap: 8px;           /* 按鈕之間的間距 */
-    align-items: center; /* 垂直置中 */
-}
-
-/* 確保按鈕不會換行 */
-.text-button {
-    white-space: nowrap; 
-    padding: 6px 12px;
-    cursor: pointer;
-}
+/* .action-buttons 與 .text-button 的定義已統一移到檔案上方；
+   這裡原本的重複定義會蓋掉置中設定並把按鈕撐大，已移除。 */
 
 /* 刪除按鈕的專屬樣式 (將原本寫在 JS 裡的 Style 移到 CSS) */
 .btn-delete {
@@ -2207,9 +2196,14 @@ body {
     background-color: #f3f4f6;
     color: #111827;
     border: 1px solid #9ca3af;
-    
+
+    /* 這顆是正方形圖示鈕，寬高必須鎖死：
+       在 flex 容器裡若沒有 flex 的三個值與 min-width，
+       空間不足時會被壓成細長條（放大瀏覽器時最明顯）。 */
     width: 42px;
     height: 42px;
+    min-width: 42px;
+    flex: 0 0 42px;
     padding: 0;
     font-size: 20px;
     border-radius: 8px;
@@ -2238,4 +2232,55 @@ body {
 
 .setting-button:active {
     background-color: #d1d5db;
+}
+/* =========================================================================
+ * 窄版佈局（瀏覽器放大、或視窗本身變窄時）
+ *
+ * 一般寬度時完全不套用這一段，維持原本的單行排版；
+ * 只有真的擠不下時才改成換行，避免元件互相壓縮而變形。
+ *
+ * 斷點 960px 是實測值：原排版在視窗約 920px 時工具列開始超出卡片右緣
+ * （920px 還剩 3px、900px 就超出 11px），取 960px 留一點餘裕。
+ * 注意瀏覽器「放大」等同於可用的 CSS 寬度等比變窄
+ * （例如 1920 螢幕放大到 200%，CSS 寬度只剩 960），所以放大也會走到這裡。
+ * ========================================================================= */
+@media (max-width: 960px) {
+    /* 標題與工具列各自佔一行，不要硬擠在同一行 */
+    .header-section {
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .action-tools {
+        flex-wrap: wrap;
+    }
+
+    /* 固定尺寸的按鈕與下拉一律不准被壓縮
+       （flex 項目預設 shrink:1，空間不足時會把它們擠變形） */
+    .action-tools > button,
+    .filter-select,
+    .setting-button {
+        flex-shrink: 0;
+    }
+
+    /* 只有搜尋框可以縮，且縮到 220px 就停，再窄就靠換行解決 */
+    .search-container {
+        display: flex;
+        flex: 1 1 260px;
+        min-width: 220px;
+    }
+
+    /* 操作欄三顆按鈕擠不下時整齊疊成兩排並置中，
+       比硬擠成一排或溢出儲存格好看也好按 */
+    .action-buttons {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .text-button {
+        flex-shrink: 0;
+        padding: 5px 10px;
+        font-size: 13px;
+    }
 }
