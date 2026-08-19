@@ -1,3 +1,10 @@
+// 這一頁的 Angular 樣板一律使用 [[ ]]，避免和 Jinja 的 {{ }} 打架
+// （其餘頁面如 contact_manager / mailbox_manager 也是同樣的設定）。
+app.config(['$interpolateProvider', function($interpolateProvider) {
+    $interpolateProvider.startSymbol('[[');
+    $interpolateProvider.endSymbol(']]');
+}]);
+
 // === 1. 定義 TinyMCE 的 AngularJS 指令 ===
 app.directive('tinymceEditor', ['$timeout', function($timeout) {
     return {
@@ -58,18 +65,23 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         to: [],
         cc: [],
         bcc: [],
+        // 「帳號新增」進來的收件人：一個元素代表一個 HPC 帳號（= 一封信），
+        // 畫面上只顯示帳號名稱，展開才會看到底下的聯絡人 Email。
+        accounts: [],
         subject: '',
         body: ''
     };
-    
+
     $scope.inputs = { to: '', cc: '', bcc: '' };
     $scope.message = { text: '', type: '', visible: false };
-    
+
     // 模態視窗狀態
-    $scope.modals = { template: false, group: false };
+    $scope.modals = { template: false, group: false, account: false };
     $scope.templates = [];
     $scope.groups = [];
     $scope.currentGroupTarget = ''; // 紀錄當前開啟群組的目標 (to, cc, bcc)
+    $scope.accountResults = [];
+    $scope.accountSearch = { keyword: '', loading: false };
 
     // === 訊息提示系統 ===
     $scope.showMessage = function(text, type) {
@@ -175,7 +187,15 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         // TinyMCE 空白時通常會帶有預設的段落標籤，這裡加入清除判斷
         let emptyCheck = $scope.mailData.body ? $scope.mailData.body.replace(/<[^>]*>/g, '').trim() : '';
 
-        if (!$scope.mailData.to.length || !$scope.mailData.subject || !emptyCheck) {
+        // 帳號收件人：一個帳號打包成一封信送給後端
+        let accountPayload = [];
+        $scope.mailData.accounts.forEach(function(acc) {
+            let split = splitAccountRecipients(acc);
+            if (!split.to.length) return;
+            accountPayload.push({ label: acc.account, to: split.to, cc: split.cc });
+        });
+
+        if ((!$scope.mailData.to.length && !accountPayload.length) || !$scope.mailData.subject || !emptyCheck) {
             $scope.showMessage('請填寫所有必填欄位 (收件人、主旨、郵件內容)。', 'error');
             return;
         }
@@ -184,21 +204,24 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
             to: $scope.mailData.to.join(', '),
             cc: $scope.mailData.cc.join(', '),
             bcc: $scope.mailData.bcc.join(', '),
+            accounts: accountPayload,
             subject: $scope.mailData.subject,
             body: $scope.mailData.body
         };
 
         $http.post('/send_email', payload).then(function(res) {
             if (res.data.success) {
-                $scope.showMessage('郵件已成功寄送！', 'success');
+                $scope.showMessage(res.data.message || '郵件已成功寄送！', 'success');
                 // 重置表單
-                $scope.mailData = { to: [], cc: [], bcc: [], subject: '', body: '' };
+                $scope.mailData = { to: [], cc: [], bcc: [], accounts: [], subject: '', body: '' };
                 // 透過雙向綁定觸發 directive 的 $render 自動清空 TinyMCE
             } else {
                 $scope.showMessage('郵件寄送失敗: ' + (res.data.message || '未知錯誤'), 'error');
             }
         }).catch(function(err) {
-            $scope.showMessage('郵件寄送失敗，請檢查網路或稍後再試。', 'error');
+            // 後端在「部分收件人寄送失敗」時會回 500 並附上是哪幾封失敗，優先顯示它
+            let detail = err && err.data && err.data.message;
+            $scope.showMessage(detail || '郵件寄送失敗，請檢查網路或稍後再試。', 'error');
         });
     };
 
@@ -291,6 +314,171 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
             group.selectAll = $scope.selectAllStatus;
             group.emailsObj.forEach(e => e.selected = $scope.selectAllStatus);
         });
+    };
+
+    // === 帳號新增功能 ===
+    // 一個帳號 = 一封信，拆法如下：
+    //   1. 有主要聯絡人：主要聯絡人放收件人，其餘團隊成員放副本
+    //      （畫面上另外填的副本欄位，後端會再併進每一封信）
+    //   2. 沒有主要聯絡人：全部放收件人，同一封信寄出即可
+    //      （同一個團隊彼此看得到 Email 沒有隱私問題）
+    //   3. 被設定「停止寄信」的聯絡人一律排除，且不可勾選
+    function splitAccountRecipients(acc) {
+        var to = [];
+        var cc = [];
+        var hasPrimary = false;
+
+        (acc.members || []).forEach(function(m) {
+            if (!m.selected || m.email_disabled || !m.email) return;
+            if (m.is_primary && !hasPrimary) {
+                hasPrimary = true;
+                to.push(m.email);
+            } else if (cc.indexOf(m.email) === -1 && to.indexOf(m.email) === -1) {
+                cc.push(m.email);
+            }
+        });
+
+        if (!hasPrimary) {
+            return { to: cc, cc: [] };
+        }
+        return { to: to, cc: cc };
+    }
+
+    $scope.accountSelectedCount = function(acc) {
+        return (acc.members || []).filter(function(m) {
+            return m.selected && !m.email_disabled;
+        }).length;
+    };
+
+    $scope.memberRole = function(acc, member) {
+        var split = splitAccountRecipients(acc);
+        return split.to.indexOf(member.email) > -1 ? '收件人' : '副本';
+    };
+
+    $scope.accountSummary = function(acc) {
+        var split = splitAccountRecipients(acc);
+        if (!split.to.length) {
+            return '⚠ 此帳號目前沒有勾選任何聯絡人，不會寄出。';
+        }
+        var text = '將寄出 1 封信 → 收件人：' + split.to.join(', ');
+        if (split.cc.length) {
+            text += '；副本：' + split.cc.join(', ');
+        }
+        return text;
+    };
+
+    $scope.toggleAccountExpand = function(acc) {
+        acc.expanded = !acc.expanded;
+    };
+
+    $scope.removeAccount = function(index) {
+        $scope.mailData.accounts.splice(index, 1);
+    };
+
+    // 明細裡把成員勾選狀態改掉後，同步更新「整個帳號」的全選勾勾（搜尋視窗用）
+    $scope.onAccountMemberToggle = function(acc) {
+        var selectable = (acc.members || []).filter(function(m) { return !m.email_disabled; });
+        acc.selected = selectable.length > 0 && selectable.every(function(m) { return m.selected; });
+    };
+
+    $scope.toggleAccountSelectAll = function(acc) {
+        (acc.members || []).forEach(function(m) {
+            m.selected = acc.selected && !m.email_disabled;
+        });
+    };
+
+    $scope.openAccountModal = function() {
+        $scope.modals.account = true;
+        $scope.accountSearch.keyword = '';
+        $scope.fetchAccounts();
+    };
+
+    var accountSearchTimer = null;
+    $scope.onAccountSearchChange = function() {
+        if (accountSearchTimer) $timeout.cancel(accountSearchTimer);
+        accountSearchTimer = $timeout($scope.fetchAccounts, 300);
+    };
+
+    $scope.fetchAccounts = function() {
+        $scope.accountSearch.loading = true;
+        $http.get('/api/contacts/mail-accounts', {
+            params: { search: $scope.accountSearch.keyword || '' }
+        }).then(function(res) {
+            // 已經加到收件人的帳號，重新開啟時要帶回原本的勾選狀態
+            var picked = {};
+            $scope.mailData.accounts.forEach(function(acc) {
+                picked[acc.contact_id] = {};
+                (acc.members || []).forEach(function(m) {
+                    picked[acc.contact_id][m.id] = m.selected;
+                });
+            });
+
+            $scope.accountResults = (res.data || []).map(function(acc) {
+                var prev = picked[acc.contact_id];
+                acc.members.forEach(function(m) {
+                    if (m.email_disabled) {
+                        m.selected = false;
+                    } else if (prev) {
+                        m.selected = !!prev[m.id];
+                    } else {
+                        m.selected = false;
+                    }
+                });
+                acc.selected = false;
+                $scope.onAccountMemberToggle(acc);
+                return acc;
+            });
+            $scope.accountSearch.loading = false;
+        }).catch(function() {
+            $scope.accountSearch.loading = false;
+            $scope.accountResults = [];
+            $scope.showMessage('搜尋帳號失敗，請稍後再試。', 'error');
+        });
+    };
+
+    $scope.confirmAccountSelection = function() {
+        var added = 0;
+
+        $scope.accountResults.forEach(function(acc) {
+            var chosen = (acc.members || []).filter(function(m) {
+                return m.selected && !m.email_disabled;
+            });
+
+            var existingIndex = -1;
+            $scope.mailData.accounts.forEach(function(a, i) {
+                if (a.contact_id === acc.contact_id) existingIndex = i;
+            });
+
+            if (!chosen.length) {
+                // 這次沒勾任何人 → 視為把這個帳號移除
+                if (existingIndex > -1) $scope.mailData.accounts.splice(existingIndex, 1);
+                return;
+            }
+
+            var entry = {
+                contact_id: acc.contact_id,
+                account: acc.account,
+                account_type: acc.account_type,
+                team_name: acc.team_name,
+                applicant: acc.applicant,
+                members: acc.members.map(function(m) {
+                    return angular.extend({}, m);
+                }),
+                expanded: false
+            };
+
+            if (existingIndex > -1) {
+                entry.expanded = $scope.mailData.accounts[existingIndex].expanded;
+                $scope.mailData.accounts[existingIndex] = entry;
+            } else {
+                $scope.mailData.accounts.push(entry);
+                added++;
+            }
+        });
+
+        $scope.modals.account = false;
+        $scope.showMessage('已更新帳號收件人（新增 ' + added + ' 個帳號，目前共 ' +
+            $scope.mailData.accounts.length + ' 個）。', 'success');
     };
 
     $scope.confirmGroupSelection = function() {

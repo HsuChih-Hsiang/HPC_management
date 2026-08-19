@@ -8,3 +8,5 @@ from .hpc_quota_routes import quota_bp
 from .login_routes import login_bp
 from .setting_routes import setting_bp
 from .permission_routes import permission_bp
+from .billing_routes import billing_bp
+from .profile_routes import profile_bp

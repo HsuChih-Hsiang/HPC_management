@@ -309,6 +309,85 @@ def update_contact(id):
     db.session.commit()
     return jsonify({'success': True})
 
+@contact_bp.route('/api/contacts/mail-accounts', methods=['GET'])
+def search_mail_accounts():
+    """
+    給「寄送 HTML 電子郵件」頁面的「帳號新增」用：搜尋帳號並回傳該帳號底下所有聯絡人的 Email。
+
+    收件人怎麼拆（to / cc）由前端依勾選狀況即時計算，這裡只負責把原始資料吐出來：
+      - is_primary   ：主要聯絡人，前端會把他放收件人、其餘的放副本
+      - email_disabled：已被關閉寄信的聯絡人，一律不可勾選（等同不寄給他）
+    沒有任何可擷取 Email 的帳號不會出現在清單中，避免使用者選了一個空的帳號。
+    """
+    search = (request.args.get('search') or '').strip()
+    limit = request.args.get('limit', 50, type=int)
+    limit = max(1, min(limit, 200))
+
+    query = Contact.query\
+        .outerjoin(ContactAccountMapping)\
+        .outerjoin(UserAccounting)\
+        .outerjoin(SecondaryContact)
+
+    if search:
+        query = query.filter(or_(
+            Contact.applicant.like(f'%{search}%'),
+            Contact.team_name.like(f'%{search}%'),
+            Contact.trial_account.like(f'%{search}%'),
+            ContactAccountMapping.manual_account.like(f'%{search}%'),
+            UserAccounting.username.like(f'%{search}%'),
+            SecondaryContact.name.like(f'%{search}%'),
+            SecondaryContact.info.like(f'%{search}%')
+        ))
+
+    contacts = query.distinct().order_by(Contact.apply_date.desc()).limit(limit).all()
+
+    results = []
+    for c in contacts:
+        formal_account = c.get_formal_account()
+        trial_account = (c.trial_account or '').strip()
+
+        if formal_account:
+            account, account_type = formal_account, '正式帳號'
+        elif trial_account:
+            account, account_type = trial_account, ('課程帳號' if c.is_course_account else '測試帳號')
+        else:
+            account, account_type = (c.team_name or c.applicant or f'#{c.id}'), '未配帳號'
+
+        members = []
+        seen = set()
+        # 主要聯絡人排在最前面，方便使用者一眼看出這封信會寄給誰
+        for sc in sorted(c.secondaries, key=lambda s: (not bool(s.is_primary), s.id or 0)):
+            if not sc.info:
+                continue
+            match = EMAIL_PATTERN.search(sc.info)
+            if not match:
+                continue
+            email = match.group(0)
+            if email in seen:
+                continue
+            seen.add(email)
+            members.append({
+                'id': sc.id,
+                'name': sc.name or '',
+                'email': email,
+                'is_primary': bool(sc.is_primary),
+                'email_disabled': bool(sc.email_disabled)
+            })
+
+        if not members:
+            continue
+
+        results.append({
+            'contact_id': c.id,
+            'account': account,
+            'account_type': account_type,
+            'team_name': c.team_name or '',
+            'applicant': c.applicant or '',
+            'members': members
+        })
+
+    return jsonify(results)
+
 @contact_bp.route('/api/contacts/secondary-contacts/<int:id>/toggle-email', methods=['POST'])
 def toggle_secondary_contact_email(id):
     """開關「寄信給這個聯絡人」，並記錄這次切換的時間點。"""

@@ -92,6 +92,18 @@
 /* ==========================================================================
    2. 收件人電子郵件標籤容器（已修正寬度一致性）
    ========================================================================== */
+/* 寄信頁最外層容器。body 是 flex 容器，這個 .container 若不給寬度上限，
+   寬度會被內容（收件人標籤那一長串）撐開，導致輸入框整個往右邊延伸出去。
+   用 body > .container 限定選擇器，避免影響 edit_templates.html 裡
+   同樣掛著 .container 但屬於左右分欄版面的區塊。 */
+body > .container {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 1200px;
+    min-width: 0; /* flex 項目預設 min-width:auto，不歸零一樣會被內容撐開 */
+    box-sizing: border-box;
+}
+
 .email-input-container {
     width: 100% !important; /* 修正：移除原本的 1000px，強制 100% 滿版與主旨對齊 */
     display: flex;
@@ -102,6 +114,7 @@
     border: 1px solid #ddd;
     border-radius: 8px;
     background-color: #fff;
+    align-content: flex-start; /* 換行後由上往下排，捲動時才不會整團被垂直置中 */
     min-height: 48px;
     max-height: 200px; /* 超過此高度才出現捲軸 */
     overflow-y: auto;
@@ -240,6 +253,253 @@
 .email-tags-container.has-content .email-input::placeholder {
     visibility: hidden;
     opacity: 0;
+}
+
+/* ==========================================================================
+   2-1. 帳號標籤（「帳號新增」加入的收件人）
+   框裡顯示的是帳號而不是 Email，點一下才展開底下的聯絡人；
+   刻意用綠色系與一般 Email 標籤（藍色）做區分。
+   ========================================================================== */
+.account-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #e8f5e9;
+    border: 1px solid #43a047;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 14px;
+    color: #2e7d32;
+    height: 24px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    max-width: 260px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.account-tag:hover {
+    background-color: #d3ecd5;
+}
+
+.account-tag.expanded {
+    background-color: #c8e6c9;
+    box-shadow: 0 2px 4px rgba(67, 160, 71, 0.25);
+}
+
+.account-tag-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    color: inherit;
+    cursor: pointer;
+    max-width: 210px;
+    overflow: hidden;
+}
+
+.account-caret {
+    font-size: 11px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.account-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-count {
+    font-size: 12px;
+    color: #4caf50;
+    flex-shrink: 0;
+}
+
+.account-tag .remove-email-btn {
+    color: #2e7d32;
+}
+
+.account-tag .remove-email-btn:hover {
+    background-color: #2e7d32;
+    color: #fff;
+}
+
+/* 展開後的聯絡人明細：整列佔滿容器寬度，跟著容器一起捲動，不會被裁掉 */
+.account-detail {
+    flex-basis: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #f4faf5;
+    border: 1px dashed #a5d6a7;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+}
+
+.account-detail-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #2e7d32;
+    margin-bottom: 6px;
+}
+
+.account-detail-meta {
+    font-weight: 400;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.account-detail-hint {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 6px;
+    white-space: normal;
+    word-break: break-all;
+}
+
+.account-member {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+    color: #444;
+    padding: 3px 0;
+    cursor: pointer;
+    white-space: normal;
+    word-break: break-all;
+}
+
+.account-member.is-disabled {
+    color: #adb5bd;
+    cursor: not-allowed;
+    text-decoration: line-through;
+}
+
+.account-member input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.account-member-name {
+    font-weight: 600;
+}
+
+.account-member-email {
+    color: #555;
+}
+
+.account-member.is-disabled .account-member-email {
+    color: #adb5bd;
+}
+
+.account-badge {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.account-badge.primary {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+.account-badge.muted {
+    background-color: #f1f3f5;
+    color: #868e96;
+    border: 1px solid #e0e0e0;
+}
+
+.account-badge.role {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #bbdefb;
+}
+
+/* --- 帳號搜尋視窗 --- */
+.account-modal .account-search-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+.account-modal .account-search-input:focus {
+    border-color: #43a047;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.2);
+}
+
+.account-search-hint {
+    font-size: 12px;
+    color: #6c757d;
+    line-height: 1.6;
+    margin: 8px 0 12px;
+}
+
+.account-list-container {
+    max-height: 45vh;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
+
+.account-list-empty {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    margin: 12px 0;
+}
+
+.account-item {
+    padding: 10px 6px;
+    border-bottom: 1px solid #eee;
+}
+
+.account-item:last-child {
+    border-bottom: none;
+}
+
+.account-item-header label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #2c3e50;
+}
+
+.account-item-header input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.account-item-meta {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6c757d;
+}
+
+.account-member-list {
+    padding-left: 24px;
+    margin-top: 4px;
 }
 
 /* ==========================================================================

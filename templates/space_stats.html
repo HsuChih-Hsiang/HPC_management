@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space 統計資料</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/space_stats.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body ng-cloak>
+
+    {% include 'sidebar.html' %}
+
+    <div class="main-layout-container">
+        <div class="right-editor-container container">
+            <h1>📈 Space 統計資料</h1>
+
+            {#
+              目前這頁只先建立「側邊欄連結 + 頁面骨架」，功能待後續補上。
+              要接上實際資料時：
+                1. 在 server_route/ 新增（或沿用既有）blueprint 提供 API，
+                   並到 utils/permission_utils.py 的 BLUEPRINT_FEATURE_MAP
+                   把該 blueprint 對應到 space_stats 功能，API 才會受權限保護。
+                2. 新增 static/js/space_stats.ctrl.js，於 <body> 加上
+                   ng-controller="SpaceStatsController" 後把下方佔位區塊換成實際內容。
+              頁面權限本身已生效：feature key = space_stats（utils/permission_utils.py）。
+            #}
+            <div class="placeholder-card">
+                <div class="placeholder-icon">🚧</div>
+                <h2>功能建置中</h2>
+                <p>
+                    此頁面已建立連結與權限設定，統計內容將於後續版本補上。<br>
+                    若你在側邊欄看得到這個項目，代表所屬群組已被授予「Space 統計資料」權限。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

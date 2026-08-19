@@ -515,6 +515,9 @@ class AdUser(db.Model):
     google_id = db.Column(db.String(128), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(100))
+    # 使用者自行填寫的聯絡信箱，與上面的 Google 登入帳號無關。
+    # email 欄位只用來辨識身分（且有 unique 限制），要實際聯絡本人請用這個欄位。
+    contact_email = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     # 未指派群組 (NULL) = 等待管理員開通權限，登入後只會看到等候頁面
     group_id = db.Column(db.Integer, db.ForeignKey('permission_groups.id'), nullable=True)
@@ -524,6 +527,7 @@ class AdUser(db.Model):
             'id': self.id,
             'email': self.email,
             'name': self.name or '',
+            'contact_email': self.contact_email or '',
             'group_id': self.group_id,
             'group_name': self.group.name if self.group else None,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''

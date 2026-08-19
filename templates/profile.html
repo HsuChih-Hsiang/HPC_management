@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人資料設定</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {#
+      表單外觀（settings-section / section-hint / field-hint / form-control）
+      沿用「設定」頁的樣式，兩頁看起來才會是同一套；
+      profile.css 只放這一頁獨有的部分（返回列、唯讀欄位）。
+    #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/setting.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body ng-controller="ProfileController" ng-cloak>
+
+    {% include 'sidebar.html' %}
+
+    <div class="main-layout-container">
+        <div class="right-editor-container container">
+
+            {# back_url 由後端算好並驗證過（見 routes._safe_back_url） #}
+            <div class="page-back-bar">
+                <a href="{{ back_url }}" class="back-link">← 返回上一個頁面</a>
+            </div>
+
+            <h1>👤 個人資料設定</h1>
+
+            <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
+
+            <div class="settings-section">
+                <h2>基本資料</h2>
+                <p class="section-hint">
+                    這裡設定的是<strong>您個人</strong>的資料。顯示名稱會出現在左側選單上方；
+                    聯絡 Email 則是系統需要與您本人聯繫時所使用的信箱。<br>
+                    Google 帳號<strong>僅用於登入</strong>，與下方的聯絡 Email 互相獨立，兩者可以不同。
+                </p>
+
+                <form class="email-form" ng-submit="saveProfile()" autocomplete="off">
+                    <div class="form-group">
+                        <label for="googleEmail">Google 登入帳號</label>
+                        <input type="text" id="googleEmail" class="form-control form-control-readonly"
+                               ng-model="profile.google_email" readonly tabindex="-1">
+                        <small class="field-hint">
+                            🔒 由 Google 登入時帶入，僅用於辨識身分，無法在此變更。
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="displayName">顯示名稱</label>
+                        <input type="text" id="displayName" ng-model="profile.name"
+                               class="form-control" placeholder="請輸入要顯示的名稱"
+                               maxlength="100" autocomplete="off" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contactEmail">聯絡 Email<span class="optional">(選填)</span></label>
+                        <input type="email" id="contactEmail" ng-model="profile.contact_email"
+                               class="form-control" placeholder="example@ntu.edu.tw"
+                               maxlength="120" autocomplete="off">
+                        <small class="field-hint">
+                            與 Google 登入帳號無關，可填任何一個您實際在收信的信箱；留空表示不設定。
+                        </small>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="send-button" ng-disabled="saving || loading">
+                            <span ng-show="!saving">儲存</span>
+                            <span ng-show="saving">儲存中...</span>
+                        </button>
+                        <a href="{{ back_url }}" class="cancel-button button-link">返回</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/profile.ctrl.js') }}"></script>
+</body>
+</html>

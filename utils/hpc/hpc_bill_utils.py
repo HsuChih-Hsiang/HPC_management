@@ -4,6 +4,12 @@ from sqlalchemy import func, cast, Numeric, and_
 from database.extensions import db
 from database.hpc_model import Accounting, PrepaidAmount, NotificationHistory, Serverlist
 from datetime import datetime, timedelta
+from utils.params import RESEARCH_BONUS_SOURCE_PREFIX
+
+
+def is_research_bonus(source_id):
+    """判斷一筆 PrepaidAmount 是否為系統發放的研究獎勵額度（而非使用者自費儲值）。"""
+    return bool(source_id) and source_id.startswith(RESEARCH_BONUS_SOURCE_PREFIX)
 
 
 def get_hpc_user_and_total_usage_with_details():

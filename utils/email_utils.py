@@ -8,16 +8,13 @@ from database.hpc_model import Accounting, MailboxGroup, MailboxEmail, HPCSettin
 # 不在此直接匯入 utils.params 的常數，避免有人改了設定卻仍走到舊值；
 # 設定不完整時它會丟出明確的錯誤，而不是讓 smtplib 噴難懂的訊息。
 from utils.smtp_config import ensure_smtp_configured
+from utils.params import CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY
 from email import encoders
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from flask import current_app
 from markupsafe import Markup, escape
-
-CONFIRM_EMAIL_TEMPLATE_KEY = 'confirm_email_template'
-CONFIRM_EMAIL_DEFAULT_CC_KEY = 'confirm_email_default_cc'
-
 
 
 def load_mailboxes(username):

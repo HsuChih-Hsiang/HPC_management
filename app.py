@@ -9,13 +9,15 @@ from utils.crypto_utils import key_generate
 from utils.params import SECRET_KEY, DATABASE_URI
 from utils.session_interface import CustomSessionInterface
 from utils.smtp_config import load_smtp_config_to_cache
+from utils.user_profile_utils import check_profile_columns
 from utils.permission_utils import (
     init_permission_groups, get_required_features, get_user_features,
     get_user_ordered_features, get_sidebar_features
 )
 from server_route import (
     mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp,
-    contact_bp, quota_bp, login_bp, setting_bp, permission_bp
+    contact_bp, quota_bp, login_bp, setting_bp, permission_bp, billing_bp,
+    profile_bp
 )
 
 app = Flask(__name__)
@@ -39,6 +41,8 @@ app.register_blueprint(quota_bp)
 app.register_blueprint(login_bp)
 app.register_blueprint(setting_bp)
 app.register_blueprint(permission_bp)
+app.register_blueprint(billing_bp)
+app.register_blueprint(profile_bp)
 
 # --- 2. 全域登入防護 Middleware (before_request) ---
 @app.before_request
@@ -123,6 +127,9 @@ with app.app_context():
     init_hpc_settings(app)
     # 系統啟動時撈出發信帳密並解密，放進全域快取供寄信使用
     load_smtp_config_to_cache()
+    # 缺少 contact_email 欄位時，之後每一次 AdUser 查詢都會失敗，
+    # 所以要排在 init_permission_groups（會查 ad_user）之前先把話講清楚。
+    check_profile_columns(app)
     # 確保 admin 群組存在且擁有全部權限（含防鎖死保護）
     init_permission_groups(app)
 

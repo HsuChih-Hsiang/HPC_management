@@ -18,8 +18,17 @@
 <div class="side-menu" ng-class="{'open': isMenuOpen}">
     <button class="close-menu-button" ng-click="closeMenu()" aria-label="關閉選單">&times;</button>
 
+    {#
+      姓名旁的齒輪會帶著「目前所在頁面」進個人資料頁 (?next=...)，
+      個人資料頁的返回鍵就靠這個參數回到原本的介面。
+      用 full_path 而非 path，是為了連查詢字串一起保留；
+      full_path 在沒有查詢字串時會多一個結尾的 '?'，所以要去掉。
+      後端 routes._safe_back_url 會再驗證一次，只接受站內相對路徑。
+    #}
     <div class="user-profile">
         <div class="user-name" ng-init="userName='{{ session.get('user_name', '使用者') }}'" ng-bind="userName"></div>
+        <a href="{{ url_for('routes.profile', next=request.full_path.rstrip('?')) }}"
+           class="user-setting-button" title="個人資料設定" aria-label="個人資料設定">⚙️</a>
     </div>
     <nav>
         {#

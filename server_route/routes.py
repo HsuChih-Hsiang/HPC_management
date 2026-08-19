@@ -1,8 +1,32 @@
-from flask import Blueprint, session, redirect, url_for
+from urllib.parse import urlparse
+
+from flask import Blueprint, session, redirect, url_for, request
 from flask import render_template
 from utils.permission_utils import get_user_ordered_features, get_landing_path
 
 routes_bp = Blueprint('routes', __name__)
+
+PROFILE_PATH = '/profile'
+
+
+def _safe_back_url(raw):
+    """
+    決定個人資料頁「返回」要回到哪裡。
+
+    來源是側邊欄帶過來的 ?next=<目前頁面>，屬於使用者可控的輸入，
+    因此只接受站內的相對路徑：擋掉含網域的絕對網址與 //evil.com
+    這類會被瀏覽器當成外部網址的寫法，避免變成開放式轉址。
+    指向個人資料頁本身也視為無效，否則返回鍵會原地打轉。
+    找不到合法來源時，退回該使用者權限允許的落地頁。
+    """
+    if raw:
+        parsed = urlparse(raw)
+        if (not parsed.scheme and not parsed.netloc
+                and raw.startswith('/') and not raw.startswith('//')
+                and parsed.path != PROFILE_PATH):
+            return raw
+
+    return get_landing_path(get_user_ordered_features(session.get('user_id')))
 
 @routes_bp.route('/batch_sending')
 def batch_sending():
@@ -24,9 +48,27 @@ def hpc_usage():
 def hpc_contact():
     return render_template('contact_manager.html')
 
+@routes_bp.route('/hpc-billing-review')
+def hpc_billing_review():
+    return render_template('billing_review.html')
+
+@routes_bp.route('/space-stats')
+def space_stats():
+    """Space 統計資料：目前僅先建立頁面與側邊欄連結，功能待後續補上。"""
+    return render_template('space_stats.html')
+
 @routes_bp.route('/setting')
 def setting():
     return render_template('setting.html')
+
+@routes_bp.route('/profile')
+def profile():
+    """
+    個人資料設定：修改側邊欄顯示的名稱，以及自己的聯絡信箱。
+    這是每位登入者的個人設定，不需要任何功能權限（見 params.PUBLIC_ENDPOINTS），
+    與需要 setting 權限的系統「設定」頁面是兩回事。
+    """
+    return render_template('profile.html', back_url=_safe_back_url(request.args.get('next')))
 
 @routes_bp.route('/permission')
 def permission():

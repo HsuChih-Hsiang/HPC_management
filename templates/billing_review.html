@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPC 帳務審核</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/billing_review.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body ng-controller="BillingReviewController" ng-cloak>
+
+    {% include 'sidebar.html' %}
+
+    <div class="main-layout-container">
+        <div class="right-editor-container container">
+            <h1>💰 HPC 帳務審核</h1>
+
+            <p class="section-hint">
+                此頁用來確認「HPC 帳號管理」中新增的<strong>預付額度</strong>與<strong>繳費單</strong>是否已經收到款項。<br>
+                預付額度按下「確認繳費」後才會正式生效，之後計費扣款才扣得到這筆額度；
+                系統會自動同步更新該筆額度的<strong>活躍紀錄與歷史存檔兩份資料</strong>，不會只改到一邊。
+            </p>
+
+            <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
+
+            <!-- ===== 統計卡片 ===== -->
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">待審核預付額度</div>
+                    <div class="stat-value" ng-bind="summary.pending_prepaid_count + ' 筆'"></div>
+                    <div class="stat-sub" ng-bind="'合計 $' + formatMoney(summary.pending_prepaid_amount)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">待審核繳費單</div>
+                    <div class="stat-value" ng-bind="summary.pending_bill_count + ' 筆'"></div>
+                    <div class="stat-sub" ng-bind="'合計 $' + formatMoney(summary.pending_bill_amount)"></div>
+                </div>
+            </div>
+
+            <!-- ===== 工具列 ===== -->
+            <div class="review-toolbar">
+                <div class="filter-group">
+                    <label>顯示：</label>
+                    <select class="form-control" ng-model="filter.status" ng-change="reload()">
+                        <option value="pending">待審核</option>
+                        <option value="reviewed">已審核</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group filter-grow">
+                    <label for="keyword">搜尋：</label>
+                    <input type="text" id="keyword" class="form-control" ng-model="filter.keyword"
+                           ng-change="applyFilter()" placeholder="團隊名稱、申請人或正式帳號">
+                </div>
+                <div class="filter-group">
+                    <label for="paymentDate">繳費日期：</label>
+                    <input type="date" id="paymentDate" class="form-control" ng-model="filter.paymentDate">
+                </div>
+                <button type="button" class="send-button btn-inline" ng-click="reload()" ng-disabled="loading">
+                    <span ng-show="!loading">🔄 重新整理</span>
+                    <span ng-show="loading">載入中...</span>
+                </button>
+            </div>
+
+            <div class="batch-bar" ng-show="counts.selected > 0">
+                <span ng-bind="'已勾選 ' + counts.selected + ' 筆'"></span>
+                <div class="batch-actions">
+                    <button type="button" class="btn-approve" ng-click="reviewSelected(true)" ng-disabled="saving">
+                        ✅ 批次確認繳費
+                    </button>
+                    <button type="button" class="btn-revert" ng-click="reviewSelected(false)" ng-disabled="saving">
+                        ↩ 批次退回未繳費
+                    </button>
+                    <button type="button" class="text-button" ng-click="clearSelection()">清除勾選</button>
+                </div>
+            </div>
+
+            <!-- ===== 預付額度 ===== -->
+            <div class="settings-section">
+                <h2>
+                    預付額度審核
+                    <span class="pending-badge" ng-show="counts.pendingPrepaid > 0" ng-bind="counts.pendingPrepaid"></span>
+                </h2>
+                <p class="section-hint">
+                    「學術／免費獎勵額度」是系統直接發放、不需收款的額度，建立時即為已繳費，僅列出供查閱。
+                </p>
+
+                <p class="empty-hint" ng-show="!loading && filteredPrepaids.length === 0">目前沒有符合條件的預付額度。</p>
+
+                <table class="review-table" ng-show="filteredPrepaids.length > 0">
+                    <thead>
+                        <tr>
+                            <th class="col-check">
+                                <input type="checkbox" ng-model="selectAllPrepaid"
+                                       ng-change="toggleAllPrepaid()" title="全選可審核項目">
+                            </th>
+                            <th>團隊／申請人</th>
+                            <th>正式帳號</th>
+                            <th class="col-year">年度</th>
+                            <th class="col-money">自費金額</th>
+                            <th class="col-money">優惠額度</th>
+                            <th class="col-money">合計</th>
+                            <th class="col-date">繳款日期</th>
+                            <th class="col-status">狀態</th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="p in filteredPrepaids" ng-class="{'row-paid': p.is_paid}">
+                            <td class="col-check">
+                                <input type="checkbox" ng-model="p._selected"
+                                       ng-disabled="!canToggle(p)">
+                            </td>
+                            <td>
+                                <div class="team-name" ng-bind="p.team_name || '（未對應聯絡人）'"></div>
+                                <div class="sub-text" ng-bind="p.applicant"></div>
+                            </td>
+                            <td ng-bind="p.username"></td>
+                            <td class="col-year" ng-bind="p.year || '—'"></td>
+                            <td class="col-money" ng-bind="'$' + formatMoney(p.amount)"></td>
+                            <td class="col-money" ng-bind="'$' + formatMoney(p.discount)"></td>
+                            <td class="col-money strong" ng-bind="'$' + formatMoney(p.total)"></td>
+                            <td class="col-date" ng-bind="p.payment_date || '—'"></td>
+                            <td class="col-status">
+                                <span class="status-tag is-paid" ng-if="p.is_paid">已繳費</span>
+                                <span class="status-tag is-unpaid" ng-if="!p.is_paid">未繳費</span>
+                                <span class="type-tag" ng-if="p.is_bonus" ng-bind="p.kind_label"></span>
+                                <div class="warn-text" ng-if="!p.paired">
+                                    ⚠ 缺少成對的歷史存檔紀錄，請確認資料完整性。
+                                </div>
+                                <div class="warn-text" ng-if="p.locked" ng-bind="'🔒 ' + p.lock_reason"></div>
+                            </td>
+                            <td class="col-action">
+                                <button type="button" class="btn-approve" ng-if="!p.is_paid"
+                                        ng-click="reviewPrepaid(p, true)" ng-disabled="saving">確認繳費</button>
+                                <button type="button" class="btn-revert" ng-if="p.is_paid"
+                                        ng-click="reviewPrepaid(p, false)"
+                                        ng-disabled="saving || p.locked">退回未繳費</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <hr>
+
+            <!-- ===== 繳費單 ===== -->
+            <div class="settings-section">
+                <h2>
+                    繳費單審核
+                    <span class="pending-badge" ng-show="counts.pendingBill > 0" ng-bind="counts.pendingBill"></span>
+                </h2>
+                <p class="section-hint">
+                    金額 0 元的繳費單是額度全額抵扣後系統自動留下的紀錄單，不需要審核，僅列出供查閱。
+                </p>
+
+                <p class="empty-hint" ng-show="!loading && filteredBills.length === 0">目前沒有符合條件的繳費單。</p>
+
+                <table class="review-table" ng-show="filteredBills.length > 0">
+                    <thead>
+                        <tr>
+                            <th class="col-check">
+                                <input type="checkbox" ng-model="selectAllBill"
+                                       ng-change="toggleAllBill()" title="全選可審核項目">
+                            </th>
+                            <th class="col-year">單號</th>
+                            <th>團隊／申請人</th>
+                            <th>正式帳號</th>
+                            <th class="col-money">金額</th>
+                            <th class="col-date">開單日期</th>
+                            <th>備註</th>
+                            <th class="col-status">狀態</th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="b in filteredBills" ng-class="{'row-paid': b.status === 'paid'}">
+                            <td class="col-check">
+                                <input type="checkbox" ng-model="b._selected"
+                                       ng-disabled="!canToggle(b)">
+                            </td>
+                            <td class="col-year" ng-bind="'#' + b.id"></td>
+                            <td>
+                                <div class="team-name" ng-bind="b.team_name || '（未對應聯絡人）'"></div>
+                                <div class="sub-text" ng-bind="b.applicant"></div>
+                            </td>
+                            <td ng-bind="b.formal_account || '—'"></td>
+                            <td class="col-money strong" ng-bind="'$' + formatMoney(b.amount)"></td>
+                            <td class="col-date" ng-bind="b.created_at || '—'"></td>
+                            <td class="notes-cell" ng-bind="b.notes"></td>
+                            <td class="col-status">
+                                <span class="status-tag is-paid" ng-if="b.status === 'paid'">已繳費</span>
+                                <span class="status-tag is-unpaid" ng-if="b.status === 'unpaid'">未繳費</span>
+                                <div class="warn-text" ng-if="b.locked" ng-bind="'🔒 ' + b.lock_reason"></div>
+                            </td>
+                            <td class="col-action">
+                                <button type="button" class="btn-approve" ng-if="b.status !== 'paid'"
+                                        ng-click="reviewBill(b, true)"
+                                        ng-disabled="saving || b.locked">確認繳費</button>
+                                <button type="button" class="btn-revert" ng-if="b.status === 'paid'"
+                                        ng-click="reviewBill(b, false)"
+                                        ng-disabled="saving || b.locked">退回未繳費</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/billing_review.ctrl.js') }}"></script>
+</body>
+</html>

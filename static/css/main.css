@@ -725,7 +725,12 @@ h1 { /* 保留，應用於 right-editor-container 內 */
 
 .user-profile {
     padding: 10px 20px 20px 20px;
-    text-align: center;
+    /* 名稱置中、齒輪緊跟在旁邊；名稱變長時由 .user-name 自行折行，
+       齒輪則靠 flex-shrink: 0 保持完整不被壓扁。 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: 20px;
 }
@@ -735,6 +740,28 @@ h1 { /* 保留，應用於 right-editor-container 內 */
     font-size: 1.1em;
     font-weight: 600;
     word-break: break-all; /* 防止名稱過長溢出 */
+    min-width: 0; /* 沒有這行，flex 子元素不會讓長名稱折行 */
+}
+
+/* 姓名旁的齒輪：進入個人資料設定頁 */
+.user-setting-button {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 15px;
+    line-height: 1;
+    text-decoration: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.user-setting-button:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: rotate(45deg);
 }
 
 .side-menu-footer {

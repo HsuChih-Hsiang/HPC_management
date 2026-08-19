@@ -16,78 +16,9 @@
 from sqlalchemy import inspect
 from database.extensions import db
 from database.hpc_model import AdUser, PermissionGroup, GroupPermission
-
-ADMIN_GROUP_NAME = 'admin'
-
-# ============================================================
-# 功能清單（順序即側邊欄顯示順序）
-# 新增頁面時在這裡加一筆，並補上底下的 endpoint 對應。
-# ============================================================
-FEATURES = [
-    {'key': 'batch_sending',   'label': '寄送郵件',     'icon': '📨', 'path': '/batch_sending'},
-    {'key': 'edit_templates',  'label': '編輯模板',     'icon': '📝', 'path': '/edit-templates'},
-    {'key': 'mailbox_manager', 'label': '信箱管理',     'icon': '📬', 'path': '/mailbox-manager'},
-    {'key': 'hpc_contact',     'label': 'HPC帳號管理',  'icon': '👥', 'path': '/hpc-contact'},
-    {'key': 'hpc_usage',       'label': 'HPC 用量通知', 'icon': '📊', 'path': '/hpc-usage'},
-    {'key': 'setting',         'label': '設定',         'icon': '⚙️', 'path': '/setting'},
-    {'key': 'permission',      'label': '權限管理',     'icon': '🔑', 'path': '/permission'},
-]
-
-ALL_FEATURE_KEYS = [f['key'] for f in FEATURES]
-FEATURE_BY_KEY = {f['key']: f for f in FEATURES}
-
-# 不需要任何權限就能存取的 endpoint（登入流程、等候頁面、登出）
-PUBLIC_ENDPOINTS = {
-    'static',
-    'routes.login_page',
-    'routes.pending_approval',
-    'login.login',
-    'login.callback',
-    'login.logout',
-    'login.check_session',
-    'permission.get_my_permissions',
-}
-
-# 頁面 endpoint → 所需功能
-PAGE_FEATURE_MAP = {
-    'routes.batch_sending':   'batch_sending',
-    'routes.edit_templates':  'edit_templates',
-    'routes.mailbox_manager': 'mailbox_manager',
-    'routes.hpc_contact':     'hpc_contact',
-    'routes.hpc_usage':       'hpc_usage',
-    'routes.setting':         'setting',
-    'routes.permission':      'permission',
-}
-
-# Blueprint → 預設所需功能。
-# 用 blueprint 當預設值的好處是：日後在既有 blueprint 新增 API，
-# 會自動被納入保護，而不是預設全開。
-BLUEPRINT_FEATURE_MAP = {
-    'email':      'batch_sending',
-    'template':   'edit_templates',
-    'mailbox':    'mailbox_manager',
-    'contact':    'hpc_contact',
-    'quota':      'hpc_contact',
-    'hpc':        'hpc_usage',
-    'setting':    'setting',
-    'permission': 'permission',
-}
-
-# 跨頁面共用的 API：除了 blueprint 預設值之外，額外允許的功能。
-# 例如「寄送郵件」頁面需要讀取信箱與模板清單，但不應因此獲得
-# 信箱管理／模板編輯的修改權限，所以多數只開放 GET。
-ENDPOINT_EXTRA_FEATURES = {
-    # 寄送郵件頁：讀取收件信箱分組、讀取郵件模板
-    'mailbox.get_mailboxes':                  {'features': {'batch_sending'},  'methods': {'GET'}},
-    'template.handle_templates':              {'features': {'batch_sending'},  'methods': {'GET'}},
-    # HPC 用量通知頁的「確認信預設副本人員」設定，與帳號管理頁共用同一份設定
-    'contact.get_confirm_email_default_cc':   {'features': {'hpc_usage'},      'methods': None},
-    'contact.save_confirm_email_default_cc':  {'features': {'hpc_usage'},      'methods': None},
-    # HPC 帳號管理頁需要主機清單、帳號搜尋與額度設定
-    'hpc.search_users':                       {'features': {'hpc_contact'},    'methods': {'GET'}},
-    'hpc.get_server_list':                    {'features': {'hpc_contact'},    'methods': {'GET'}},
-    'hpc.hpc_quota_settings':                 {'features': {'hpc_contact'},    'methods': None},
-}
+from utils.params import (ADMIN_GROUP_NAME, FEATURES, PUBLIC_ENDPOINTS, PAGE_FEATURE_MAP, 
+                          BLUEPRINT_FEATURE_MAP, ENDPOINT_EXTRA_FEATURES, FEATURE_BY_KEY,
+                          ALL_FEATURE_KEYS, )
 
 
 def get_required_features(endpoint, method='GET'):

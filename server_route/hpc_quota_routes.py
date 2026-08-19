@@ -2,7 +2,8 @@ import io
 import uuid
 from xhtml2pdf import pisa
 from flask import request, jsonify, Blueprint, render_template, render_template_string, send_file
-from utils.hpc.hpc_bill_utils import calculate_prepaid_quota, get_account_last_year_usage_details
+from utils.hpc.hpc_bill_utils import (calculate_prepaid_quota, get_account_last_year_usage_details,
+                                      is_research_bonus, RESEARCH_BONUS_SOURCE_PREFIX)
 from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
 from database.extensions import db
 from database.hpc_model import Contact, PrepaidAmount, Accounting, Serverlist, Bill, QuotaTransaction
@@ -115,7 +116,9 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str, bill_id=Non
     # 階段一：過濾有效額度並動態計算過期日
     for p in prepaids:
         # 新增規則：如果是「研究資料更新」的特別折抵額度
-        if p.source_id and p.source_id.startswith('RESEARCH_BONUS_'):
+        # 前綴一律以 hpc_bill_utils 的共用常數判斷，不可再寫死字串，
+        # 否則發放端新增額度類型時這裡會再次比對不到而整段失效。
+        if is_research_bonus(p.source_id):
             # 嚴格限制：只能折抵「同一年」拿到的帳單 (比對帳單開立年份)
             if bill_date_str.startswith(str(p.year)):
                 p._calculated_expire = f"{p.year}-12-31"  # 限當年度年底過期
@@ -141,7 +144,7 @@ def execute_quota_deduction(contact_id, total_charge, bill_date_str, bill_id=Non
         if remaining_bill <= 0:
             break
         if p.discount > 0:
-            is_research = "研究更新" if p.source_id and p.source_id.startswith('RESEARCH_BONUS_') else "儲值"
+            is_research = "研究更新" if is_research_bonus(p.source_id) else "儲值"
             
             if p.discount >= remaining_bill:
                 deducted_details.append(f"從 {p.year} 年[{is_research}]優惠額度扣除 ${remaining_bill} 元")
@@ -617,9 +620,11 @@ def grant_research_bonus(id):
             if quantity > 10:
                 return jsonify({'message': f'【{cfg["label"]}】至多只能採記 10 篇'}), 400
 
-            # 計算動態金額與前綴
+            # 計算動態金額與前綴。
+            # 前綴開頭必須沿用共用常數，扣款端 execute_quota_deduction 是靠它
+            # 認出「這是研究獎勵額度」而套用限當年折抵與優先扣抵的規則。
             discount = cfg['base_amount'] * quantity if cfg['use_quantity'] else cfg['base_amount']
-            bonus_prefix = f"RESEARCH_{bonus_type.upper()}_{current_year}_"
+            bonus_prefix = f"{RESEARCH_BONUS_SOURCE_PREFIX}{bonus_type.upper()}_{current_year}_"
 
             # 防呆機制：檢查今年是否領過
             existing_bonus = PrepaidAmount.query.filter(

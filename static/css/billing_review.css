@@ -1,0 +1,318 @@
+/* 針對「HPC 帳務審核」頁面的特定樣式 */
+.settings-section {
+    margin-bottom: 40px;
+}
+
+.section-hint {
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 8px 0 20px;
+}
+
+.empty-hint {
+    color: #6c757d;
+    font-size: 14px;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    text-align: center;
+    margin: 0;
+}
+
+/* 按鈕在工具列中不要撐滿整行 */
+.send-button.btn-inline {
+    width: auto;
+    padding: 9px 18px;
+    font-size: 15px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* 待審核數量提示 */
+.pending-badge {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    border-radius: 11px;
+    background-color: #e53e3e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ===== 統計卡片 ===== */
+.stat-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    flex: 1 1 200px;
+    min-width: 180px;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #d69e2e;
+    border-radius: 10px;
+    background-color: #fffdf7;
+}
+
+.stat-label {
+    color: #718096;
+    font-size: 13px;
+}
+
+.stat-value {
+    margin-top: 4px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.stat-sub {
+    margin-top: 2px;
+    color: #b7791f;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ===== 工具列 ===== */
+.review-toolbar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-group.filter-grow {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.filter-group label {
+    color: #4a5568;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* ===== 批次操作列 ===== */
+.batch-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    background-color: #ebf8ff;
+    border: 1px solid #90cdf4;
+    border-radius: 10px;
+    color: #2b6cb0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.batch-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.batch-actions .text-button {
+    background: none;
+    border: 1px solid #90cdf4;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: #2b6cb0;
+    cursor: pointer;
+}
+
+.batch-actions .text-button:hover {
+    background-color: #bee3f8;
+}
+
+/* ===== 表格 ===== */
+.review-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.review-table th,
+.review-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.review-table th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* 已審核的列淡化，讓待審核的項目一眼就看得出來 */
+.review-table tr.row-paid td {
+    background-color: #f8fafc;
+    color: #718096;
+}
+
+.col-check { width: 36px; text-align: center; }
+.col-year { width: 70px; white-space: nowrap; }
+.col-money { width: 110px; text-align: right; white-space: nowrap; }
+.col-date { width: 110px; white-space: nowrap; }
+.col-status { width: 160px; }
+.col-action { width: 120px; white-space: nowrap; }
+
+.review-table td.col-check { text-align: center; }
+
+.team-name {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.sub-text {
+    color: #718096;
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.review-table .strong {
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.notes-cell {
+    color: #4a5568;
+    font-size: 13px;
+    line-height: 1.6;
+    min-width: 200px;
+    word-break: break-word;
+}
+
+/* ===== 狀態標籤 ===== */
+.status-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-tag.is-paid {
+    background-color: #e6f4ea;
+    color: #1e7e34;
+}
+
+.status-tag.is-unpaid {
+    background-color: #fdecea;
+    color: #c53030;
+}
+
+.type-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background-color: #ebf8ff;
+    color: #2b6cb0;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.warn-text {
+    margin-top: 5px;
+    color: #b7791f;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* ===== 操作按鈕 ===== */
+.btn-approve,
+.btn-revert {
+    padding: 7px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s;
+}
+
+.btn-approve {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.btn-approve:hover:not(:disabled) {
+    background-color: #218838;
+}
+
+.btn-revert {
+    background-color: #fff;
+    border: 1px solid #cbd5e0;
+    color: #4a5568;
+}
+
+.btn-revert:hover:not(:disabled) {
+    background-color: #fff5f5;
+    border-color: #fc8181;
+    color: #c53030;
+}
+
+.btn-approve:disabled,
+.btn-revert:disabled {
+    background-color: #edf2f7;
+    border-color: #edf2f7;
+    color: #a0aec0;
+    cursor: not-allowed;
+}
+
+/* 窄螢幕：表格改為可橫向捲動，避免整頁被撐開 */
+@media (max-width: 900px) {
+    .settings-section {
+        overflow-x: auto;
+    }
+
+    .review-table {
+        min-width: 860px;
+    }
+}

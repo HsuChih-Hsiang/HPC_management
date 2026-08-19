@@ -1,0 +1,54 @@
+/* 個人資料設定頁專用樣式
+   表單元件（.settings-section / .section-hint / .field-hint / .form-control）
+   直接沿用 setting.css，這裡只補這一頁獨有的部分。 */
+
+/* --- 返回列：置於標題上方，貼齊容器左緣 --- */
+.page-back-bar {
+    margin-bottom: 10px;
+}
+
+.back-link {
+    display: inline-block;
+    color: #0056b3;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.back-link:hover {
+    background-color: #eaf2fb;
+    color: #003d80;
+}
+
+/* --- 唯讀欄位（Google 登入帳號）：外觀上就看得出不能改 --- */
+.form-control-readonly {
+    background-color: #f1f3f5;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.form-control-readonly:focus {
+    border-color: #ddd;
+    box-shadow: none;
+}
+
+/* --- 以 <a> 呈現的按鈕：補回 <button> 才有的排版特性 --- */
+/* .cancel-button 的顏色與陰影來自 main.css，這裡只處理連結與區塊差異 */
+.button-group .button-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.send-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
