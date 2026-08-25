@@ -104,22 +104,47 @@ body > .container {
     box-sizing: border-box;
 }
 
+/* 外框只負責左右分欄：左邊是會捲動的標籤區，右邊是固定不動的按鈕區。
+   收件人一直加時，標籤只會在 .email-input-field 裡換行／捲動，
+   右側按鈕的位置永遠不變。 */
 .email-input-container {
     width: 100% !important; /* 修正：移除原本的 1000px，強制 100% 滿版與主旨對齊 */
     display: flex;
-    flex-wrap: wrap; /* 允許換行 */
-    align-items: center;
-    gap: 6px;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 8px;
     padding: 8px 12px;
     border: 1px solid #ddd;
     border-radius: 8px;
     background-color: #fff;
-    align-content: flex-start; /* 換行後由上往下排，捲動時才不會整團被垂直置中 */
     min-height: 48px;
-    max-height: 200px; /* 超過此高度才出現捲軸 */
-    overflow-y: auto;
-    overflow-x: hidden; /* 絕對禁止左右長度延伸 */
+    overflow: hidden; /* 絕對禁止左右長度延伸；垂直捲動交給 .email-input-field */
     box-sizing: border-box; /* 確保邊框計算正確 */
+}
+
+/* 標籤 + 輸入框：原本 .email-input-container 的換行與捲動行為移到這一層 */
+.email-input-field {
+    flex: 1 1 auto;
+    min-width: 0; /* flex 項目預設 min-width:auto，不歸零會被長標籤撐開 */
+    display: flex;
+    flex-wrap: wrap; /* 允許換行 */
+    align-items: center;
+    align-content: flex-start; /* 換行後由上往下排，捲動時才不會整團被垂直置中 */
+    gap: 6px;
+    min-height: 32px;
+    max-height: 184px; /* 超過此高度才出現捲軸 */
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 右側按鈕區：align-self:flex-start 讓它固定貼齊第一列，內容再多也不會被往下推 */
+.email-input-actions {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
 }
 
 .email-input-container:focus-within {
@@ -210,8 +235,8 @@ body > .container {
     flex: 1; 
     min-width: 150px; 
     max-width: 100%;
-    height: 32px;
-    line-height: 32px;
+    height: 40px;      /* 與右側按鈕同高，沒有標籤時輸入游標才會跟按鈕對齊 */
+    line-height: 40px;
 }
 
 .email-input:focus {
@@ -227,8 +252,7 @@ body > .container {
     width: 35px;
     height: 35px;
     flex-shrink: 0;
-    margin: auto 0; 
-    order: 999; 
+    margin: 0;
 }
 
 /* 編輯模式 */
@@ -475,6 +499,13 @@ body > .container {
 
 .account-item:last-child {
     border-bottom: none;
+}
+
+/* 已勾選的帳號（搜尋欄清空時會排在最上面）標一下，比較好辨認 */
+.account-item.is-picked {
+    background-color: #f1f8f2;
+    border-radius: 6px;
+    box-shadow: inset 3px 0 0 #43a047;
 }
 
 .account-item-header label {
@@ -841,6 +872,23 @@ body > .container {
 }
 
 @media (max-width: 768px) {
+    /* 手機版寬度不夠並排，按鈕改成固定在標籤區「下方」一整列，
+       標籤仍然只在 .email-input-field 內捲動，按鈕一樣不會被往下推 */
+    .email-input-container {
+        flex-wrap: wrap;
+    }
+
+    .email-input-field {
+        flex-basis: 100%;
+        max-height: 150px;
+    }
+
+    .email-input-actions {
+        flex-basis: 100%;
+        align-self: stretch;
+        justify-content: flex-end;
+    }
+
     .email-tag {
         font-size: 12px;
         padding: 4px 8px;

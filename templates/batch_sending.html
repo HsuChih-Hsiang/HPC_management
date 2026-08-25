@@ -22,76 +22,92 @@
             <div class="form-group">
                 <label>收件人電子郵件 (<span class="optional">必填</span>):</label>
                 <div class="email-input-container" droppable-area="to">
-                    <div class="email-tag" ng-repeat="email in mailData.to track by $index" draggable-tag="to" ng-dblclick="editTag(email, 'to', $index)">
-                        <span class="email-text" ng-bind="email"></span>
-                        <button type="button" class="remove-email-btn" ng-click="removeTag('to', $index)">×</button>
-                    </div>
-
                     {#
-                      帳號標籤：框裡顯示的是「帳號」而非 Email，點一下才展開底下的聯絡人。
-                      展開的明細用 ng-repeat-end 做成同一個 flex 容器裡的整列元素（flex-basis:100%），
-                      這樣就會被容器的 max-height / overflow-y 一起管理，不會被裁掉。
+                      標籤與輸入框放在 .email-input-field 裡（會捲動），
+                      右側的按鈕獨立成 .email-input-actions，收件人再多也不會被往下推。
                     #}
-                    <div class="account-tag" ng-class="{'expanded': acc.expanded}"
-                         ng-repeat-start="acc in mailData.accounts track by acc.contact_id">
-                        <button type="button" class="account-tag-toggle" ng-click="toggleAccountExpand(acc)"
-                                title="[[ acc.team_name || acc.applicant ]]">
-                            <span class="account-caret" ng-bind="acc.expanded ? '▾' : '▸'"></span>
-                            <span class="account-name" ng-bind="acc.account"></span>
-                            <span class="account-count" ng-bind="'(' + accountSelectedCount(acc) + ')'"></span>
-                        </button>
-                        <button type="button" class="remove-email-btn" ng-click="removeAccount($index)">×</button>
-                    </div>
-                    <div class="account-detail" ng-repeat-end ng-show="acc.expanded">
-                        <div class="account-detail-title">
-                            <span ng-bind="acc.account"></span>
-                            <span class="account-detail-meta" ng-bind="acc.account_type + ' · ' + (acc.team_name || acc.applicant || '')"></span>
+                    <div class="email-input-field">
+                        <div class="email-tag" ng-repeat="email in mailData.to track by $index" draggable-tag="to" ng-dblclick="editTag(email, 'to', $index)">
+                            <span class="email-text" ng-bind="email"></span>
+                            <button type="button" class="remove-email-btn" ng-click="removeTag('to', $index)">×</button>
                         </div>
-                        <label class="account-member" ng-repeat="m in acc.members"
-                               ng-class="{'is-disabled': m.email_disabled}">
-                            <input type="checkbox" ng-model="m.selected" ng-disabled="m.email_disabled"
-                                   ng-change="onAccountMemberToggle(acc)">
-                            <span class="account-member-name" ng-bind="m.name || '(未命名)'"></span>
-                            <span class="account-member-email" ng-bind="m.email"></span>
-                            <span class="account-badge primary" ng-if="m.is_primary">主要聯絡人</span>
-                            <span class="account-badge muted" ng-if="m.email_disabled">已停止寄信</span>
-                            <span class="account-badge role" ng-if="!m.email_disabled && m.selected"
-                                  ng-bind="memberRole(acc, m)"></span>
-                        </label>
-                        <div class="account-detail-hint" ng-bind="accountSummary(acc)"></div>
-                    </div>
 
-                    <input type="email" ng-model="inputs.to" class="email-input"
-                           ng-keydown="addTag($event, 'to')" ng-blur="addTag(null, 'to')" ng-paste="handlePaste($event, 'to')">
-                    <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('to')">群組新增</button>
-                    <button type="button" class="text-button account-add-button" title="以 HPC 帳號新增收件人" ng-click="openAccountModal()">帳號新增</button>
+                        {#
+                          帳號標籤：框裡顯示的是「帳號」而非 Email，點一下才展開底下的聯絡人。
+                          展開的明細用 ng-repeat-end 做成同一個 flex 容器裡的整列元素（flex-basis:100%），
+                          這樣就會被容器的 max-height / overflow-y 一起管理，不會被裁掉。
+                        #}
+                        <div class="account-tag" ng-class="{'expanded': acc.expanded}"
+                             ng-repeat-start="acc in mailData.accounts track by acc.contact_id">
+                            <button type="button" class="account-tag-toggle" ng-click="toggleAccountExpand(acc)"
+                                    title="[[ acc.team_name || acc.applicant ]]">
+                                <span class="account-caret" ng-bind="acc.expanded ? '▾' : '▸'"></span>
+                                <span class="account-name" ng-bind="acc.account"></span>
+                                <span class="account-count" ng-bind="'(' + accountSelectedCount(acc) + ')'"></span>
+                            </button>
+                            <button type="button" class="remove-email-btn" ng-click="removeAccount($index)">×</button>
+                        </div>
+                        <div class="account-detail" ng-repeat-end ng-show="acc.expanded">
+                            <div class="account-detail-title">
+                                <span ng-bind="acc.account"></span>
+                                <span class="account-detail-meta" ng-bind="acc.account_type + ' · ' + (acc.team_name || acc.applicant || '')"></span>
+                            </div>
+                            <label class="account-member" ng-repeat="m in acc.members"
+                                   ng-class="{'is-disabled': m.email_disabled}">
+                                <input type="checkbox" ng-model="m.selected" ng-disabled="m.email_disabled"
+                                       ng-change="onAccountMemberToggle(acc)">
+                                <span class="account-member-name" ng-bind="m.name || '(未命名)'"></span>
+                                <span class="account-member-email" ng-bind="m.email"></span>
+                                <span class="account-badge primary" ng-if="m.is_primary">主要聯絡人</span>
+                                <span class="account-badge muted" ng-if="m.email_disabled">已停止寄信</span>
+                                <span class="account-badge role" ng-if="!m.email_disabled && m.selected"
+                                      ng-bind="memberRole(acc, m)"></span>
+                            </label>
+                            <div class="account-detail-hint" ng-bind="accountSummary(acc)"></div>
+                        </div>
+
+                        <input type="email" ng-model="inputs.to" class="email-input"
+                               ng-keydown="addTag($event, 'to')" ng-blur="addTag(null, 'to')" ng-paste="handlePaste($event, 'to')">
+                    </div>
+                    <div class="email-input-actions">
+                        <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('to')">群組新增</button>
+                        <button type="button" class="text-button account-add-button" title="以 HPC 帳號新增收件人" ng-click="openAccountModal()">帳號新增</button>
+                    </div>
                 </div>
             </div>
 
             <div class="form-group">
                 <label>副本 (CC):</label>
                 <div class="email-input-container" droppable-area="cc">
-                    <div class="email-tag" ng-repeat="email in mailData.cc track by $index" draggable-tag="cc" ng-dblclick="editTag(email, 'cc', $index)">
-                        <span class="email-text" ng-bind="email"></span>
-                        <button type="button" class="remove-email-btn" ng-click="removeTag('cc', $index)">×</button>
+                    <div class="email-input-field">
+                        <div class="email-tag" ng-repeat="email in mailData.cc track by $index" draggable-tag="cc" ng-dblclick="editTag(email, 'cc', $index)">
+                            <span class="email-text" ng-bind="email"></span>
+                            <button type="button" class="remove-email-btn" ng-click="removeTag('cc', $index)">×</button>
+                        </div>
+                        <input type="email" ng-model="inputs.cc" class="email-input" 
+                               ng-keydown="addTag($event, 'cc')" ng-blur="addTag(null, 'cc')" ng-paste="handlePaste($event, 'cc')">
                     </div>
-                    <input type="email" ng-model="inputs.cc" class="email-input" 
-                           ng-keydown="addTag($event, 'cc')" ng-blur="addTag(null, 'cc')" ng-paste="handlePaste($event, 'cc')">
-                    <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('cc')">群組新增</button>
-                    <button type="button" class="icon-button" ng-class="{'active': showBcc}" title="顯示/隱藏密件副本" ng-click="toggleBcc()"></button>   
+                    <div class="email-input-actions">
+                        <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('cc')">群組新增</button>
+                        <button type="button" class="icon-button" ng-class="{'active': showBcc}" title="顯示/隱藏密件副本" ng-click="toggleBcc()"></button>
+                    </div>
                 </div>
             </div>
 
             <div class="form-group" ng-show="showBcc">
                 <label>密件副本 (BCC):</label>
                 <div class="email-input-container" droppable-area="bcc">
-                    <div class="email-tag" ng-repeat="email in mailData.bcc track by $index" draggable-tag="bcc" ng-dblclick="editTag(email, 'bcc', $index)">
-                        <span class="email-text" ng-bind="email"></span>
-                        <button type="button" class="remove-email-btn" ng-click="removeTag('bcc', $index)">×</button>
+                    <div class="email-input-field">
+                        <div class="email-tag" ng-repeat="email in mailData.bcc track by $index" draggable-tag="bcc" ng-dblclick="editTag(email, 'bcc', $index)">
+                            <span class="email-text" ng-bind="email"></span>
+                            <button type="button" class="remove-email-btn" ng-click="removeTag('bcc', $index)">×</button>
+                        </div>
+                        <input type="email" ng-model="inputs.bcc" class="email-input" 
+                               ng-keydown="addTag($event, 'bcc')" ng-blur="addTag(null, 'bcc')" ng-paste="handlePaste($event, 'bcc')">
                     </div>
-                    <input type="email" ng-model="inputs.bcc" class="email-input" 
-                           ng-keydown="addTag($event, 'bcc')" ng-blur="addTag(null, 'bcc')" ng-paste="handlePaste($event, 'bcc')">
-                    <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('bcc')">群組新增</button>
+                    <div class="email-input-actions">
+                        <button type="button" class="text-button" title="群組新增" ng-click="openGroupModal('bcc')">群組新增</button>
+                    </div>
                 </div>
             </div>
 
@@ -180,13 +196,16 @@
             <div class="account-list-container">
                 <p class="account-list-empty" ng-if="accountSearch.loading">搜尋中…</p>
                 <p class="account-list-empty" ng-if="!accountSearch.loading && accountResults.length === 0">找不到符合的帳號。</p>
-                <div class="account-item" ng-repeat="acc in accountResults">
+                <div class="account-item" ng-repeat="acc in accountResults track by acc.contact_id"
+                     ng-class="{'is-picked': accountSelectedCount(acc) > 0}">
                     <div class="account-item-header">
                         <label>
                             <input type="checkbox" ng-model="acc.selected" ng-change="toggleAccountSelectAll(acc)">
                             <strong ng-bind="acc.account"></strong>
                             <span class="account-item-meta"
                                   ng-bind="acc.account_type + ' · ' + (acc.team_name || acc.applicant || '')"></span>
+                            <span class="account-badge primary" ng-if="accountSelectedCount(acc) > 0"
+                                  ng-bind="'已勾選 ' + accountSelectedCount(acc) + ' 人'"></span>
                         </label>
                     </div>
                     <div class="account-member-list">

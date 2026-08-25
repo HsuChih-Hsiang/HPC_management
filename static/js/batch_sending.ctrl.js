@@ -387,7 +387,25 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         });
     };
 
+    // 搜尋視窗開著的期間，所有「看過／勾過」的帳號都記在這裡（key = contact_id）。
+    // 搜尋會重打 API 換掉 accountResults，靠這份紀錄才不會把先前的勾選弄丟。
+    var accountSelection = {};
+
+    function rememberedMemberSelection(acc) {
+        var map = {};
+        (acc.members || []).forEach(function(m) {
+            map[m.id] = !!m.selected;
+        });
+        return map;
+    }
+
     $scope.openAccountModal = function() {
+        // 用複本作業，按「取消」就不會動到已經加進收件人的帳號
+        accountSelection = {};
+        $scope.mailData.accounts.forEach(function(acc) {
+            accountSelection[acc.contact_id] = angular.copy(acc);
+        });
+
         $scope.modals.account = true;
         $scope.accountSearch.keyword = '';
         $scope.fetchAccounts();
@@ -399,22 +417,20 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
         accountSearchTimer = $timeout($scope.fetchAccounts, 300);
     };
 
+    var accountFetchToken = 0;
     $scope.fetchAccounts = function() {
+        var keyword = ($scope.accountSearch.keyword || '').trim();
+        var token = ++accountFetchToken;   // 連續搜尋時，只認最後一次送出的請求
         $scope.accountSearch.loading = true;
         $http.get('/api/contacts/mail-accounts', {
             params: { search: $scope.accountSearch.keyword || '' }
         }).then(function(res) {
-            // 已經加到收件人的帳號，重新開啟時要帶回原本的勾選狀態
-            var picked = {};
-            $scope.mailData.accounts.forEach(function(acc) {
-                picked[acc.contact_id] = {};
-                (acc.members || []).forEach(function(m) {
-                    picked[acc.contact_id][m.id] = m.selected;
-                });
-            });
+            if (token !== accountFetchToken) return;
+            var list = (res.data || []).map(function(acc) {
+                // 這個帳號之前勾過（或已經在收件人裡）就把勾選帶回來
+                var remembered = accountSelection[acc.contact_id];
+                var prev = remembered ? rememberedMemberSelection(remembered) : null;
 
-            $scope.accountResults = (res.data || []).map(function(acc) {
-                var prev = picked[acc.contact_id];
                 acc.members.forEach(function(m) {
                     if (m.email_disabled) {
                         m.selected = false;
@@ -426,10 +442,34 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
                 });
                 acc.selected = false;
                 $scope.onAccountMemberToggle(acc);
+                // 存的是畫面上這個物件本身，之後使用者改勾選會直接同步進來
+                accountSelection[acc.contact_id] = acc;
                 return acc;
             });
+
+            if (!keyword) {
+                // 搜尋欄清空時：已勾選的帳號排到最前面，
+                // 連同這次結果沒回傳到（例如超過筆數上限）的也一起補在最上面
+                var inList = {};
+                list.forEach(function(acc) { inList[acc.contact_id] = true; });
+
+                var pinned = [];
+                Object.keys(accountSelection).forEach(function(key) {
+                    var acc = accountSelection[key];
+                    if (!inList[acc.contact_id] && $scope.accountSelectedCount(acc) > 0) {
+                        pinned.push(acc);
+                    }
+                });
+
+                var selected = list.filter(function(acc) { return $scope.accountSelectedCount(acc) > 0; });
+                var others = list.filter(function(acc) { return $scope.accountSelectedCount(acc) === 0; });
+                list = pinned.concat(selected, others);
+            }
+
+            $scope.accountResults = list;
             $scope.accountSearch.loading = false;
         }).catch(function() {
+            if (token !== accountFetchToken) return;
             $scope.accountSearch.loading = false;
             $scope.accountResults = [];
             $scope.showMessage('搜尋帳號失敗，請稍後再試。', 'error');
@@ -439,7 +479,11 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     $scope.confirmAccountSelection = function() {
         var added = 0;
 
-        $scope.accountResults.forEach(function(acc) {
+        // 走過這次開窗期間看過的所有帳號，不只是目前搜尋結果，
+        // 這樣先勾好、再換關鍵字搜尋的帳號也會被加進去
+        Object.keys(accountSelection).map(function(key) {
+            return accountSelection[key];
+        }).forEach(function(acc) {
             var chosen = (acc.members || []).filter(function(m) {
                 return m.selected && !m.email_disabled;
             });
