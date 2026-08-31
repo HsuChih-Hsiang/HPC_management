@@ -4,7 +4,7 @@ from flask import request, jsonify, Blueprint, render_template_string
 from utils.hpc.hpc_bill_utils import (calculate_prepaid_quota, get_account_last_year_usage_details,
                                       is_research_bonus, RESEARCH_BONUS_SOURCE_PREFIX,
                                       accounting_price_join)
-from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification
+from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification, load_bill_discount
 from utils.hpc.hpc_quotation_utils import (build_quotation_context, render_quotation_html,
                                            render_bill_notification_html, quotation_html_to_pdf,
                                            build_quotation_filename, get_unpaid_prepaids)
@@ -627,6 +627,52 @@ def get_billing_workflow(id):
     state['unpaid_prepaid_total'] = round(sum(float(p.amount or 0) for p in unpaid_prepaids), 2)
     state['unpaid_prepaid_count'] = len(unpaid_prepaids)
     return jsonify(state)
+
+
+# =========================================================================
+# 帳單折扣的「使用／不使用」開關
+#
+# 折扣（⚙️ 系統設定 → 帳單折扣設定）與「額度扣款後開立繳費單」互斥：
+# 折扣是給客戶的減免，額度扣款是拿客戶已經預付的錢來抵，兩者同時成立
+# 會變成同一筆費用被折兩次，所以一旦標記為使用折扣，額度扣款就鎖住。
+#
+# 狀態存在 billing_workflows.discount_applied，前端重新整理後仍記得；
+# 前端的 disabled 只是提示，confirm_deduct 內部（ensure_can_issue_bill）
+# 會再擋一次，直接打 API 也繞不過去。
+# =========================================================================
+@quota_bp.route('/api/contacts/<int:id>/billing-discount', methods=['POST'])
+def set_billing_discount(id):
+    contact = Contact.query.get_or_404(id)
+    data = request.get_json() or {}
+
+    applied = data.get('applied')
+    if not isinstance(applied, bool):
+        return jsonify({'message': 'applied 必須是 true 或 false。'}), 400
+
+    # 要開啟折扣，得先有折扣設定，否則等於標記了一個沒有內容的折扣
+    if applied and not load_bill_discount():
+        return jsonify({
+            'message': '尚未設定帳單折扣，請先至「⚙️ 系統設定 → 帳單折扣設定」填寫門檻金額與折數。'
+        }), 400
+
+    workflow, error = workflow_utils.set_discount_applied(contact.id, applied)
+    if error:
+        return jsonify({'message': error}), 400
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': '折扣狀態儲存失敗', 'error': str(e)}), 500
+
+    unpaid_prepaids = get_unpaid_prepaids(contact.get_formal_account())
+    state = workflow_utils.build_workflow_state(contact, has_unpaid_prepaid=bool(unpaid_prepaids))
+
+    return jsonify({
+        'success': True,
+        'message': '已設定為使用帳單折扣，本年度將無法使用額度扣款。' if applied else '已取消使用帳單折扣。',
+        'workflow': state
+    }), 200
 
 
 # =========================================================================

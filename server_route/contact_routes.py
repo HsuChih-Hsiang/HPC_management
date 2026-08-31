@@ -2,15 +2,17 @@ import json
 import csv
 from datetime import datetime
 from io import StringIO, BytesIO
-from sqlalchemy import or_, and_, func, cast, exists, Numeric
+from sqlalchemy import or_, and_, func, cast, Numeric
 from flask import Blueprint, request, jsonify, make_response
 from database.extensions import db
 from database.hpc_model import (Contact, SecondaryContact, CourseStudent, ContactAccountMapping,
-                                Serverlist, UserAccounting, Bill, Accounting, PrepaidAmount, HPCSetting,
+                                Serverlist, UserAccounting, Accounting, PrepaidAmount, HPCSetting,
                                 QuotationItem, EMAIL_PATTERN)
 from utils.email_utils import (get_confirm_email_template_html, read_default_confirm_email_template,
                                 CONFIRM_EMAIL_TEMPLATE_KEY, CONFIRM_EMAIL_DEFAULT_CC_KEY)
-from utils.hpc.hpc_bill_utils import get_default_quotation_items, accounting_price_join
+from utils.hpc.hpc_bill_utils import (get_default_quotation_items, accounting_price_join,
+                                     billable_usernames_query)
+from utils.hpc import hpc_workflow_utils as workflow_utils
 
 contact_bp = Blueprint('contact', __name__)
 
@@ -92,26 +94,27 @@ def get_contacts():
     if year:
         filters.append(Contact.apply_date.like(f'{year}%'))
 
-    # 4. 處理 is_payment 邏輯 (去年度應開立但未開立帳單)
+    # 4. 「未開帳單帳號」：額度視窗裡算得出「本期應收總金額」，但本年度還沒開過繳費單
+    #
+    #    這兩個條件都刻意跟額度視窗共用同一份定義，避免清單與視窗互相矛盾：
+    #      金額 → utils.hpc.hpc_bill_utils.billable_usernames_query()
+    #             （與 compute_suggested_bill 同一組計價 join 與年份）
+    #      開單 → utils.hpc.hpc_workflow_utils.bill_issued_clause()
+    #             （與四顆按鈕的 bill_issued 同一份判斷）
     if is_payment:
-        # 2026年執行時，last_year 會自動等於 2025
-        last_year = datetime.now().year - 1
-        start_of_last_year = datetime(last_year, 1, 1, 0, 0, 0)
-        end_of_last_year = datetime(last_year, 12, 31, 23, 59, 59)
+        billing_year = workflow_utils.get_billing_year()
 
-        # 條件 A：在 Accounting 表中有去年度的計算紀錄
-        has_accounting_last_year = exists().where(
-            and_(
-                Accounting.username == UserAccounting.username,
-                Accounting.begintime >= start_of_last_year,
-                Accounting.begintime <= end_of_last_year
-            )
-        )
-        filters.append(has_accounting_last_year)
+        # 條件 A：正式帳號在帳務年度有「算得出金額」的用量（合計 > 0）。
+        #        原本只看 Accounting 有沒有紀錄，有跑作業但費率算不出錢（金額 $0）
+        #        的人也會被撈進來；而且比對只認 UserAccounting.username，
+        #        以 manual_account 對應的正式帳號整批被漏掉，這裡用 coalesce 一起涵蓋。
+        formal_username = func.coalesce(UserAccounting.username, ContactAccountMapping.manual_account)
+        filters.append(formal_username.in_(billable_usernames_query(billing_year).scalar_subquery()))
 
-        # 條件 B：在 Bill 表中完全沒有任何帳單紀錄
-        has_no_bill = ~exists().where(Bill.contact_id == Contact.id)
-        filters.append(has_no_bill)
+        # 條件 B：本年度還沒開過繳費單。
+        #        原本是「Bill 表完全沒有任何紀錄」，只要往年開過一次單就永遠查不到，
+        #        正是這次名單對不上的主因。
+        filters.append(~workflow_utils.bill_issued_clause(billing_year))
 
     # 5. 修正：主機多選條件篩選
     if selected_hosts:

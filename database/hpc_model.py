@@ -232,6 +232,12 @@ class BillingWorkflow(db.Model):
     quotation_sent_at = db.Column(db.DateTime, nullable=True)
     quotation_kind = db.Column(db.String(20), nullable=True)
 
+    # 這一年度的帳單是否套用「帳單折扣」（⚙️ 系統設定 → 帳單折扣設定）。
+    # 折扣與額度扣款互斥：一旦標記為使用折扣，本年度就不能再走
+    # 「額度扣款後開立繳費單」。狀態必須落地，否則重新整理網頁後
+    # 前端就忘了，後端也無從擋起（前端 disabled 只是提示）。
+    discount_applied = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text('false'))
+
     __table_args__ = (
         db.UniqueConstraint('contact_id', 'year', name='_contact_year_workflow_uc'),
     )
@@ -250,7 +256,8 @@ class BillingWorkflow(db.Model):
             'bill_created_at': fmt(self.bill_created_at),
             'quotation_sent': self.quotation_sent_at is not None,
             'quotation_sent_at': fmt(self.quotation_sent_at),
-            'quotation_kind': self.quotation_kind
+            'quotation_kind': self.quotation_kind,
+            'discount_applied': bool(self.discount_applied)
         }
 
     def __repr__(self):

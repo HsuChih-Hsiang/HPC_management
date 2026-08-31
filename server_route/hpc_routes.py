@@ -1,7 +1,8 @@
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template
-from utils.hpc.hpc_setting_utils import load_hpc_settings_by_classification, save_hpc_settings
+from utils.hpc.hpc_setting_utils import (load_hpc_settings_by_classification, save_hpc_settings,
+                                          load_bill_discount, BILL_DISCOUNT_KEY)
 from utils.hpc.hpc_notify_utils import get_hpc_notifications_by_date, send_hpc_notification_email, save_notification_to_db
 from utils.hpc.hpc_log_utils import save_hpc_notification_log
 from utils.hpc.hpc_bill_utils import get_usage_and_prepaid_data_db, update_prepaid_amount_db
@@ -136,6 +137,53 @@ def hpc_quota_settings():
         save_hpc_settings(new_settings)
         
         return jsonify({'success': True, 'message': '設定已成功儲存。'})
+
+
+@hpc_bp.route('/api/hpc-usage/settings_bill_discount', methods=['GET', 'POST'])
+def hpc_bill_discount_settings():
+    """
+    開帳單折扣設定（HPCSetting key='bill_discount'，classification=2）。
+
+    規則：本期應收總金額超過「門檻金額 min_amount」時，
+          「超出的部分」以 discount 折計算，門檻以內的金額不打折：
+
+              結算價格 = min_amount + (應收總金額 - min_amount) × discount / 10
+
+    discount 存的是「折數」（8.5 = 8.5 折 = 85%），與 UI 上填的數字一致，
+    避免有人看資料庫時把 0.85 誤解成「打 0.85 折」。
+    傳入空的 min_amount 或 discount 代表「清除設定」，存成空字典。
+    """
+    if request.method == 'GET':
+        return jsonify(load_bill_discount())
+
+    data = request.get_json() or {}
+    min_amount = data.get('min_amount')
+    discount = data.get('discount')
+
+    # 兩欄都空 = 清除設定（畫面上就不再顯示折扣與結算價格）
+    is_blank = lambda v: v is None or (isinstance(v, str) and not v.strip())
+    if is_blank(min_amount) and is_blank(discount):
+        save_hpc_settings({BILL_DISCOUNT_KEY: json.dumps({}), 'classification': 2})
+        return jsonify({'success': True, 'message': '已清除帳單折扣設定。', 'value': {}})
+
+    if is_blank(min_amount) or is_blank(discount):
+        return jsonify({'success': False, 'message': '門檻金額與折數必須一起填寫，或兩者都留空以清除設定。'}), 400
+
+    try:
+        min_amount = float(min_amount)
+        discount = float(discount)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': '門檻金額與折數必須是數字。'}), 400
+
+    if min_amount < 0:
+        return jsonify({'success': False, 'message': '門檻金額不可為負數。'}), 400
+    if not (0 < discount <= 10):
+        return jsonify({'success': False, 'message': '折數必須大於 0 且不超過 10（10 折 = 不打折）。'}), 400
+
+    value = {'min_amount': min_amount, 'discount': discount}
+    save_hpc_settings({BILL_DISCOUNT_KEY: json.dumps(value), 'classification': 2})
+
+    return jsonify({'success': True, 'message': '帳單折扣設定已儲存。', 'value': value})
 
 
 @hpc_bp.route('/api/hpc-usage/prepaid', methods=['GET'])

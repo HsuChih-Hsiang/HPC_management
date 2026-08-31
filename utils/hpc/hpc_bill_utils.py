@@ -80,6 +80,37 @@ def accounting_price_join():
     )
 
 
+# =========================================================================
+# 「該年度算得出費用」的帳號清單
+#
+# 額度視窗裡的「本期應收總金額」是 compute_suggested_bill() 對「單一聯絡人」
+# 動態算出來的。清單頁的「未開帳單帳號」篩選要問的是同一個問題，但問的是
+# 「所有聯絡人」—— 逐筆呼叫 compute_suggested_bill() 等於每頁打上百次 SQL，
+# 所以這裡用同一組 join 與同一個年份定義，一次把帳號算完給 IN 用。
+#
+# ⚠️ 金額的算法必須跟 compute_suggested_bill() 保持一致，否則會出現
+# 「清單查得到、點進去卻是 $0」（或反過來）的矛盾。
+# =========================================================================
+def billable_usernames_query(year):
+    """
+    回傳該年度用量合計金額 > 0 的帳號子查詢（單一 username 欄位）。
+
+    用法：
+        contact_username.in_(billable_usernames_query(2025).scalar_subquery())
+    """
+    return db.session.query(
+        Accounting.username.label('username')
+    ).join(
+        Serverlist, accounting_price_join()
+    ).filter(
+        func.extract('year', Accounting.endtime) == year
+    ).group_by(
+        Accounting.username
+    ).having(
+        func.sum((Accounting.cores * (cast(Accounting.wtime, Numeric) / 3600)) * Serverlist.price) > 0
+    )
+
+
 def get_hpc_user_and_total_usage_with_details():
     """
     計算每個帳號在當年度和【今年初至今】的總費用，並提供每個 server 的明細。

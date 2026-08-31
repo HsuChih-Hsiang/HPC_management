@@ -1632,6 +1632,12 @@ body {
     align-items: center;
 }
 
+/* input[type=date] 的內建控制項比 number 高（Chrome 上 48px vs 40px），
+   同一列並排時上下緣會對不齊，這裡統一高度。 */
+.flex-input-grid .hpc-input {
+    height: 40px;
+}
+
 .flex-1 {
     flex: 1;
 }
@@ -1641,6 +1647,77 @@ body {
     color: #666;
     display: block;
     margin-bottom: 4px;
+}
+
+/* 帳單折扣區塊（額度視窗，接在「本期應收總金額」底下）。
+   沒有設定折扣時整塊不會被輸出，所以不必另外處理隱藏。 */
+.bill-discount-box {
+    margin: -6px 0 12px;
+    padding: 8px 10px;
+    border: 1px solid #ffe0b2;
+    border-radius: 8px;
+    background-color: #fffaf3;
+}
+
+.bill-discount-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bill-discount-rule {
+    /* 視窗只有 400px 寬，文字長的時候先縮，不要把按鈕擠出框外 */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #b26a00;
+    font-size: 12px;
+}
+
+/* 「使用折扣」開關：未使用時是外框按鈕，使用中改成實心並標示可再點一次取消 */
+.bill-discount-toggle {
+    flex: 0 0 auto;
+    padding: 3px 10px;
+    border: 1px solid #b26a00;
+    border-radius: 12px;
+    background-color: #fff;
+    color: #b26a00;
+    font-size: 11px;
+    line-height: 16px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.bill-discount-toggle:hover:not(:disabled) {
+    background-color: #fff4e5;
+}
+
+.bill-discount-toggle.is-active {
+    background-color: #2f855a;
+    border-color: #2f855a;
+    color: #fff;
+}
+
+.bill-discount-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bill-discount-result {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #2f855a;
+}
+
+/* 折扣還沒啟用時，結算價格只是參考值，顏色壓下來避免被誤認為要收的錢 */
+.bill-discount-result.is-muted {
+    color: #718096;
+}
+
+.bill-discount-result strong {
+    font-size: 13px;
 }
 
 .quota-info-tip {
@@ -1855,6 +1932,25 @@ body {
     background-color: #2980b9 !important;
     color: #ffffff !important;
     box-shadow: 0 2px 4px rgba(41, 128, 185, 0.2) !important;
+}
+
+/* 「✔ 已寄送」狀態徽章
+   繳費單允許重寄，按鈕不會被鎖住，所以只靠這個徽章讓管理員一眼看出
+   到底寄過沒有。字體刻意做小：四顆按鈕共用一列（.btn-action-group 是
+   flex: 1 均分），徽章一大整排就會被擠到換行。 */
+.btn-action-group .sent-badge {
+    font-size: 11px !important;
+    font-weight: bold;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background-color: rgba(39, 174, 96, 0.12);
+    color: #27ae60;
+    white-space: nowrap;
+}
+.btn-send-bill:hover .sent-badge {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
 }
 /* ============================================================
    🎯 強制彈窗 Footer 完美貼緊下邊框且不留白

@@ -39,7 +39,10 @@ DEFAULT_HPC_SETTINGS = {
     'notification_cooldown_days': {'value': 7, 'type': int, 'desc': '通知冷卻時間 (天)', 'classification': 1},
     'free_quota': {'value': 10000, 'type': int, 'desc': '更新資料給的免費額度', 'classification': 2},
     'academic_quota': {'value': 1000, 'type': int, 'desc': '期刊論文給的額度(每篇1000,最高10篇)', 'classification': 2},
-    'discount': {'value':[{"min_amount": 100001, "divisor": 0.36}, {"min_amount": 50001,  "divisor": 0.75}], 'type': list, 'desc': '優惠區間', 'classification': 2}
+    'discount': {'value':[{"min_amount": 100001, "divisor": 0.36}, {"min_amount": 50001,  "divisor": 0.75}], 'type': list, 'desc': '優惠區間', 'classification': 2},
+    # 開帳單折扣：本期應收總金額超過 min_amount 的「超出部分」以 discount 折計算
+    # （discount 為折數，8.5 表示 8.5 折 = 85%）。空字典 = 尚未設定，畫面上不顯示。
+    'bill_discount': {'value': {}, 'type': dict, 'desc': '開帳單折扣（超過門檻金額的部分打折）', 'classification': 2}
 }
 
 
@@ -128,6 +131,7 @@ ENDPOINT_EXTRA_FEATURES = {
     'hpc.search_users':                       {'features': {'hpc_contact'},    'methods': {'GET'}},
     'hpc.get_server_list':                    {'features': {'hpc_contact'},    'methods': {'GET'}},
     'hpc.hpc_quota_settings':                 {'features': {'hpc_contact'},    'methods': None},
+    'hpc.hpc_bill_discount_settings':         {'features': {'hpc_contact'},    'methods': None},
 }
 
 

@@ -585,15 +585,47 @@
                     
                     <div class="flex-input-grid">
                         <div class="flex-1">
-                            <label class="input-sub-label">本期應收總金額 ($)</label>
+                            <label class="input-sub-label" for="pending_bill_amount">本期應收總金額 ($)</label>
                             <input type="number" id="pending_bill_amount" class="hpc-input text-danger-bold"
                                    ng-model="pendingBill.amount" raw-number
                                    placeholder="[[ pendingBill.placeholder || '請輸入核對後的金額' ]]">
                         </div>
                         <div class="flex-1">
-                            <label class="input-sub-label">帳單/扣款歸屬日期</label>
+                            <label class="input-sub-label" for="pending_bill_date">帳單/扣款歸屬日期</label>
                             <input type="date" id="pending_bill_date" class="hpc-input" ng-model="pendingBill.date" raw-date>
                         </div>
+                    </div>
+
+                    <!--
+                      帳單折扣（緊接在「本期應收總金額」底下）
+
+                      折扣規則與結算價格都是唯讀顯示，開單金額仍以「本期應收總金額」為準；
+                      折扣設定（⚙️ 系統設定 → 帳單折扣設定）沒設定時整塊都不出現。
+
+                      「使用折扣」開關寫進 billing_workflows.discount_applied：
+                      一旦使用折扣，本年度就不能再走「額度扣款後,開立繳費單」
+                      （後端 confirm_deduct 會再擋一次，這裡的 disabled 只是提示）。
+
+                      這一塊刻意放在兩個輸入框「底下」而不是標籤旁邊：額度視窗只有 400px 寬，
+                      塞在標籤列會把左右兩欄的輸入框擠到不同高度。
+                    -->
+                    <div class="bill-discount-box" ng-if="billDiscountRuleText()">
+                        <div class="bill-discount-line">
+                            <span class="bill-discount-rule" title="[[ billDiscountRuleText() ]]">[[ billDiscountRuleText() ]]</span>
+                            <button type="button" class="bill-discount-toggle"
+                                    ng-class="{'is-active': billingWorkflow.discount_applied}"
+                                    ng-click="toggleBillDiscountApplied()"
+                                    ng-disabled="billingWorkflowLoading || billDiscountToggling || !billingWorkflow.can_toggle_discount"
+                                    title="[[ billingWorkflow.discount_toggle_blocked_reason || '使用折扣後，本年度將無法使用「額度扣款後,開立繳費單」' ]]">
+                                [[ billingWorkflow.discount_applied ? '✓ 使用折扣中（點此取消）' : '使用折扣' ]]
+                            </button>
+                        </div>
+                        <p class="bill-discount-result"
+                           ng-class="{'is-muted': !billingWorkflow.discount_applied}"
+                           ng-if="billDiscountedAmount() !== null">
+                            結算價格：<strong>$[[ formatCurrency(billDiscountedAmount()) ]]</strong>
+                            <span ng-if="!billingWorkflow.discount_applied">（尚未使用折扣）</span>
+                        </p>
                     </div>
 
                     <div class="input-group">
@@ -630,11 +662,17 @@
                             <i class="fas fa-file-invoice"></i> 開立繳費單
                             <span ng-if="billingWorkflow.bill_action === 'direct'">✔</span>
                         </button>
+                        <!--
+                          「✔ 已寄送」是狀態標記，不是鎖：繳費單允許重寄
+                          （上次寄錯人／對方沒收到），標記只負責讓管理員一眼看出
+                          這個帳號到底寄過沒有，重寄時 openBillSendChooser() 會再問一次。
+                        -->
                         <button type="button" class="btn-send-bill" ng-click="openBillSendChooser()"
                                 ng-disabled="billingWorkflowLoading || !billingWorkflow.can_send_quotation"
-                                title="[[ billingWorkflow.quotation_blocked_reason || '' ]]">
+                                title="[[ billingWorkflow.quotation_blocked_reason || quotationSentLabel() || '' ]]">
                             <i class="fas fa-paper-plane"></i> 寄送繳費單
-                            <span ng-if="billingWorkflow.quotation_sent">✔</span>
+                            <span class="sent-badge" ng-if="billingWorkflow.quotation_sent"
+                                  title="[[ quotationSentLabel() ]]">✔ 已寄送</span>
                         </button>
                     </div>
 
@@ -960,6 +998,14 @@
                         </span>
                         <i class="fas fa-chevron-right setting-menu-chevron"></i>
                     </button>
+                    <button type="button" class="setting-menu-item" ng-click="openSettingView('billDiscount')">
+                        <i class="fas fa-percent setting-menu-icon"></i>
+                        <span class="setting-menu-text">
+                            <strong>帳單折扣設定</strong>
+                            <small>設定開帳單後超過多少金額，超出的部分要打幾折</small>
+                        </span>
+                        <i class="fas fa-chevron-right setting-menu-chevron"></i>
+                    </button>
                     <button type="button" class="setting-menu-item" ng-click="openSettingView('quotationItems')">
                         <i class="fas fa-file-invoice-dollar setting-menu-icon"></i>
                         <span class="setting-menu-text">
@@ -1010,6 +1056,40 @@
                             <button type="button" class="btn-remove-row" ng-click="removeDiscountRow($index)">✕</button>
                         </div>
                         <button type="button" class="btn-add-row" ng-click="addDiscountRow()">＋ 新增優惠級距</button>
+                    </div>
+                </div>
+
+                <!--
+                  帳單折扣設定
+
+                  規則刻意做成「只有超出門檻的部分才打折」，門檻以內照原價，
+                  避免金額剛好跨過門檻時結算價格反而變低的斷崖。
+                  兩欄都留空存檔 = 清除設定，額度視窗就不會再顯示折扣與結算價格。
+                -->
+                <div ng-if="settingView === 'billDiscount'">
+                    <span ng-if="billDiscountLoading" style="color:#999;">設定載入中...</span>
+                    <div ng-if="!billDiscountLoading">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>門檻金額 ($)<br><small style="font-weight:normal;color:#7f8c8d;">本期應收總金額超過這個數字才開始打折</small></label>
+                                <input type="number" class="form-input" min="0" step="1"
+                                       placeholder="例如 100000" ng-model="billDiscountForm.min_amount">
+                            </div>
+                            <div class="form-group">
+                                <label>折數<br><small style="font-weight:normal;color:#7f8c8d;">例如 8.5 代表 8.5 折（85%）；10 代表不打折</small></label>
+                                <input type="number" class="form-input" min="0" max="10" step="0.1"
+                                       placeholder="例如 8.5" ng-model="billDiscountForm.discount">
+                            </div>
+                        </div>
+
+                        <p class="quota-info-tip" style="margin-top:4px;">
+                            <i class="fas fa-info-circle"></i> 結算方式：門檻金額 ＋（本期應收總金額 － 門檻金額）× 折數 ÷ 10。
+                            [[ billDiscountExample() ]]
+                        </p>
+                        <p class="quota-info-tip" style="margin-top:4px;">
+                            <i class="fas fa-info-circle"></i> 兩欄都留空再存檔即可清除設定；清除後額度視窗不會顯示折扣與結算價格。
+                            此設定只影響額度視窗上的「結算價格」顯示，不會自動改寫本期應收總金額。
+                        </p>
                     </div>
                 </div>
 
@@ -1099,6 +1179,11 @@
             <div class="hpc-modal-footer" ng-if="settingView === 'quotaSettings'">
                 <button type="button" class="btn-save-quota" ng-click="saveQuotaSettings()" ng-disabled="quotaSettingsSaving">
                     <i class="fas fa-save"></i> [[ quotaSettingsSaving ? '儲存中...' : '儲存設定' ]]
+                </button>
+            </div>
+            <div class="hpc-modal-footer" ng-if="settingView === 'billDiscount'">
+                <button type="button" class="btn-save-quota" ng-click="saveBillDiscount()" ng-disabled="billDiscountSaving">
+                    <i class="fas fa-save"></i> [[ billDiscountSaving ? '儲存中...' : '儲存設定' ]]
                 </button>
             </div>
             <div class="hpc-modal-footer" ng-if="settingView === 'quotationItems'">

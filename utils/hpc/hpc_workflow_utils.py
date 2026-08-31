@@ -17,8 +17,10 @@
 
 from datetime import datetime
 
+from sqlalchemy import and_, or_, exists
+
 from database.extensions import db
-from database.hpc_model import BillingWorkflow, Bill
+from database.hpc_model import BillingWorkflow, Bill, Contact
 
 # 開單流程的動作代碼
 ACTION_DEDUCT = 'deduct'   # 額度扣款後開立繳費單
@@ -61,19 +63,47 @@ def get_or_create_workflow(contact_id, year=None):
     return workflow
 
 
-def _has_existing_bill(contact_id, year):
-    """
-    舊資料相容：billing_workflows 這張表是後來才加的。
+# 還算數的帳單狀態（cancelled 的單視同沒開過）
+ACTIVE_BILL_STATUSES = ['unpaid', 'paid']
 
-    在它之前就已經開過單的聯絡人不會有流程紀錄，若只看流程表會誤判成
-    「還沒開過單」而讓人重複開單。因此再回頭確認 Bill 表裡有沒有該年度的帳單，
+
+def _legacy_bill_clause(contact_id_expr, year):
+    """
+    舊資料相容用的條件：Bill 表裡有沒有該年度的帳單。
+
+    billing_workflows 這張表是後來才加的，在它之前就已經開過單的聯絡人
+    不會有流程紀錄，若只看流程表會誤判成「還沒開過單」而讓人重複開單。
     比對方式與 confirm_deduct / create_bill 既有的防呆一致（備註含年份）。
     """
-    return Bill.query.filter(
-        Bill.contact_id == contact_id,
-        Bill.status.in_(['unpaid', 'paid']),
+    return and_(
+        Bill.contact_id == contact_id_expr,
+        Bill.status.in_(ACTIVE_BILL_STATUSES),
         Bill.notes.like(f'%{year}%')
-    ).first()
+    )
+
+
+def _has_existing_bill(contact_id, year):
+    """回傳該年度既有的帳單（沒有則 None）—— 用來在提示訊息裡點出帳單 ID。"""
+    return Bill.query.filter(_legacy_bill_clause(contact_id, year)).first()
+
+
+def bill_issued_clause(year=None):
+    """
+    「該年度已開過繳費單」的 SQL 條件，可直接掛進以 Contact 為主體的查詢。
+
+    判斷規則刻意與 build_workflow_state() 的 bill_issued 共用同一份定義
+    （流程表記過開單動作，或舊資料在 Bill 表留有該年度的帳單），
+    清單頁的「未開帳單帳號」篩選才不會跟額度視窗裡的按鈕狀態互相矛盾。
+    """
+    year = year if year is not None else get_billing_year()
+    return or_(
+        exists().where(and_(
+            BillingWorkflow.contact_id == Contact.id,
+            BillingWorkflow.year == year,
+            BillingWorkflow.bill_action.isnot(None)
+        )),
+        exists().where(_legacy_bill_clause(Contact.id, year))
+    )
 
 
 def build_workflow_state(contact, has_unpaid_prepaid=False):
@@ -91,6 +121,7 @@ def build_workflow_state(contact, has_unpaid_prepaid=False):
     confirm_email_sent = bool(workflow and workflow.confirm_email_sent_at)
     bill_action = workflow.bill_action if workflow else None
     quotation_sent = bool(workflow and workflow.quotation_sent_at)
+    discount_applied = bool(workflow and workflow.discount_applied)
 
     legacy_bill = None
     if not bill_action:
@@ -108,7 +139,8 @@ def build_workflow_state(contact, has_unpaid_prepaid=False):
         'bill_created_at': None,
         'quotation_sent': False,
         'quotation_sent_at': None,
-        'quotation_kind': None
+        'quotation_kind': None,
+        'discount_applied': False
     }
 
     state.update({
@@ -120,8 +152,11 @@ def build_workflow_state(contact, has_unpaid_prepaid=False):
         # --- 按鈕啟用旗標 ---
         # 確認信可以重寄（例如上一次寄錯人），所以不因為寄過就鎖住
         'can_send_confirm_email': True,
-        'can_deduct': confirm_email_sent and not bill_issued,
+        # 套用帳單折扣時不得再走額度扣款（見 ensure_can_issue_bill）
+        'can_deduct': confirm_email_sent and not bill_issued and not discount_applied,
         'can_direct_bill': confirm_email_sent and not bill_issued,
+        # 折扣開關只能在「還沒開單」之前切換
+        'can_toggle_discount': not bill_issued,
         # 預繳帳單不受開單流程限制（見 ensure_can_send_quotation），
         # 所以只要有未繳款的預繳紀錄，「寄送繳費單」就該是可按的
         'can_send_quotation': bill_issued or bool(has_unpaid_prepaid),
@@ -129,14 +164,24 @@ def build_workflow_state(contact, has_unpaid_prepaid=False):
         'can_send_prepaid_quotation': bool(has_unpaid_prepaid),
 
         # --- 給前端顯示成 title/提示用的原因 ---
-        'deduct_blocked_reason': _blocked_reason(confirm_email_sent, bill_issued, bill_action, legacy_bill),
+        'deduct_blocked_reason': (
+            _blocked_reason(confirm_email_sent, bill_issued, bill_action, legacy_bill)
+            or (DISCOUNT_DEDUCT_CONFLICT if discount_applied else None)
+        ),
         'direct_blocked_reason': _blocked_reason(confirm_email_sent, bill_issued, bill_action, legacy_bill),
+        'discount_toggle_blocked_reason': (
+            None if not bill_issued else '本年度已開立繳費單，無法再變更折扣的使用狀態。'
+        ),
         'quotation_blocked_reason': (
             None if (bill_issued or has_unpaid_prepaid)
             else '請先完成「額度扣款後,開立繳費單」或「開立繳費單」（若有未繳款的預繳紀錄則可直接開立預繳帳單）。'
         )
     })
     return state
+
+
+DISCOUNT_DEDUCT_CONFLICT = ('本期已設定為「使用帳單折扣」，折扣與額度扣款只能擇一；'
+                            '若要改用額度扣款，請先關閉折扣。')
 
 
 def _blocked_reason(confirm_email_sent, bill_issued, bill_action, legacy_bill):
@@ -169,7 +214,31 @@ def ensure_can_issue_bill(contact, action):
         return (f'本年度已執行過「{ACTION_LABELS.get(workflow.bill_action, workflow.bill_action)}」，'
                 f'與「{ACTION_LABELS.get(action, action)}」只能擇一。')
 
+    # 折扣與額度扣款互斥：前端的按鈕會被停用，這裡是直接打 API 時的把關
+    if action == ACTION_DEDUCT and workflow.discount_applied:
+        return DISCOUNT_DEDUCT_CONFLICT
+
     return None
+
+
+def set_discount_applied(contact_id, applied):
+    """
+    設定「本年度是否使用帳單折扣」（不 commit）。
+
+    回傳 (workflow, error_message)；error_message 不為 None 代表不允許變更。
+    已經開過單的年度不讓改：那張單的金額與扣款方式都已成立，
+    這時再翻折扣旗標只會讓紀錄與實際帳務對不起來。
+    """
+    year = get_billing_year()
+    workflow = get_workflow(contact_id, year)
+
+    bill_issued = bool(workflow and workflow.bill_action) or _has_existing_bill(contact_id, year) is not None
+    if bill_issued:
+        return None, '本年度已開立繳費單，無法再變更折扣的使用狀態。'
+
+    workflow = get_or_create_workflow(contact_id, year)
+    workflow.discount_applied = bool(applied)
+    return workflow, None
 
 
 def ensure_can_send_quotation(contact, kind, has_unpaid_prepaid):

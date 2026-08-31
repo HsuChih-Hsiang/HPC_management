@@ -18,11 +18,19 @@ def check_billing_tables(app):
     """
     with app.app_context():
         inspector = inspect(db.engine)
-        missing = {'billing_workflows', 'quotation_items'} - set(inspector.get_table_names())
+        table_names = set(inspector.get_table_names())
+        missing = {'billing_workflows', 'quotation_items'} - table_names
         if missing:
             print('=' * 70)
             print(f"[繳費單流程] 缺少資料表: {', '.join(sorted(missing))}")
             print("請先執行 sql/20260819_add_billing_workflow_and_quotation_items.sql 後再啟動服務。")
+            print('=' * 70)
+        elif 'discount_applied' not in {c['name'] for c in inspector.get_columns('billing_workflows')}:
+            # 欄位已寫進 model，每一次 BillingWorkflow 查詢都會 SELECT 它；
+            # 資料庫還沒加的話，錯誤會以難懂的 ProgrammingError 出現在開單流程 API 上。
+            print('=' * 70)
+            print("[帳單折扣] billing_workflows 缺少 discount_applied 欄位。")
+            print("請先執行 sql/20260826_add_billing_workflow_discount_applied.sql 後再啟動服務。")
             print('=' * 70)
 
         check_serverlist_rates()
@@ -69,8 +77,8 @@ def _convert_value_to_type(key, value_str):
             return int(value_str)
         elif target_type == float:
             return float(value_str)
-        elif target_type == list:
-            if isinstance(value_str, list):
+        elif target_type in (list, dict):
+            if isinstance(value_str, target_type):
                 return value_str
             
             # 優先使用標準 JSON 解析 (適用 json.dumps 寫入的 TEXT)
@@ -152,6 +160,37 @@ def load_hpc_settings_by_classification(target_classification=None):
         return result.get(target_classification, [])
 
     return result
+
+
+BILL_DISCOUNT_KEY = 'bill_discount'
+
+
+def load_bill_discount():
+    """
+    讀出「開帳單折扣」設定（⚙️ 系統設定 → 帳單折扣設定）。
+
+    回傳 {'min_amount': float, 'discount': float}；尚未設定或資料壞掉一律回傳
+    空字典，讓呼叫端一眼看出「沒設定」。discount 存的是折數（8.5 = 8.5 折）。
+    """
+    for item in load_hpc_settings_by_classification(2):
+        if item.get('key') != BILL_DISCOUNT_KEY:
+            continue
+
+        value = item.get('value')
+        if not isinstance(value, dict):
+            return {}
+
+        min_amount = value.get('min_amount')
+        discount = value.get('discount')
+        if min_amount is None or discount is None:
+            return {}
+
+        try:
+            return {'min_amount': float(min_amount), 'discount': float(discount)}
+        except (ValueError, TypeError):
+            return {}
+
+    return {}
 
 
 def save_hpc_settings(settings):

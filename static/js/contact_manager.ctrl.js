@@ -1422,6 +1422,12 @@
                     return;
                 }
 
+                // 使用折扣與額度扣款互斥（後端 confirm_deduct 也會擋，這裡只是提早講清楚）
+                if ($scope.billingWorkflow.discount_applied) {
+                    alert('本期已設定為「使用帳單折扣」，折扣與額度扣款只能擇一；若要改用額度扣款，請先關閉折扣。');
+                    return;
+                }
+
                 if (!$scope.billingWorkflow.can_deduct) {
                     alert($scope.billingWorkflow.deduct_blocked_reason || '目前無法執行此步驟。');
                     return;
@@ -1488,7 +1494,9 @@
                 can_deduct: false,
                 can_direct_bill: false,
                 can_send_quotation: false,
-                can_send_prepaid_quotation: false
+                can_send_prepaid_quotation: false,
+                discount_applied: false,
+                can_toggle_discount: false
             };
 
             function loadBillingWorkflow(contactId) {
@@ -1505,6 +1513,9 @@
                         can_direct_bill: false,
                         can_send_quotation: false,
                         can_send_prepaid_quotation: false,
+                        discount_applied: false,
+                        can_toggle_discount: false,
+                        discount_toggle_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。',
                         deduct_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。',
                         direct_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。',
                         quotation_blocked_reason: '無法讀取開單流程狀態，請重新整理後再試。'
@@ -1513,13 +1524,34 @@
                 });
             }
 
+            // 繳費單種類的顯示名稱（後端存的是 normal / prepaid）
+            var BILL_KIND_LABELS = { normal: '一般帳單', prepaid: '預繳帳單' };
+
+            /**
+             * 「寄送繳費單」的已寄送標記文字。
+             *
+             * 繳費單本來就允許重寄（上次寄錯人、對方說沒收到），所以寄過之後
+             * 按鈕不會被鎖住；但正因為不會鎖，畫面上若沒有任何標記，管理員
+             * 分不出「還沒寄」與「已經寄過」，很容易重複寄給客戶。
+             * 這行文字同時用在按鈕上的徽章、按鈕的 title 與重寄前的確認視窗。
+             *
+             * 時間來源是 billing_workflows.quotation_sent_at（重寄會更新成最後一次），
+             * 所以重新整理網頁後仍看得到。
+             */
+            $scope.quotationSentLabel = function () {
+                var w = $scope.billingWorkflow || {};
+                if (!w.quotation_sent) return '';
+                var kind = BILL_KIND_LABELS[w.quotation_kind] || '';
+                return '已於 ' + (w.quotation_sent_at || '—') + ' 寄送' + (kind ? '（' + kind + '）' : '');
+            };
+
             // 按鈕底下那行提示：告訴使用者現在該按哪一顆
             $scope.billingWorkflowHint = function () {
                 var w = $scope.billingWorkflow || {};
                 if (!w.confirm_email_sent) return '流程第一步：請先「寄送確認信」，寄出後才能開立繳費單。';
                 if (!w.bill_issued) return '確認信已寄出，請擇一執行「額度扣款後,開立繳費單」或「開立繳費單」（兩者只能選一個）。';
                 if (!w.quotation_sent) return '繳費單已開立，可以「寄送繳費單」了。';
-                return '本年度流程已全部完成。';
+                return '本年度流程已全部完成（繳費單' + $scope.quotationSentLabel() + '），仍可視需要重寄繳費單。';
             };
 
             /* ============================================================
@@ -1533,6 +1565,13 @@
             $scope.openBillSendChooser = function () {
                 if (!$scope.billingWorkflow.can_send_quotation) {
                     alert($scope.billingWorkflow.quotation_blocked_reason || '目前無法寄送繳費單。');
+                    return;
+                }
+                // 寄過之後仍然可以再寄（上次寄錯人／對方沒收到），只是先問一次，
+                // 避免同一張繳費單在管理員沒察覺的情況下重複寄給客戶。
+                if ($scope.billingWorkflow.quotation_sent &&
+                    !confirm('【本年度繳費單已經寄過了】\n\n' + $scope.quotationSentLabel() +
+                             '\n\n確定要再寄一次嗎？')) {
                     return;
                 }
                 $scope.billKindChooserOpen = true;
@@ -1677,8 +1716,12 @@
                 }
 
                 var recipients = ($scope.billEmail.to || []).concat($scope.billEmail.cc || []);
+                // 已經寄過就在確認視窗裡講明這是重寄，不要讓人以為是第一次寄
+                var resendNote = $scope.billingWorkflow.quotation_sent
+                    ? '\n⚠️ 本年度繳費單' + $scope.quotationSentLabel() + '，這是重寄。'
+                    : '';
                 if (!confirm('【確認寄出繳費單？】\n\n收件人：' + recipients.join('、') +
-                             '\n金額：' + ($scope.billEmail.total_text || '') +
+                             '\n金額：' + ($scope.billEmail.total_text || '') + resendNote +
                              '\n\n繳費單會轉成 PDF 附件一併寄出。')) {
                     return;
                 }
@@ -1790,7 +1833,7 @@
             // ============================================================
             // 額度設定（原 loadQuotaSettings）
             // ============================================================
-            $scope.quotaSettings = { freeQuotaText: '加載中...', academicQuotaText: '加載中...' };
+            $scope.quotaSettings = { freeQuotaText: '加載中...', academicQuotaText: '加載中...', billDiscount: null };
 
             function loadQuotaSettings() {
                 $http.get('/api/hpc-usage/settings_free_quota').then(function (res) {
@@ -1798,17 +1841,24 @@
                     // 預設值，防止 API 沒抓到數字時畫面空白
                     var freeQuota = 0;
                     var academicQuota = 0;
+                    // 帳單折扣（⚙️ 系統設定 → 帳單折扣設定）與額度設定同屬 classification 2，
+                    // 跟著這支 API 一起回來，額度視窗不必再多打一次請求。
+                    var billDiscount = null;
 
                     // 支援 API 回傳清單 Array 或 字典 Object 結構
                     if (angular.isArray(data)) {
                         data.forEach(function (item) {
                             if (item.key === 'free_quota') freeQuota = item.value;
                             if (item.key === 'academic_quota') academicQuota = item.value;
+                            if (item.key === 'bill_discount') billDiscount = item.value;
                         });
                     } else if (angular.isObject(data)) {
                         freeQuota = data.free_quota || 0;
                         academicQuota = data.academic_quota || 0;
+                        billDiscount = data.bill_discount || null;
                     }
+
+                    $scope.quotaSettings.billDiscount = normalizeBillDiscount(billDiscount);
 
                     // 格式化數字 (例如 10000 轉為 10,000) 供畫面顯示，同時保留原始數字供計算用
                     $scope.quotaSettings.freeQuota = Number(freeQuota) || 0;
@@ -1821,8 +1871,94 @@
                     $scope.quotaSettings.academicQuota = 0;
                     $scope.quotaSettings.freeQuotaText = '0';
                     $scope.quotaSettings.academicQuotaText = '0';
+                    $scope.quotaSettings.billDiscount = null;
                 });
             }
+
+            /* ------------------------------------------------------------
+             * 帳單折扣（唯讀顯示用）
+             *
+             * 額度視窗「本期費用核對與帳務管理」的本期應收總金額旁邊會顯示
+             * 折扣規則與結算價格，兩者都只是顯示：實際送出的金額仍是使用者
+             * 在欄位裡核對過的「本期應收總金額」，這裡不會自動改寫它。
+             * 沒有設定折扣時 normalizeBillDiscount() 回 null，畫面上兩項都不出現。
+             * ------------------------------------------------------------ */
+            function normalizeBillDiscount(raw) {
+                if (!raw || !angular.isObject(raw)) return null;
+
+                var minAmount = Number(raw.min_amount);
+                var discount = Number(raw.discount);
+                if (raw.min_amount === null || raw.min_amount === '' || isNaN(minAmount) || minAmount < 0) return null;
+                if (raw.discount === null || raw.discount === '' || isNaN(discount)) return null;
+                if (!(discount > 0 && discount <= 10)) return null;
+
+                return { min_amount: minAmount, discount: discount };
+            }
+
+            function applyBillDiscount(amount, rule) {
+                var value = parseFloat(amount);
+                if (isNaN(value) || !rule) return null;
+                if (value <= rule.min_amount) return value;
+                return rule.min_amount + (value - rule.min_amount) * rule.discount / 10;
+            }
+
+            $scope.billDiscountRuleText = function () {
+                var rule = $scope.quotaSettings.billDiscount;
+                if (!rule) return '';
+
+                var threshold = '超過 $' + rule.min_amount.toLocaleString() + ' 的部分';
+                // 10 折等於原價，寫「打 10 折」容易被誤讀成有折扣
+                if (rule.discount === 10) return threshold + '不打折 (10 折)';
+                return threshold + '打 ' + (Math.round(rule.discount * 100) / 100) + ' 折';
+            };
+
+            $scope.billDiscountedAmount = function () {
+                return applyBillDiscount($scope.pendingBill.amount, $scope.quotaSettings.billDiscount);
+            };
+
+            /* ------------------------------------------------------------
+             * 「使用折扣」開關
+             *
+             * 狀態存在後端 billing_workflows.discount_applied，重新整理後仍記得。
+             * 使用折扣與「額度扣款後開立繳費單」互斥：開啟後 can_deduct 會變成
+             * false，扣款按鈕跟著停用；後端 confirm_deduct 也會再擋一次。
+             * ------------------------------------------------------------ */
+            $scope.billDiscountToggling = false;
+
+            $scope.toggleBillDiscountApplied = function () {
+                var contactId = $scope.quotaTargetId;
+                if (!contactId || $scope.billDiscountToggling) return;
+
+                if (!$scope.billingWorkflow.can_toggle_discount) {
+                    alert($scope.billingWorkflow.discount_toggle_blocked_reason || '目前無法變更折扣的使用狀態。');
+                    return;
+                }
+
+                var next = !$scope.billingWorkflow.discount_applied;
+                if (next) {
+                    var confirmMsg = '【確認使用帳單折扣？】\n\n' + $scope.billDiscountRuleText() +
+                        '。\n使用折扣後，本年度將無法再使用「額度扣款後,開立繳費單」。';
+                    if (!confirm(confirmMsg)) return;
+                }
+
+                $scope.billDiscountToggling = true;
+                $http.post('/api/contacts/' + contactId + '/billing-discount', { applied: next })
+                    .then(function (res) {
+                        var data = res.data || {};
+                        $scope.billDiscountToggling = false;
+                        if (data.workflow) {
+                            $scope.billingWorkflow = data.workflow;
+                        } else {
+                            loadBillingWorkflow(contactId);
+                        }
+                    }, function (err) {
+                        $scope.billDiscountToggling = false;
+                        var data = (err && err.data) || {};
+                        alert('折扣狀態變更失敗：' + (data.message || ('HTTP ' + (err && err.status))));
+                        // 後端狀態可能與畫面不一致，重新拉一次以免按鈕停在錯的樣子
+                        loadBillingWorkflow(contactId);
+                    });
+            };
 
             // ============================================================
             // HPC 統計資料（原 statisticsExport / closeStatisticsModal）
@@ -1878,6 +2014,7 @@
                 menu: { title: '系統設定', icon: 'fa-cog' },
                 emailTemplate: { title: '確認信範本設定', icon: 'fa-envelope-open-text' },
                 quotaSettings: { title: '學術獎勵額度與優惠區間設定', icon: 'fa-graduation-cap' },
+                billDiscount: { title: '帳單折扣設定', icon: 'fa-percent' },
                 quotationItems: { title: '繳費單格式設定', icon: 'fa-file-invoice-dollar' },
                 defaultCc: { title: '確認信預設副本人員', icon: 'fa-users' }
             };
@@ -1912,6 +2049,8 @@
                     loadEmailTemplateView();
                 } else if (view === 'quotaSettings') {
                     loadQuotaSettingsView();
+                } else if (view === 'billDiscount') {
+                    loadBillDiscountView();
                 } else if (view === 'quotationItems') {
                     loadQuotationItemsView();
                 } else if (view === 'defaultCc') {
@@ -2124,6 +2263,91 @@
                     console.error('儲存額度設定失敗:', error);
                     $scope.quotaSettingsSaving = false;
                     alert('儲存失敗，請檢查網路或稍後再試。');
+                });
+            };
+
+            /* ------------------------------------------------------------
+             * 子功能 2-1：帳單折扣設定
+             *
+             * 對應 HPCSetting 表 classification=2 的 bill_discount，內容是
+             *   { min_amount: 門檻金額, discount: 折數(8.5 = 8.5 折) }
+             * 空字典代表沒設定，額度視窗上的折扣說明與結算價格就不顯示。
+             *
+             * 只有「超出門檻的部分」打折，門檻以內照原價：
+             *   結算價格 = 門檻 + (應收總金額 - 門檻) × 折數 ÷ 10
+             * ------------------------------------------------------------ */
+            $scope.billDiscountLoading = false;
+            $scope.billDiscountSaving = false;
+            $scope.billDiscountForm = { min_amount: null, discount: null };
+
+            function loadBillDiscountView() {
+                $scope.billDiscountLoading = true;
+                $scope.billDiscountSaving = false;
+
+                $http.get('/api/hpc-usage/settings_bill_discount').then(function (res) {
+                    var data = res.data || {};
+                    $scope.billDiscountForm = {
+                        min_amount: data.min_amount === undefined ? null : data.min_amount,
+                        discount: data.discount === undefined ? null : data.discount
+                    };
+                    $scope.billDiscountLoading = false;
+                }, function (error) {
+                    console.error('載入帳單折扣設定失敗:', error);
+                    $scope.billDiscountLoading = false;
+                    $scope.backToSettingMenu();
+                    alert('載入帳單折扣設定失敗，請稍後再試。');
+                });
+            }
+
+            // 設定畫面上的即時試算範例，讓人確認自己填的數字是不是想要的效果
+            $scope.billDiscountExample = function () {
+                var rule = normalizeBillDiscount($scope.billDiscountForm);
+                if (!rule) return '';
+
+                var sample = rule.min_amount + 10000;
+                return '例如本期應收 $' + sample.toLocaleString() + ' → 結算價格 $' +
+                       formatCurrency(applyBillDiscount(sample, rule)) + '。';
+            };
+
+            $scope.saveBillDiscount = function () {
+                var form = $scope.billDiscountForm;
+                var minBlank = form.min_amount === null || form.min_amount === '' || form.min_amount === undefined;
+                var discountBlank = form.discount === null || form.discount === '' || form.discount === undefined;
+
+                if (minBlank !== discountBlank) {
+                    alert('門檻金額與折數必須一起填寫；若要清除設定，請兩欄都留空。');
+                    return;
+                }
+                if (!minBlank) {
+                    if (Number(form.min_amount) < 0) {
+                        alert('門檻金額不可為負數。');
+                        return;
+                    }
+                    if (!(Number(form.discount) > 0 && Number(form.discount) <= 10)) {
+                        alert('折數必須大於 0 且不超過 10（10 折 = 不打折）。');
+                        return;
+                    }
+                }
+
+                $scope.billDiscountSaving = true;
+                $http.post('/api/hpc-usage/settings_bill_discount', {
+                    min_amount: minBlank ? null : Number(form.min_amount),
+                    discount: discountBlank ? null : Number(form.discount)
+                }).then(function (res) {
+                    $scope.billDiscountSaving = false;
+                    var result = res.data || {};
+                    if (result.success) {
+                        alert(result.message || '設定已成功儲存。');
+                        loadQuotaSettings(); // 同步刷新額度視窗上的唯讀折扣顯示
+                        $scope.backToSettingMenu();
+                    } else {
+                        alert('儲存失敗: ' + (result.message || '未知錯誤'));
+                    }
+                }, function (error) {
+                    console.error('儲存帳單折扣設定失敗:', error);
+                    $scope.billDiscountSaving = false;
+                    var data = (error && error.data) || {};
+                    alert('儲存失敗：' + (data.message || '請檢查網路或稍後再試。'));
                 });
             };
 
