@@ -4,6 +4,12 @@ Flask-SQLAlchemy
 APScheduler
 gunicorn
 Jinja2
+# Google OAuth 登入（utils/login_utils.py）
+authlib
+# RSA（前端傳輸加密）與 Fernet（資料庫欄位加密），見 utils/crypto_utils.py
+cryptography
+# DATABASE_URI 是 postgresql://，SQLAlchemy 需要這個 driver 才連得上
+psycopg2-binary
 # 報價單轉 PDF 的退路（Chromium 不可用時使用，版面會與預覽有落差）
 xhtml2pdf
 # 報價單轉 PDF 的主要途徑：用 Chromium 列印，版面才會跟預覽視窗一致。
@@ -11,6 +17,7 @@ xhtml2pdf
 #     python -m playwright install chromium
 # Linux 另需系統相依套件：
 #     python -m playwright install-deps chromium
+# （deployment/DOCKERFILE 已經在 image 內處理掉這兩步）
 playwright
 # 修復 source/GenRyuMin2TW-R.ttf 用（tools/repair_quotation_font.py）
 fonttools

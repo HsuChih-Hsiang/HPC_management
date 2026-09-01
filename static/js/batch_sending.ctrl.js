@@ -53,6 +53,27 @@ app.directive('tinymceEditor', ['$timeout', function($timeout) {
     };
 }]);
 
+// === 1-1. 郵件內容預覽用的 iframe 指令 ===
+// 用 iframe 而不是直接 innerHTML，是為了讓信件的樣式跟頁面本身的 CSS 互不干擾，
+// 預覽看到的排版才會接近收件人實際收到的樣子。
+app.directive('emailPreviewFrame', function() {
+    return {
+        restrict: 'A',
+        scope: { html: '=emailPreviewFrame' },
+        link: function(scope, element) {
+            scope.$watch('html', function(value) {
+                var doc = element[0].contentDocument || element[0].contentWindow.document;
+                doc.open();
+                doc.write('<!DOCTYPE html><meta charset="utf-8">' +
+                          '<style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;' +
+                          'font-size:14px;color:#333;margin:12px;}img{max-width:100%;}</style>' +
+                          (value || '<p style="color:#999">(無內容)</p>'));
+                doc.close();
+            });
+        }
+    };
+});
+
 // === 2. 舊有的控制器內容 ===
 app.controller('BatchSendingController', ['$scope', '$http', '$timeout', function($scope, $http, $timeout) {
     // === 狀態模型 ===
@@ -76,7 +97,11 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     $scope.message = { text: '', type: '', visible: false };
 
     // 模態視窗狀態
-    $scope.modals = { template: false, group: false, account: false };
+    $scope.modals = { template: false, group: false, account: false, preview: false };
+    // 寄送前的預覽內容（由後端回傳，確保與實際寄出一致）
+    $scope.preview = { jobs: [], count: 0, bcc: [], subject: '', body: '', loading: false };
+    $scope.pendingPayload = null;
+    $scope.sending = false;
     $scope.templates = [];
     $scope.groups = [];
     $scope.currentGroupTarget = ''; // 紀錄當前開啟群組的目標 (to, cc, bcc)
@@ -183,6 +208,7 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
     };
 
     // === 寄信 API ===
+    // 送出鍵不會直接寄信，先跳出預覽視窗，確認後才真的呼叫 /send_email。
     $scope.sendEmail = function() {
         // TinyMCE 空白時通常會帶有預設的段落標籤，這裡加入清除判斷
         let emptyCheck = $scope.mailData.body ? $scope.mailData.body.replace(/<[^>]*>/g, '').trim() : '';
@@ -209,7 +235,38 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
             body: $scope.mailData.body
         };
 
-        $http.post('/send_email', payload).then(function(res) {
+        // 「實際會拆成哪幾封信」交給後端算（與真正寄送共用同一份邏輯），
+        // 預覽畫面才不會跟寄出的結果不一致。
+        $scope.preview.loading = true;
+        $http.post('/send_email/preview', payload).then(function(res) {
+            $scope.preview.loading = false;
+            if (!res.data.success) {
+                $scope.showMessage(res.data.message || '無法產生預覽。', 'error');
+                return;
+            }
+            $scope.preview.jobs = res.data.jobs || [];
+            $scope.preview.count = res.data.count || 0;
+            $scope.preview.bcc = res.data.bcc || [];
+            $scope.preview.subject = $scope.mailData.subject;
+            $scope.preview.body = $scope.mailData.body;
+            $scope.pendingPayload = payload;
+            $scope.modals.preview = true;
+        }).catch(function(err) {
+            $scope.preview.loading = false;
+            let detail = err && err.data && err.data.message;
+            $scope.showMessage(detail || '無法產生預覽，請檢查網路或稍後再試。', 'error');
+        });
+    };
+
+    // 預覽視窗按下「確認寄出」才真的送出
+    $scope.confirmSend = function() {
+        if (!$scope.pendingPayload || $scope.sending) return;
+
+        $scope.sending = true;
+        $http.post('/send_email', $scope.pendingPayload).then(function(res) {
+            $scope.sending = false;
+            $scope.modals.preview = false;
+            $scope.pendingPayload = null;
             if (res.data.success) {
                 $scope.showMessage(res.data.message || '郵件已成功寄送！', 'success');
                 // 重置表單
@@ -219,10 +276,18 @@ app.controller('BatchSendingController', ['$scope', '$http', '$timeout', functio
                 $scope.showMessage('郵件寄送失敗: ' + (res.data.message || '未知錯誤'), 'error');
             }
         }).catch(function(err) {
+            $scope.sending = false;
+            $scope.modals.preview = false;
             // 後端在「部分收件人寄送失敗」時會回 500 並附上是哪幾封失敗，優先顯示它
             let detail = err && err.data && err.data.message;
             $scope.showMessage(detail || '郵件寄送失敗，請檢查網路或稍後再試。', 'error');
         });
+    };
+
+    $scope.cancelPreview = function() {
+        if ($scope.sending) return; // 寄送中不讓它被關掉
+        $scope.modals.preview = false;
+        $scope.pendingPayload = null;
     };
 
     // === 模板功能 ===

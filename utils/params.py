@@ -59,7 +59,6 @@ FEATURES = [
     {'key': 'hpc_contact',     'label': 'HPC帳號管理',  'icon': '👥', 'path': '/hpc-contact'},
     {'key': 'hpc_usage',       'label': 'HPC 用量通知', 'icon': '📊', 'path': '/hpc-usage'},
     {'key': 'hpc_billing_review', 'label': 'HPC 帳務審核', 'icon': '💰', 'path': '/hpc-billing-review'},
-    {'key': 'space_stats',     'label': 'Space 統計資料', 'icon': '📈', 'path': '/space-stats'},
     {'key': 'setting',         'label': '設定',         'icon': '⚙️', 'path': '/setting'},
     {'key': 'permission',      'label': '權限管理',     'icon': '🔑', 'path': '/permission'},
 ]
@@ -95,7 +94,6 @@ PAGE_FEATURE_MAP = {
     'routes.hpc_contact':     'hpc_contact',
     'routes.hpc_usage':       'hpc_usage',
     'routes.hpc_billing_review': 'hpc_billing_review',
-    'routes.space_stats':     'space_stats',
     'routes.setting':         'setting',
     'routes.permission':      'permission',
 }

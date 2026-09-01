@@ -1,0 +1,61 @@
+name: CI
+
+# 每次 push 與 PR 都跑。deploy.yml 會重跑一次同樣的檢查，
+# 這裡的價值在於「合併進 main 之前」就先擋下壞掉的 commit。
+on:
+  push:
+    branches-ignore:
+      - main          # main 由 deploy.yml 負責（它自己會先驗證再部署）
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  python-checks:
+    name: Python 語法與相依套件
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 語法檢查
+        # 不 import 專案模組：app.py 在 import 階段就會連資料庫做初始化，
+        # CI 上沒有那台 PostgreSQL，import 一定失敗。
+        # compileall 只做編譯，足以擋掉語法錯誤與縮排問題。
+        run: python -m compileall -q app.py utils server_route database tools
+
+      - name: 相依套件可安裝性
+        # 純粹驗證 requirements.txt 解得開、裝得起來（不下載 chromium 本體）
+        run: pip install -r requirements.txt
+
+  docker-build:
+    name: Docker image 可建置
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 建置 app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/DOCKERFILE
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 建置 nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: deployment
+          file: deployment/nginx.Dockerfile
+          push: false
+          load: false
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,mode=max,scope=nginx

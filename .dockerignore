@@ -1,0 +1,27 @@
+# build context 只需要應用程式本身，其餘一律排除。
+# venv/ 與 .history/ 各有數百 MB，不排掉會讓每次 CI build 都慢上好幾分鐘。
+venv/
+.venv/
+.history/
+.git/
+.github/
+.claude/
+.vscode/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# 機密與執行期產物：一律由 volume 或 env_file 在執行階段提供，不進 image
+.env
+.env.*
+!.env.example
+log/
+data/
+*.pem
+
+# deployment/ 底下是給主機用的編排檔，不需要進 image。
+# DOCKERFILE 本身要留下：它雖然由 -f 指定，但仍是從 build context 讀取的，
+# 被 .dockerignore 排掉會導致 build 找不到檔案。
+deployment/
+!deployment/DOCKERFILE

@@ -229,6 +229,64 @@
         </div>
     </div>
 
+    {#
+      寄送前的預覽視窗：拆信的結果由後端 /send_email/preview 算好回傳，
+      和真正寄送共用同一套邏輯，看到什麼就會寄出什麼。
+    #}
+    <div class="modal" ng-show="modals.preview" style="display:flex;">
+        <div style="position:absolute; width:100%; height:100%;" ng-click="cancelPreview()"></div>
+        <div class="modal-content preview-modal">
+            <span class="close-button" ng-click="cancelPreview()">&times;</span>
+            <h2>寄送前預覽</h2>
+
+            <div class="preview-summary">
+                本次將寄出 <strong ng-bind="preview.count"></strong> 封信。
+                手動輸入的收件人為一人一封，彼此看不到對方；同一個帳號的聯絡人合併為一封。
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-section-title">郵件主旨</div>
+                <div class="preview-subject" ng-bind="preview.subject"></div>
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-section-title">收件人明細（共 <span ng-bind="preview.count"></span> 封）</div>
+                <div class="preview-job-list">
+                    <div class="preview-job" ng-repeat="job in preview.jobs">
+                        <div class="preview-job-index" ng-bind="'第 ' + ($index + 1) + ' 封'"></div>
+                        <div class="preview-job-body">
+                            <div class="preview-line">
+                                <span class="preview-label">收件人</span>
+                                <span class="preview-emails" ng-bind="job.to.join(', ')"></span>
+                            </div>
+                            <div class="preview-line" ng-if="job.cc.length">
+                                <span class="preview-label cc">副本</span>
+                                <span class="preview-emails" ng-bind="job.cc.join(', ')"></span>
+                            </div>
+                            <div class="preview-line" ng-if="preview.bcc.length">
+                                <span class="preview-label bcc">密件副本</span>
+                                <span class="preview-emails" ng-bind="preview.bcc.join(', ')"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="preview-section">
+                <div class="preview-section-title">郵件內容</div>
+                <iframe class="preview-frame" email-preview-frame="preview.body" title="郵件內容預覽"></iframe>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-button select-all-button" type="button"
+                        ng-click="cancelPreview()" ng-disabled="sending">返回修改</button>
+                <button class="modal-button add-button" type="button"
+                        ng-click="confirmSend()" ng-disabled="sending"
+                        ng-bind="sending ? '寄送中…' : '確認寄出 (' + preview.count + ' 封)'"></button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/batch_sending.ctrl.js') }}"></script>

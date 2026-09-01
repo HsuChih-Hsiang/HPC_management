@@ -1,35 +1,83 @@
 # syntax=docker/dockerfile:1
-# --- 第一階段：建置環境 (Builder) ---
+
+# ============================================================
+# 第一階段：建置環境 (Builder)
+#
+# 只在這一層裝編譯工具（gcc / libpq-dev），套件裝進 /opt/venv 後
+# 整包複製到正式環境，讓最終 image 不必背著編譯器。
+#
+# 注意：程式碼是從 build context 進來的（CI 已經 checkout 好），
+# 不再像舊版那樣在 build 期間用 GITHUB_TOKEN 去 git clone；
+# 那樣做會把 token 留在 image layer 裡，而且無法保證部署的
+# commit 就是 CI 驗證過的那一個。
+# ============================================================
 FROM python:3.11-slim-bookworm AS builder
 
-ARG GITHUB_TOKEN
-WORKDIR /source
-
-# 安裝 Git 及編譯 Python 套件所需的系統相依工具
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git gcc libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+        gcc \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# 從 GitHub 克隆程式碼
-RUN git clone https://${GITHUB_TOKEN}@github.com/YOUR_USERNAME/HPCemail.git .
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
 
-# 安裝 Python 套件到指定目錄
-RUN pip install --user --no-cache-dir -r requirements.txt
+# 單獨複製 requirements.txt：只要相依套件沒變，這層的 cache 就能沿用，
+# 改程式碼不會觸發整包重裝。
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# --- 第二階段：正式運行環境 (Production) ---
+
+# ============================================================
+# 第二階段：正式運行環境 (Production)
+# ============================================================
 FROM python:3.11-slim-bookworm
 
-# 建立非 root 使用者，提升安全性
-RUN useradd -m appuser
-USER appuser
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/opt/venv/bin:$PATH \
+    # Chromium 裝在共用路徑而非 $HOME，root 裝完之後非 root 的 appuser 才讀得到
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+COPY --from=builder /opt/venv /opt/venv
+
+# libpq5 是 psycopg2 的執行期共用函式庫（builder 用的 libpq-dev 不會被複製過來）；
+# curl 給 compose 的 healthcheck 用。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 下載 Chromium 本體與它的系統相依套件。
+# 這一步必須在正式階段、且以 root 身分執行：--with-deps 會 apt-get install
+# 一整串圖形函式庫（libnss3、libgbm1 …），少了它們 playwright 會在
+# launch() 時才失敗，也就是使用者按下「產生繳費單」的那一刻才爆。
+RUN playwright install --with-deps chromium && \
+    chmod -R a+rX /ms-playwright
+
+# 建立非 root 使用者。
+# /source 是絕對路徑，不是專案裡的 source/ 資料夾 —— utils/params.py 的
+# KEY_DIR 寫死 '/source'，RSA 私鑰會被寫到那裡。這個目錄必須存在、
+# 必須讓 appuser 可寫，而且在 compose 裡要掛上具名 volume 持久化，
+# 否則每次重新部署都會產生新的私鑰。
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /source /app/log/hpc_notifications && \
+    chown -R appuser:appuser /source /app
+
 WORKDIR /app
+COPY --chown=appuser:appuser . .
 
-# 從 builder 階段複製安裝好的套件與程式碼
-COPY --from=builder /root/.local /home/appuser/.local
-COPY --from=builder /source /app
-
-# 設定環境變數，讓系統能找到 pip 安裝的套件
-ENV PATH=/home/appuser/.local/bin:$PATH
+USER appuser
 
 EXPOSE 8000
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+
+# --timeout 120：報價單要開 Chromium 排版列印，預設的 30 秒不夠用。
+# --threads 2：多數請求在等資料庫或 SMTP，用執行緒撐併發比多開 worker 省記憶體。
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--threads", "2", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "app:app"]

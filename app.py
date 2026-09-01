@@ -1,3 +1,4 @@
+import os
 from flask import Flask, session, request, redirect, url_for, jsonify, render_template
 from database.extensions import db
 from datetime import datetime, timedelta
@@ -23,11 +24,33 @@ from server_route import (
 
 app = Flask(__name__)
 
+# --- 1-1. 反向代理環境 (WAF -> nginx -> gunicorn) ---
+# 正式環境的 TLS 是由最前面的 WAF 終結的，nginx 與 gunicorn 之間走的是內網。
+# 少了 ProxyFix，Flask 只會看到「上游代理的 IP」與「http」這個 scheme，
+# 於是 url_for(..., _external=True) 產生的 Google OAuth redirect_uri 會是
+# http:// 開頭，與 Google 後台註冊的 https:// 網址對不起來而登入失敗。
+#
+# 用環境變數控制而不是寫死：本機開發沒有代理，硬套 ProxyFix 反而會讓
+# Flask 去信任偽造的 X-Forwarded-* 標頭。
+# PROXY_X_FOR 預設 2 是因為正式環境有 WAF、nginx 兩層都會往
+# X-Forwarded-For append；若 WAF 不帶這個標頭，請在 .env 改成 1。
+if os.getenv('BEHIND_PROXY', '').strip().lower() in ('1', 'true', 'yes'):
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=int(os.getenv('PROXY_X_FOR', '2')),
+        x_proto=int(os.getenv('PROXY_X_PROTO', '1')),
+        x_host=int(os.getenv('PROXY_X_HOST', '1')),
+    )
+    # 【防竊聽】確定站台走 HTTPS 之後才打開，本機 HTTP 開發時會讓 cookie 送不出去
+    app.config['SESSION_COOKIE_SECURE'] = True
+
 app.session_interface = CustomSessionInterface()
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-# app.config['SESSION_COOKIE_SECURE'] = True    # 【防竊聽】僅限 HTTPS 傳輸（本地開發 HTTP 時先註解，上線要打開）
+# SESSION_COOKIE_SECURE 由上面的 BEHIND_PROXY 區塊在正式環境自動打開
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 app.secret_key = SECRET_KEY

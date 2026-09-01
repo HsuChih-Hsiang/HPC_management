@@ -53,11 +53,6 @@ def hpc_contact():
 def hpc_billing_review():
     return render_template('billing_review.html')
 
-@routes_bp.route('/space-stats')
-def space_stats():
-    """Space 統計資料：目前僅先建立頁面與側邊欄連結，功能待後續補上。"""
-    return render_template('space_stats.html')
-
 
 # 報價單 (templates/quotation/*.html) 會在「寄送繳費單」的預覽視窗中以
 # iframe 顯示，其 @font-face 需要真的抓得到字型檔。字型放在專案的

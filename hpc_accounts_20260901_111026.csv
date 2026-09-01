@@ -1,0 +1,177 @@
+﻿ID,申請團隊,單位(課程),申請人,帳號類型,測試帳號,測試帳號密碼,正式帳號,使用主機,申請時間,測試期限,剩餘優惠額度,剩餘總額度,研究內容,使用軟體,計算資源,備註,聯絡資訊,主要聯絡人,主要聯絡人資訊,主要聯絡人已停用寄信,聯絡人數,其他聯絡人
+152,曾雪峰,電機系,曾雪峰,試用帳號,gst26-52,xA9zT+XI,,i90,2026/8/25,2026/9/26,-,-,optical,"C++, MPI and FFTW library",CPU,,,曾雪峰,stseng@ntu.edu.tw,,2,楊語涵｜r14941100@ntu.edu.tw｜次要聯絡人
+153,鍾嘉綾,植微系,李佳鎮,試用帳號,gst26-53,gZXl7WD0,,i90,2026/8/25,2026/9/19,-,-,遺傳學分析,C/C++/Java/Python/perl/Conda/mamba,CPU,,,鍾嘉綾,clchung@ntu.edu.tw,,2,李佳鎮｜d15633001@ntu.edu.tw｜次要聯絡人
+150,石婉瑜,防災韌性學程,Mathis Labourdere,試用帳號,gst26-51,aP7b6ZHJ,,i90,2026/7/20,2026/8/7,-,-,Modelling street-level pedestrian heat stress (mean radiant temperature and PET) across Wanhua District Taipei using SOLWEIG over a full summer of hourly data.,"QGIS, Python",- Storage: about 200 to 300 GB - Memory: about 4 to 8 GB per task - CPU,,,石婉瑜,wyshih@ntu.edu.tw,,2,Mathis Labourdere｜r14h46011@ntu.edu.tw｜次要聯絡人
+23,潘述元,環工系,潘述元,正式帳號,gst25-25,3YIsNIWt,paytochatgpt,"n98, i90",2026/7/7,2025/11/30,-,-,利用密度泛函理論研究CuWO4催化劑在CO2和硝酸鹽電催化合成尿素的應用,VASP,CPU 及 GPU,,,潘述元,sypan@ntu.edu.tw,,3,"育寧｜f12622034@ntu.edu.tw｜次要聯絡人
+趙國強｜r14622025@ntu.edu.tw｜次要聯絡人"
+148,吳富春,生物環境系統工程系,林泓毅,試用帳號,gst26-10,NYGW2NCI,,i90,2026/7/2,2026/7/24,-,-,,,,,,吳富春,fcwu@ntu.edu.tw,,2,林泓毅｜r12622019@ntu.edu.tw｜次要聯絡人
+149,陳湘鳳,機械系,徐宇辰,試用帳號,gst26-18,3AC1pg==,,n98,2026/7/2,2026/9/4,-,-,基於學習潛在表示的深度學習影像重建與條件生成 (Deep Learning-Based Image Reconstruction and Conditional Generation via Learned Latent Representations)。,Python 3.10/3.11、PyTorch、CUDA Toolkit、cuDNN、NVIDIA GPU 驅動程式、NumPy、pandas、SciPy、Git、Conda/venv、CNN 編碼解碼器 (Encoder-Decoder)、Autoencoder、U-Net、MLP、RNN、Transformer、FiLM、GANs、擴散模型 (Diffusion Models)。,每個 GPU 作業建議配置大約 8 至 16 個 CPU 核心 記憶體 (RAM)： 建議配置大約 128 GB RAM  儲存空間 (Workspace)： 建議配置 400 至 700 GB 的專案工作空間,,,陳湘鳳,ssmith@ntu.edu.tw,,2,徐宇辰｜d12522013@ntu.edu.tw｜次要聯絡人
+147,童心欣,環工所,羅皓瑜,試用帳號,gst26-09,vyRsUnQV,,n98,2026/6/30,2026/7/24,-,-,以總體基因體學分析都市污水脫氮過程中之微生物作用機制,"conda, samtools, BWA, MEGAHIT, Eggnog-mapper, GTDB-tk","200GB RAM,  500GB storage space, 16 CPU, GPU",,,,,,2,"羅皓瑜｜mhe3240@gmail.com｜次要聯絡人
+erin｜erin10510526@gmail.com｜次要聯絡人"
+146,陳中明,醫學工程學系,陳佾昌,試用帳號,,,,n98,2026/6/25,,-,-,具紋理意識之三維肺結節合成擴增與去噪擴散模型之應用。,PyTorch 2.4.1 (搭配 CUDA 12.4 與 cuDNN 9),,,,,,,1,陳佾昌｜scsnake@gmail.com｜次要聯絡人
+145,Vivek Pandey,國家理論科學研究中心,Vivek Pandey,試用帳號,,,,i90,2026/6/16,,-,-,,,,,,,,,1,Vivek Pandey｜vivek.pandey@phys.ncts.ntu.edu.tw｜次要聯絡人
+142,朱家瑩,生科系,李淑芬,試用帳號,gst26-08,3sopKiDN,,i90,2026/6/15,2026/7/3,-,-,組裝RNA-seq結果,"open source package (R, C++, Python, perl, Ruby)","8 CPU, 50GB memory",,,,,,2,"李淑芬｜d11b21001@ntu.edu.tw｜次要聯絡人
+朱家瑩｜cychu@ntu.edu.tw｜次要聯絡人"
+144,電機系,蘇國棟,蘇國棟,試用帳號,,,,i90,2026/6/2,,-,-,,"COMSOL Multiphysics,full Ansys Academic Research license","CPU：依授權可用情況，每個 job 約 8-32 cores, Memory：32-128 GB RAM，依模型大小調整, Disk space：約 100-300 GB",,,蘇國棟,gdjsu@ntu.edu.tw,,2,Daniel I ｜drongi208@gmail.com｜次要聯絡人
+143,詹智強,生理所,鄒飛洋,正式帳號,gst26-17,NPWhqQ==,chancc1,n98,2026/5/26,2026/7/24,-,-,分子動態模擬探討核孔蛋白與核膜互動和穩定的機制,GROMACS/AutoDock Vina/ MDAnalysis/Prolint2 /VMD/PyMOL,V100,,,詹智強,chancc1@ntu.edu.tw,,2,鄒飛洋｜feiyangtzou@gmail.com｜次要聯絡人
+141,黃貞穎,經濟系,吳東彥,試用帳號,gst26-06,N9SNU4cX,,"i90, i73",2026/5/21,2026/6/15,-,-,心理韌性的基因與腦功能基礎,"Python 3, R, FSL (FMRIB Software Library), GNU Bash, GNU Coreutils, Freesurfer",,,,,,,2,"吳東彥｜b11202031@ntu.edu.tw｜次要聯絡人
+黃貞穎｜chenying@ntu.edu.tw｜次要聯絡人"
+68,沈川洲,地質科學系,蘇楓捷,正式帳號,gst26-05,iD7f8c94,ntuhispec,"n98, i90",2026/5/11,2026/5/31,-,-,使用Gaussian軟體計算DFT 幾何優化、頻率計算、過渡態搜尋等,Gaussian,"CPU-16 cores, RAM-64GB, 300GB",,,沈川洲,river@ntu.edu.tw,,2,蘇楓捷｜fenchersu1031@ntu.edu.tw｜次要聯絡人
+67,吳克強,植物科學研究所,張君安,正式帳號,gst26-07,JyF5FYnC,kwu1026,i90,2026/4/30,2026/6/19,-,-,分析阿拉伯芥組蛋白去甲基酶逆境下調控之基因,"prefetch, fasterq-dump, FastP, HiSat2, FeatureCounts",,,,,,,1,張君安｜r12b42002@ntu.edu.tw｜次要聯絡人
+33,吳恆良,凝態中心,陳璿宇,正式帳號,gst26-04,jG5nq6ht,imc,"i73, i90",2026/4/13,2026/4/30,-,-,電催化二氧化碳還原反應機制之探討,"VASP, Gaussian","1-3 nodes (72-216 cpu), Memory size: 5 -200 GB; Disk space size: 100 GB",,,吳恆良,hengliangwu@ntu.edu.tw,,2,陳璿宇｜ml830801@gmail.com｜次要聯絡人
+32,徐翡曼,國際學院智慧醫療學程,闕小姐,試用帳號,gst26-16,ov1vLBF4,,i90,2026/4/9,2026/4/30,-,-,,"Python, R,  OpenCL","cpu, memory size, disk space size",no reply,,徐翡曼,feimanh@ntu.edu.tw,,2,闕小姐｜chuehyh021@gmail.com｜次要聯絡人
+30,黃漢邦,機械系,武子珩,試用帳號,gst26-15,yeJPAA==,,H200,2026/3/31,2026/4/20,-,-,端對端語音模型訓練,python,GPU,"因程式組要走H200，且認為V100應該是無法達成目標需求。
+有要求可以開放H200後再告知。",,,,,2,"黃漢邦｜duma3782@gmail.com｜次要聯絡人
+武子珩｜r13522813@ntu.edu.tw｜次要聯絡人"
+18,林逸彬,環工所,benjamin chen,試用帳號,gst26-03,aGHoEgk8,,i90,2026/3/5,2026/3/27,-,-,PFAS近紅外線吸收光譜模擬,Gaussian 16,CPU,,,,,,3,"benjamin chen｜benjamin.s.chen.tw@outlook.com｜次要聯絡人
+d14541003｜d14541003@ntu.edu.tw｜次要聯絡人
+林逸彬｜yipinlin@ntu.edu.tw｜次要聯絡人"
+20,周至品,計算導向之材料創新設計,yinsong liao,課程帳號,nens501199,wiCfOcPt,,i90,2026/3/4,2026/6/30,-,-,,,,"系所：重點科技學院,
+課號：NENS5011,
+課程名稱：計算導向之材料創新設計,
+授課教師：周至品老師",,周至品,jpchou@ntu.edu.tw,,2,Yin-Song Liao｜yinsongliao@gmail.com｜次要聯絡人
+13,劉治綸,應力所,劉治綸,試用帳號,gst26-14,hu2BRQ==,,"n98, i90",2026/3/3,2026/3/27,-,-,跨尺度流體計算,"Oceananigans.jl, DIABLO","CPU, GPU",,,,,,1,劉治綸｜chihlunl@ntu.edu.tw｜次要聯絡人
+19,葉怡君,生物資訊學,葉怡君,課程帳號,ocean516299,NngpzM6k,,i90,2026/2/23,2026/3/31,-,-,,,,"系所：海洋研究所,
+課號：Ocean5162,
+課程名稱：生物資訊學,
+授課教師：葉怡君老師",,葉怡君,yichunyeh@ntu.edu.tw,,1,
+14,陳銘憲,電機系,黃同學,試用帳號,gst26-12,n+Brgw==,,H200,2026/2/5,2026/2/28,-,-,,,,,,,,,1,黃同學｜r13921038@ntu.edu.tw｜次要聯絡人
+15,廖婉君,電機系,黃于芳,試用帳號,gst26-11,jEnktA==,,H200,2026/2/5,2026/2/28,-,-,,,,,,,,,1,黃于芳｜yufanghuang@ntu.edu.tw｜次要聯絡人
+17,林建達、麥德倫,生物資訊學實作,葉育真,課程帳號,"bst506891, bst506892","omAtK3Wa, 3P/V7AE8",,i90,2026/2/1,2026/6/30,-,-,,,,"系所：生化科技學系,
+課號：BST5068,
+課程名稱：生物資訊學實作,
+授課教師：林建達老師、麥德倫老師",,葉育真,yuzhenye1112@gmail.com,,1,
+12,周至品,重點科技學院,周至品,試用帳號,gst26-13,M5HUvw==,,"n98, i90",2026/1/16,2026/2/6,-,-,透過第一原理與機器學習計算探討高熵合金電催化機制,"VASP, CHGNet",多核平行化 CPU 以及 GPU,研究用(長期需求),,,,,1,周至品｜jpchou@ntu.edu.tw｜次要聯絡人
+11,廖英志,化工系,李承穎,正式帳號,gst26-02,kdGTDbjC,pptlab607,i90,2026/1/8,2026/3/10,-,-,多種分子之間的DFT計算,BIOVIA Materials Studio,在本研究中最大的運算至少需要768G RAM,使用破解版軟體,,,,,2,"廖英志｜liaoy@ntu.edu.tw｜次要聯絡人
+李承穎｜f11524120@ntu.edu.tw｜次要聯絡人"
+21,呂良正,土木系,張瑋倫,試用帳號,gst25-27,ZinnshB1,,n98,2025/12/16,2026/1/16,-,-,阻尼器配置多目標最佳化,MATLAB,,,,,,,1,張瑋倫｜r13521246@ntu.edu.tw｜次要聯絡人
+22,野口亮,凝態中心,張端麟,正式帳號,gst25-26,5U2VepRd,spectopolab,"i73, i90",2025/11/20,2025/12/31,-,-,Revealing the CDW role in NbTe4 via ab initio calculation,"Quantum espresso, Wannier90, Wannier_tool, qe_unfolding, Python, C++, Fortran",,(i73),,,,,2,"張端麟｜duanlinzhang71@gmail.com｜次要聯絡人
+野口亮｜rnoguchi@ntu.edu.tw｜次要聯絡人"
+24,石曜合,農經系,王俊欽,正式帳號,gst25-24,T3cn71Oz,ntuagec,i90,2025/10/23,2025/11/25,-,-,環境計量經濟模型運算,R、STATA,,,,,,,1,王俊欽｜d14627001@ntu.edu.tw｜次要聯絡人
+25,Jean-Marc EGLY,生物研究中心,Baptiste,試用帳號,gst25-23,awc839th,,i90,2025/9/23,2025/10/13,-,-,The effect of Lurbinectedin and derivatives over transcription in the context of cancer.,"Seq2science (snakemake, samtools, bedtools, Hisat, HOMER...)",,,,,,,1,Baptiste｜baptiste.bidon@gmail.com｜次要聯絡人
+26,柯喬許,獸醫系,柯喬許,正式帳號,gst25-22,H4fF9pLW,joshke,i90,2025/9/16,2025/9/30,-,-,統整資料庫執行資料定序分析,"Samtools (C), SRA Toolkit (C, C++), Java(Trimmomatics, FastQC), HISAT2( C++, Python, and JAVA), HTseq(C++, python) conda環境使用(使用軟體Bioconda都有) 或 module",,,,柯喬許,joshke@ntu.edu.tw,,1,
+27,陳奕維,地質系,陳奕維,正式帳號,gst25-21,KSYTwV2q,yiweichentw,i90,2025/8/26,2025/9/15,-,-,模擬不同大地構造模型對地幔物質分佈影響,TERRA 地幔動力學模擬 (自行撰寫),,,,陳奕維,yiweichentw@ntu.edu.tw,,1,
+29,王安邦,應力所,Bharanitharan KJ,試用帳號,gst25-20,nQz1OU7O,,i90,2025/8/22,2025/9/30,-,-,Study the oscillation behavior of falling drops and near-impact phenomena.,"Basilisk, including gcc, gfortran, python in Conda or Intel oneAPI compiler, and Docker.","CPU, multi-threads",,,,,,2,"Bharanitharan KJ｜f11543103@ntu.edu.tw｜次要聯絡人
+王安邦｜abwang@iam.ntu.edu.tw｜次要聯絡人"
+34,曾秀如,生化分生所,王紳,試用帳號,gst25-19,Ks8A0L2F,,"n98, i90",2025/8/11,2025/8/31,-,-,進行蛋白質結構的分子動態模擬,GROMACS,,,,,,,1,王紳｜a74520329@gmail.com｜次要聯絡人
+48,林柏熊,農經系,林柏熊,正式帳號,gst25-18,RZXZ6yxh,goodpak0907,"i90, i73",2025/7/31,2025/8/31,-,-,探討蝗蟲災害對嬰兒存活率的因果效應,R、STATA,,,,林柏熊,pakhunglam@ntu.edu.tw,,1,
+35,連振廷,國企系,李訓佑,試用帳號,gst25-17,1v9JwVsn,,n98,2025/6/30,2025/7/30,-,-,Analyzing the attention of simulated CEO/CFO reply on Earning Conference call,"Python, Cuda(預計使用 llama3-8b)",,,,,,,1,李訓佑｜b11705022@ntu.edu.tw｜次要聯絡人
+36,林博雄,大氣系,Mark,試用帳號,gst25-16,ZbgpjC7d,,i90,2025/5/13,2025/5/30,-,-,測試 WRF 作業化模擬,"WRFV3.9.1, GrADs",,,,,,,1,Mark Wang｜markymwang@yahoo.com｜次要聯絡人
+37,黃倬英,地理系,Lino,試用帳號,gst25-15,hOGb8jut,,n98,2025/3/7,2025/3/31,-,-,Predicting hyperspectral SWIR-2 and tea chemical compounds using Transformers-Encoder Decoder.,"tensorflow, pytorch",,,,,,,1,Lino Garda Denaro｜dlinogarda@gmail.com｜次要聯絡人
+38,游晟暐,生工系,楊文禎,試用帳號,gst25-14,Wr9kb3c1,,i90,2025/2/26,2025/3/31,-,-,即時淹水模擬,FLDPLN,,,,,,,1,楊文禎｜r13622027@ntu.edu.tw｜次要聯絡人
+39,項潔,資工系,董家兒,試用帳號,gst25-13,Gp9PjBMf,,n98,2025/2/25,2025/3/31,-,-,針對特定古籍訓練專門的 OCR 模型,"docker, python",,,,,,,1,董家兒｜dongmei@ntu.edu.tw｜次要聯絡人
+40,劉浩澧,電機所,洪國維,試用帳號,gst25-12,0vugbB/2,,n98,2025/2/25,2025/3/31,-,-,透過深度學習預測超音波時變聲場，會先透過模擬程式取得大量訓練資料，再來將資料匯入進行深度學習的訓練。,"python3.10, cuda12.6",,,,,,,1,洪國維｜r12921078@ntu.edu.tw｜次要聯絡人
+41,郭光宇,理論科學中心,郭光宇,試用帳號,gst25-11,P4ahOYQ/,,i90,2025/2/6,2025/3/31,-,-,,,,,,,,,1,郭光宇｜gyguo@phys.ntu.edu.tw｜次要聯絡人
+42,柯佳吟,漁科所,洪翊瑄,正式帳號,gst24-26,6Nq0/s/Y,eerlab307,i90,2024/11/5,2024/11/30,-,-,建立珊瑚礁魚類建模之變數，計算每個城市buffer內網格到城市所需把最短時間間,R,,,,,,,2,"洪翊瑄｜a0928396763@gmail.com｜次要聯絡人
+柯佳吟｜cyko235@ntu.edu.tw｜次要聯絡人"
+43,謝伯讓,心理系,Yaron Caspi,正式帳號,gst24-25,xUNs0Nft,baclab,"n98, i90",2024/10/18,2024/11/30,-,-,We are trying to correlate measure of attention and working memory from psychological experiments with scores from genetics and microbiome.,"R, FSL, MATLAB, Freeserfer, plink, IMPUTE2, SNPLift, Minimac4, PRSice",,,,,,,1,Yaron Caspi｜ycaspi@ntu.edu.tw｜次要聯絡人
+44,陳賢明,植科所,張淨涵,正式帳號,gst24-24,6ZkWIiTT,hmt,i90,2024/9/9,2024/9/30,-,-,"Trimmomatic, kallisto, R, trinity, TransDecoder, BUSCO",解序野生綠豆基因體及綠豆在生物逆境下之轉錄體反應,,,,,,,2,"張淨涵｜ching131937@gmail.com｜次要聯絡人
+陳賢明｜jimmytinghm@ntu.edu.tw｜次要聯絡人"
+45,張俊偉,漁科所,周昀韋,正式帳號,,,qesrlab401,i90,2024/8/23,,-,-,海洋魚類族群空間交互作用網路之研究,"R, Python",,,,,,,1,周昀韋｜pijhs101134@gmail.com｜次要聯絡人
+46,和田健司,經濟系,和田健司,試用帳號,gst24-23,,,n98,2024/8/23,2024/9/30,-,-,"Macroeconomics, time series econometrics, asset pricing Research on the efficacy of announcement that eliminates pessimistic prospects for cash-flow growth and restore risk appetite using a general equilibrium model of asset pricing with uncertainty in future asset returns.",Matlab,,,,,,,1,和田健司｜kenjiwada2402@ntu.edu.tw｜次要聯絡人
+47,王立民,物理系,林晉緯,正式帳號,gst24-22,9tXn5RIQ,squidlab110,i90,2024/6/24,2024/9/30,-,-,"超導/拓樸超晶格與多層膜電磁傳輸特性與穩定Majorana束縛態之研究,使用Quantum ESPRESSO進行超導/拓樸材料能帶計算.",Quantum ESPRESSO,,,,,,,1,林晉緯｜d05245001@ntu.edu.tw｜次要聯絡人
+50,林彥蓉,農藝系,蔡汶廷,正式帳號,gst24-21,xyapn+nn,biocrop311,"i90, h71",2024/6/20,2024/7/15,-,-,高粱F2族群之次世代定序資料處理,"axe-demultiplexer, fastqc, multiqc, cutadapt, bwa, samtools, bcftools, vcftools, gatk4",,,,,,,2,"蔡汶廷｜r11621120@ntu.edu.tw｜次要聯絡人
+林彥蓉｜ylin@ntu.edu.tw｜次要聯絡人"
+51,覺文郁,機械系,王若珩,試用帳號,gst24-20,HQh13yzp,,n98,2024/6/3,2024/6/30,-,-,使用金屬加工業資料進行LLama3模型fine tune,"CUDA, Python",,,,,,,1,王若珩｜henrywang9406750605@gmail.com｜次要聯絡人
+52,鄭卜壬,網媒所,柯婷文,試用帳號,gst24-19,XH9lrWud,,n98,2024/5/17,2024/6/30,-,-,"Retrieval augmented language model generation, recommender system",python,,,,,,,1,柯婷文｜r11944026@csie.ntu.edu.tw｜次要聯絡人
+53,傅昭銘,物理系,呂英樟,試用帳號,gst24-18,nYVtA8Vx,,n98,2024/5/17,2024/6/30,-,-,CUDA Quantum 的操作使用,QuantumSimulator （CUDA quantum）,,,,,,,1,呂英樟｜f10245020@g.ntu.edu.tw｜次要聯絡人
+54,施養信,農化系,Tesfaye,正式帳號,gst24-17,#NAME?,tesfu24,"i90, h71",2024/5/3,2024/5/31,-,-,Calculations of optoelectronic properties of the perovskite materials.,"QE, Gaussian16",,,,,,,2,"Tesfaye Abebe｜tesfayea867@gmail.com｜次要聯絡人
+施養信｜yhs@ntu.edu.tw｜次要聯絡人"
+55,阮文先,應用數學科學研究所,吳家豪,試用帳號,gst24-16,Oq4cED6K,,n98,2024/5/3,2024/5/31,-,-,基於方程的尺度不變性發展的網格細化方法，針對三維不可壓縮 Navier-Stokes 方程潛在爆破解進行數值模擬,MATLAB,,,,,,,1,吳家豪｜s27351002@gmail.com｜次要聯絡人
+56,劉建,機械所,陳彥善,試用帳號,gst24-15,uMkk3mxW,,n98,2024/4/9,2024/5/30,-,-,Yearly energy yield of perovskite solar cells simulation and prediction,MATLAB+EXCEL,,,,,,,1,陳彥善｜jason881201@gmail.com｜次要聯絡人
+57,何傳愷,生態演化所,吳安妮,試用帳號,gst24-14,F/3MLoJl,,h71,2024/3/28,2024/4/30,-,-,台灣無尾目之 Joint species distribution model,conda 安裝 R,,,,,,,1,吳安妮｜r11b44001@g.ntu.edu.tw｜次要聯絡人
+58,葉俊毅,心理系,林家璿,試用帳號,gst24-13,OFtE5YDP,,n98,2024/3/18,2024/4/15,-,-,豬隻行為影像分析,conda (自行安裝 conda 環境),,,,,,,1,林家璿 ｜r12227107@ntu.edu.tw｜次要聯絡人
+59,楊奕軒,電信所,蔡芳鐸,試用帳號,gst24-12,JvC87MJa,,n98,2024/3/11,2024/3/29,-,-,以文字和音檔為輸入，生成想要的音樂,"Pytorch, torchaudio, cuda",,,,,,,1,蔡芳鐸｜r12942150@ntu.edu.tw｜次要聯絡人
+60,廖振鐸,農藝系,廖振鐸,正式帳號,,,ctliao,h81,2024/2/1,,-,-,,,,,,,,,1,林寬諺｜r11621202@ntu.edu.tw｜次要聯絡人
+61,batu,凝態中心,batu,正式帳號,,,batu,"i73, i90, h81",2024/2/1,,-,-,,,,,,賴盈任,yingrenlai@ntu.edu.tw,是,3,"賴盈任｜yingren.lai@gmail.com｜次要聯絡人｜已停用寄信
+BATJARGAL SAINBILEG｜batjargal@ntu.edu.tw｜次要聯絡人｜已停用寄信"
+49,楊延齡,台科化工,楊延齡,正式帳號,,,ylyang,"i90, h71",2024/1/15,2024/1/31,-,-,,,,,,Yan-Ling Yang,ylyang@mail.ntust.edu.tw,,1,
+62,Ziho Park,經濟系,黃煜翔,試用帳號,gst24-11,07z4kQHx,,h81,2024/1/5,2024/1/31,-,-,機器學習方法進行迴歸分析,R-4.3.2,,,,,,,1,黃煜翔｜d29402565@gmail.com｜次要聯絡人
+69,林浩雄,電子所,張瀚文,試用帳號,gst23-23,xoGexuMb,,h81,2023/12/13,2023/12/31,-,-,An ab initio study of growing properties of bismuth on c-plane sapphire,Abacus,,,,,,,1,張瀚文｜r12K43001@ntu.edu.tw｜次要聯絡人
+70,張玉玲,身體、心靈與文化整合影像研究中心,徐慎謀,正式帳號,gst23-22,UN/3sys8,xuyierjing,h81,2023/10/27,2023/11/15,-,-,發展能在不平衡以及小樣本資料中偵測輕度知能障礙的演算法,"R，python, conda",,,,,,,1,徐慎謀｜smhsu@ntu.edu.tw｜次要聯絡人
+71,胡植慶,地質系,胡宛琳,正式帳號,gst23-21,7Kk+nFG+,gps317b,h81,2023/10/27,2023/11/15,-,-,深度學習 SAR 成像模擬資料庫應用於都市地層下陷災害研究,"isce, mintpy ，python, conda, intel oneapi",,,,,,,1,胡宛琳｜huwanlin@ntu.edu.tw｜次要聯絡人
+72,曾俊凱,財金系,林友嵐,試用帳號,gst23-19,huxKyvPX,,h81,2023/9/27,2023/10/17,-,-,"Franchise Value, Intangibles, and Tobin’s Q",Python,,,,,,,1,林友嵐｜d09723004@ntu.edu.tw｜次要聯絡人
+73,胡哲明,生態演化所,藍世裕,正式帳號,gst23-18,y8NhxKdU,hulab,h81,2023/9/27,2023/10/16,-,-,The phylogeny and biogeography of Koelreuteria Laxm. (Sapindaceae),Java、Python 與 R,,,,,,,1,藍世裕｜r09b44011@g.ntu.edu.tw｜次要聯絡人
+74,洪茂蔚,國企所,邱翊展,正式帳號,gst23-17,cBsX7B//,finairesearch,n98,2023/8/23,2023/9/15,-,-,人工智慧與大規模語言模型(LLM)應用於財務金融與創新投資學之研究與分析,"torch, tensorflow",,,,,,,1,邱翊展｜d08723003@ntu.edu.tw｜次要聯絡人
+75,魏安祺,生醫電資所,楊尚儒,試用帳號,gst23-16,olVJr42V,,n98,2023/8/8,2023/8/31,-,-,利用深度學習對明場顯微鏡影像進行粒線體偵測及分割,"torch, tensorboard",,,,,,,1,楊尚儒｜rime97410000@gmail.com｜次要聯絡人
+76,徐莞曾,藥學系,張耀瑋,正式帳號,gst23-15,pONean9Z,ntuspwth,h81,2023/8/2,2023/8/15,-,-,建立低射出分率心衰竭病人預後模型以探討藥物療效及各項指標影響,R-4.3.0,,,,,,,1,張耀瑋｜r11451007@ntu.edu.tw｜次要聯絡人
+77,李百祺,生醫電資所,陳庭薇,試用帳號,gst23-14,YMgODMMX,,h81,2023/5/4,2023/7/1,-,-,單探頭超音波反射式剪切波彈性影像之三維細胞膠硬度重構,COMSOL (自行購買授權),,,,,,,1,陳庭薇｜r11945003@ntu.edu.tw｜次要聯絡人
+78,陳政彰,醫技系,張懿韊,試用帳號,gst23-13,2Xz0zB2y,,"n98, h81",2023/4/28,2023/6/30,-,-,"模擬蛋白離子通道運行 ,分析其 MD 軌跡,通道結構和半徑,並模擬離子通透發生事件並觀察。","使用open source package，包含 Visual studio 2022, Gromacs, CHAP,  Matplotlib, Python (Anaconda), MD Analysis, VMD",,,,,,,1,張懿韊｜r11424022@ntu.edu.tw｜次要聯絡人
+79,胡明哲,生物環境工程學系,張維均,試用帳號,gst23-12,ZImWTeWa,,h81,2023/2/21,2023/3/30,-,-,機器學習模式於資源管理與最佳化探討實驗規劃,python3.8,,,,,,,1,張維均｜vikingchang1208@gmail.com｜次要聯絡人
+80,吳俊達,園藝暨景觀學系,林青平,正式帳號,gst23-11,sDSK9iYw,ntupostharvest,"n98, h81",2023/1/11,2023/2/28,-,-,轉錄體表現分析研究,conda,,,,,,,1,采薇｜r11628204@ntu.edu.tw｜次要聯絡人
+81,郭斯彥,電機所,劉彥甫,試用帳號,gst22-22,ixqyhT5N,,h81,2022/8/1,2022/8/31,-,-,使用EDA tool 跑RISC-V CPU design 搜集PPA資訊以建立資料庫,"Python , EDA tool (由國家半導體中心取得軟體授權) , Scala",,,,,,,1,劉彥甫｜r09921132@g.ntu.edu.tw｜次要聯絡人
+82,劉雅瑄,地質科學系,陳冠綸,正式帳號,gst22-21,lPOqJrPD,aklc1580,h81,2022/7/1,,-,-,以機器學習橋接地球科學領域中常規與岩芯掃描技術之應用：綜合德國、阿根廷與西北太平洋之材料為例,"Conda,python",,,,,,,1,陳冠綸｜r10224211@ntu.edu.tw｜次要聯絡人
+83,洪一薰,工工系,洪一薰,正式帳號,gst22-20,-,ihongntu,,2022/6/29,,-,-,,,,,,,,,1,洪一薰｜ihong@ntu.edu.tw｜次要聯絡人
+84,吳泓熹,農藝學系,吳泓熹,正式帳號,gst22-19,gUL2Bn/L,stevenwu,h81,2022/6/6,2022/6/30,-,-,Modelling the effect of agricultural biological treatments and interaction with environments,R、Python、C++、MPI,,,,吳泓熹,stevenwu@ntu.edu.tw,,1,
+85,李宗徽,漁業科學所,李逸潔,試用帳號,gst22-18,joMxLW7K,,"h71, h81",2022/5/18,2022/6/9,-,-,新化合物之ECD運算,Gaussian16、 Gaussian09,,,,,,,1,李逸潔｜ r09b45007@ntu.edu.tw｜次要聯絡人
+63,江建文,化學系,江建文,正式帳號,gst22-17,wJppJuCm,kvkong,"i90, h81",2022/4/22,2022/5/9,-,-,利用vasp與gaussian計算材料表面與分子之間的最佳鍵結模式與光譜,"VASP-5.4.4,  Gaussian16",,,,江建文,kvkong@ntu.edu.tw,,1,
+86,鄭卜壬,資工系,解正安,試用帳號,gst22-16,WkmcL2tD,,n98,2022/4/2,2022/5/1,-,-,異質性電話網路模型及其在詐騙電話偵測上之應用,CONDA、Python torch,,,,,,,1,解正安｜chenganhsieh1997@gmail.com ｜次要聯絡人
+87,林建達（大學部）,生技系,林依蓉,試用帳號,gst22-15,39bMpPeS,,h81,2022/4/1,2022/9/30,-,-,Microbiome analysis or Data integration for single-cell RNA seq,"Anaconda3 ,  QIIME2-2021.8, R4.0.5",,,,,,,1,林依蓉｜linijung65@gmail.com｜次要聯絡人
+88,李佳翰,工科系,王志中,試用帳號,gst22-14,XW4X4Thq,,h71,2022/3/24,2022/4/22,-,-,計算金屬光電性質,VASP,,,,,,,1,王志中｜ d09525016@ntu.edu.tw｜次要聯絡人
+89,蔡睿哲,光電所,劉冠揚,正式帳號,gst22-13,emuUO/+l,moems307a,n98,2022/2/22,2022/3/14,-,-,光學系統之繞射模擬及預測,,,,,,,,1,劉冠揚｜r09941067@ntu.edu.tw｜次要聯絡人
+90,林雅芬,農藝學系,林雅芬,試用帳號,gst22-12,uBSAN7Br,,"n98, h81",2022/2/8,2022/3/1,-,-,次世代定序資料在功能性基因體的遺傳研究,R、conda、Python、MPI、GATK、GEMMA、samtools,,,,,,,1,林雅芬｜yafenlin0725@ntu.edu.tw｜次要聯絡人
+91,周逸儒,應力所,張佑任,試用帳號,gst22-11,qosSIDSb,,h81,2022/1/21,2022/3/1,-,-,全解析流固耦合輸砂遮蔽效應研究,自建MPI fortran code ，Intel MPI,,,,,,,1,張佑任｜d04543012@ntu.edu.tw｜次要聯絡人
+92,鄭佳宜,生科系,鄭佳宜,正式帳號,guest21-20,58NfqhP1,chiayicheng,h81,2021/12/8,2022/1/1,-,-,利用已發表的轉錄組數據，建立植物利用養分的共表達基因網絡，從而窺知關鍵基因，以期改善作物使用肥料的效能。,自行開發,,,,鄭佳宜,chiayicheng@ntu.edu.tw,,1,
+93,王弘毅,臨床醫學研究所,林鑫甫,正式帳號,guest21-19,W/2P55mE,hurngyi,h81,2021/11/11,2021/12/31,-,-,馬口魚基因註釋,"mker2, BRAKER, IQ-TREE, BWA, minimap2, stacks, pangolin",,,,,,,1,林鑫甫｜linlary@ntu.edu.tw｜次要聯絡人
+94,林建達,生技系,林依蓉,正式帳號,guest21-18,M+xXNkoP,jdlab,h81,2021/10/6,2021/10/31,-,-,Microbiome analysis or Data integration for single-cell RNA seq,"Anaconda3 ,  QIIME2-2021.8, R4.0.5",,,,林建達,jdlin@ntu.edu.tw,,2,林依蓉｜linijung65@gmail.com｜次要聯絡人
+95,唐牧群,圖書資訊學系,陳家薇,正式帳號,guest21-14,BAm/t1Os,mctlab12,h71,2021/7/19,2021/10/29,-,-,建立共字網絡連結預測演算法的新評估典範。,R （R studio）、Python,,,,,,,1,陳家薇｜r08126001@ntu.edu.tw｜次要聯絡人
+96,林日白,地質系,林日白,正式帳號,guest21-13,qMiC3kM1,alexjplin,h81,2021/2/18,2021/6/1,-,-,臺灣沙錢海膽的基因序列解析工程,使用ANACONDA環境安裝Trimmomatic、FastQC、SOAPdenovo2、BUSCO、AUGUSTUS,,,,林日白,alexjplin@ntu.edu.tw,,2,張若愚｜b04401124@g.ntu.edu.tw｜次要聯絡人
+28,黃尹男,土木系,邱騰億,正式帳號,,,ntuceynh,i90,2021/2/7,,-,-,,LS-DYNA,,LS-DYNA 和東諭老師共用,,,,,2,"邱騰億｜d12521002@ntu.edu.tw｜次要聯絡人
+黃尹男｜ynhuang@ntu.edu.tw｜次要聯絡人"
+97,賴進貴,地理系,葉宜儒,正式帳號,guest21-12,rPS9W2fP,sgis,n98,2021/1/28,2021/3/31,-,-,使用經公共及自建數據集訓練的電腦視覺算法（改進Yolo V5）對台北、桃園市全境的街景圖像進行物件偵測，萃取出這兩市的騎樓分佈及使用狀況，驗證這一技術路線的可行性。,"anaconda3, python3.8, pytorch 1.7, CUDA 11.0",,,,,,,1,葉宜儒｜r09228026@ntu.edu.tw｜次要聯絡人
+98,陳丕燊,物理系,劉詠鯤,正式帳號,guest09-14,FSE3xT4k,anabhel,"n98, h81",2020/8/18,2020/9/18,-,-,雷射電漿交互作用數值模擬研究,EPOCH and Smilei,,,,,,,1,劉詠鯤｜r06222017@ntu.edu.tw｜次要聯絡人
+99,劉致為,電機系,陳韻文,正式帳號,guest09-12,KSmAG9mE,sigelab,h81,2020/7/28,2020/8/31,-,-,模擬高介電值材料特性於半導體的應用。,QuantumATK 、Quantum ESPRESSO、VASP,,,,,,,1,陳韻文｜fermatchen0715@ntu.edu.tw｜次要聯絡人
+66,林麗瓊,凝態中心,林麗瓊,正式帳號,guest99,B45Gid+B,chenlc,"i73, i90",2020/4/9,2020/5/1,-,-,以密度泛函理論研究與開發低維度光觸媒材料，提升其轉換二氧化碳成低碳燃料之能力與效率。,VASP、GAUSSIAN,,,,賴盈任,yingren.lai@gmail.com,是,1,
+100,曾惠芸,昆蟲系,葉彥志,正式帳號,guest98,xf4/sawi,evolutionlab,h81,2020/3/31,2020/4/30,-,-,利用次世代定序資料探討球背象鼻蟲的演化歷史,STACKS、R、PYTHON、PYRAD,,,,曾惠芸,hytseng1216@ntu.edu.tw,,4,"陳釤珉｜sammychen3786@gmail.com｜次要聯絡人｜已停用寄信
+葉彥志｜r08632001@ntu.edu.tw｜次要聯絡人
+卓展毅｜jianyi.cho@gmail.com｜次要聯絡人"
+102,陳示國,生命科學系,梁風,正式帳號,guest97,bYRT22Zv,lschenlab,h81,2020/2/25,2020/3/25,-,-,qiime,分析腸道菌菌相,,,,,,,1,梁風｜fengliang84523@gmail.com｜次要聯絡人
+101,張世宗,生化科技系,林庭瑋,正式帳號,,,bstscc,,2020/2/24,,-,-,新冠病毒結構分析,Discovery Studio 4.0,,,,,,,1,林庭瑋｜d06b22004@ntu.edu.tw ｜次要聯絡人
+103,李奕霈,化工系,李奕霈,正式帳號,guest94,C6mY5AUZ,ypli,"n98, h81",2019/10/15,2019/11/16,-,-,Q-Chem、PyTorch,結合量子力學計算與機器學習方法進行化學反應工程設計,,,,,,,1,李奕霈 ｜yipeili@ntu.edu.tw｜次要聯絡人
+31,呂宗昕,化工系,呂紹安,正式帳號,guest90,G6msOspK,eecl106,h81,2019/9/19,2019/10/1,-,-,We will compute the structural and optoelectronic properties for light emitting diode and solar cell application.,quantum espresso software,,,,呂宗昕,chlu@ntu.edu.tw,,3,"游濬維｜f11524123@ntu.edu.tw｜次要聯絡人
+蔡庭華｜tony1091717@gmail.com｜次要聯絡人"
+104,徐百輝,土木系,曹雅筑,正式帳號,guest86,ywrfVhhx,geors,n98,2019/9/5,2019/9/30,-,-,tensorflow,以多視立體影像結合機器學習進行三維場景重建,,,,,,,1,曹雅筑｜r07521807@ntu.edu.tw｜次要聯絡人
+105,吳東諭,土木系,吳東諭,正式帳號,guest84,iTwGDZm0,tungyuwu,h81,2019/7/31,2019/8/31,-,-,LS-DYNA,非線性型有限元素分析模擬計算,,,,吳東諭,tungyuwu@ntu.edu.tw,,2,黃立安｜f12521241@ntu.edu.tw｜次要聯絡人
+106,鄭舒婷,森林系,陳怡秀,正式帳號,guest83,GnIHojpT,cstlab,h71,2019/6/11,2019/7/1,-,-,推測台北市內每日大氣中的PM2.5濃度變化,R,,,,,,,1,陳怡秀｜yihsiu0402@gmail.com｜次要聯絡人
+107,周必泰,化學系,張凱信,正式帳號,guest81,cMQlqnFf,choplab,"n98, h71",2019/4/24,2019/5/20,-,-,超快光譜研究,GAUSSIAN16,,,,周必泰,chop@ntu.edu.tw,,3,"張凱信｜d05223111@ntu.edu.tw｜次要聯絡人
+林佳貞｜janelin@ntu.edu.tw｜次要聯絡人"
+108,陳柏端,凝態中心,陳柏端,正式帳號,guest80,0POCbbjU,rei,"n98, h81",2019/3/13,2019/4/1,-,-,能源材料化學機制與其光譜之第一原理計算,AUSSIAN16、VASP5.4.4 (含GPU),,,,,,,3,"陳柏端｜chenpotuan@ntu.edu.tw｜次要聯絡人
+陳柏端｜r92222019@ntu.edu.tw｜次要聯絡人
+俊維｜chunwei@ntu.edu.tw｜次要聯絡人"
+109,陳志鴻,應力所,陳志鴻,正式帳號,guest76,abfNxZvl,chchen,"n98, h81",2019/1/3,,-,-,,LAMMPS,,,,,,,1,陳志鴻｜chchen@iam.ntu.edu.tw｜次要聯絡人
+110,林沛群,機械系,曾冠語,正式帳號,guest75,hrnUJlQ6,biorola,"n98, h81",2019/1/2,2019/1/18,-,-,足類機器人簡化模型之步態穩定性分析,MATLAB,,,,,,,1,曾冠語｜r06522811@ntu.edu.tw｜次要聯絡人
+111,卿建業,土木系,李思緯,正式帳號,guest74,HzW5nze7,nturocklab,n98,2018/12/6,2018/12/31,-,-,模擬隨機取樣的變數來進行參數的計算,MATLAB,,,,,,,1,李思緯｜coolweiwei50@gmail.com｜次要聯絡人
+112,林盈仲,生科系,徐子述,正式帳號,guest71,79bFzQ71,woodformation,,2018/10/30,2018/11/15,-,-,建立轉錄因子和基因雙核心轉錄調控網路以探討毛果楊中參與木材形成的木質素合成基因的調控,自行編譯C語言程式,,,,,,,1,徐子述｜gary360gary@gmail.com｜次要聯絡人
+113,蔡欣甫,農藝系,黃則仂,正式帳號,guest69,oCSo4npF,shinfu,i90,2018/9/13,2018/10/13,-,-,利用馬可夫鍊蒙地卡羅演算法自混合常態模型之廣義置信分配抽樣，並進行統計推論,R,,,,,,,2,"黃則仂｜r06621208@ntu.edu.tw｜次要聯絡人
+蔡欣甫｜shinfu@ntu.edu.tw｜次要聯絡人"
+114,蔡睿哲,光電所,陳錫勳,正式帳號,guest67,NTUguest67,ee307a,n98,2018/7/9,2018/8/9,-,-,,,,,,,,,1,陳錫勳｜d03941029@ntu.edu.tw｜次要聯絡人
+117,林祥泰,化工系,蔡昌哲,正式帳號,guest50,ntuguest50,stlin,n98,2018/2/1,2018/3/1,-,-,,,,,,,,,1,蔡昌哲｜r05524016@ntu.edu.tw｜次要聯絡人
+64,李承叡,生態演化所,李承叡,正式帳號,,,crlee,i90,,,-,-,,,,,,李承叡,chengrueilee@ntu.edu.tw,,2,林秩緯｜peter3101f16@gmail.com｜次要聯絡人
+65,王鴻偉,凝態中心,王鴻偉,正式帳號,,,ccmsmtl,"i73, i90",,,-,-,,,,,,王鴻偉,hwwang@ntu.edu.tw,,1,
+115,陳倩瑜,生機,陳倩瑜,正式帳號,guest66,NTUguest66,cychen,"h71, h81",,,-,-,,,,,,,,,0,
+116,MATAN,,MATAN,正式帳號,guest52,ntuguest52,EntoMicrobe,h71,,,-,-,,,,,,,,,1,MATAN｜F09632003@ntu.edu.tw｜次要聯絡人
+118,林立虹,生技系,林立虹,正式帳號,guest16,ntuguest16,geomicro,"h71, h81",,,-,-,,,,,,,,,3,"陳貞年｜jhnichen.tw@gmail.com｜次要聯絡人
+塗子萱｜cerves@gmail.com｜次要聯絡人
+林立虹｜lhlin@ntu.edu.tw｜次要聯絡人"
+119,曾宇鳳,生醫電子所,曾宇鳳,正式帳號,guest03,ntuguest03,cmdm,h71,,,-,-,,,,,,,,,1,吳東昇｜airtrickcho@gmail.com｜次要聯絡人
+121,徐承志,化學,徐承志,正式帳號,,,cchlab,,,,-,-,,,,,,,,,0,
+122,江金蒼,數學,江金蒼,正式帳號,,,chiangct,,,,-,-,,,,,,,,,0,
+123,郭錦龍,材料,郭錦龍,正式帳號,,,chinlung,,,,-,-,,,,,,郭錦龍,chinlung@ntu.edu.tw,,1,
+125,周信宏,生科,周信宏,正式帳號,,,choulab1128,,,,-,-,,,,,,,,,0,
+126,諶玉真,化工,諶玉真,正式帳號,,,cmsl,,,,-,-,,,,,,,,,0,
+127,王俊能,生科,王俊能,正式帳號,,,cnwang,,,,-,-,,,,,,王俊能,LEAFY@ntu.edu.tw,,1,
+128,萬本儒,化工,萬本儒,正式帳號,,,cpe221,,,,-,-,,,,,,,,,0,
+129,張慶瑞,物理,張慶瑞,正式帳號,,,crcchc,,,,-,-,,,,,,張慶瑞,crchang@phys.ntu.edu.tw,,1,
+130,丁照棣,生科,丁照棣,正式帳號,,,ctting,,,,-,-,,,,,,,,,0,
+132,林裕彬,生工,林裕彬,正式帳號,,,ealeslab,,,,-,-,,,,,,,,,0,
+133,謝志豪,海洋,謝志豪,正式帳號,,,ecoinfolab,,,,-,-,,,,,,,,,0,
+134,鄭如忠,高分子,鄭如忠,正式帳號,,,eolabntu,,,,-,-,,,,,,,,,0,
+135,楊吉水,化學,楊吉水,正式帳號,,,jsylab,,,,-,-,,,,,,楊吉水,jsyang@ntu.edu.tw,,2,陳易昇｜d12223128@ntu.edu.tw｜次要聯絡人
+136,鄭原忠,化學,鄭原忠,正式帳號,,,platin,,,,-,-,,,,,,,,,0,
+137,李峻霣,電機,李峻霣,正式帳號,,,qeljylms,,,,-,-,,,,,,李峻霣,jiunyun@ntu.edu.tw,,1,
+138,謝宗霖,材料,謝宗霖,正式帳號,,,shieh,,,,-,-,,,,,,謝宗霖,jayshieh@ntu.edu.tw,,1,
+139,許輔,園藝,許輔,正式帳號,,,tanaka,,,,-,-,,,,,,,,,0,
+140,劉貴生,高分子,劉貴生,正式帳號,,,tpa5070,i90,,,-,-,,,,,,,,,4,"劉貴生｜ gsliou@ntu.edu.tw｜次要聯絡人
+林芃儀｜bahpe20@gmail.com｜次要聯絡人
+夏先瀚｜baron19990101@gmail.com｜次要聯絡人
+高郁婷｜yyting0205@gmail.com｜次要聯絡人"

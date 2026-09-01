@@ -80,28 +80,56 @@ def _build_send_jobs(to_recipients, cc_recipients, bcc_recipients, account_group
     return jobs
 
 
-@email_bp.route('/send_email', methods=['POST'])
-def send_email():
-    data = request.get_json() or {}
-    to_recipients_str = data.get('to', '')
-    cc_recipients_str = data.get('cc', '')
-    bcc_recipients_str = data.get('bcc', '')
-    subject = data.get('subject', '')
-    body = data.get('body', '')
+def _parse_payload(data):
+    """把前端送來的表單內容整理成 (jobs, bcc_recipients, manual_recipients)。"""
+    to_recipients = _split_emails(data.get('to', ''))
+    cc_recipients = _split_emails(data.get('cc', ''))
+    bcc_recipients = _split_emails(data.get('bcc', ''))
     account_groups = data.get('accounts') or []
 
-    to_recipients = _split_emails(to_recipients_str)
-    cc_recipients = _split_emails(cc_recipients_str)
-    bcc_recipients = _split_emails(bcc_recipients_str)
-
     jobs = _build_send_jobs(to_recipients, cc_recipients, bcc_recipients, account_groups)
+    manual_recipients = list(dict.fromkeys(to_recipients + cc_recipients + bcc_recipients))
+    return jobs, bcc_recipients, manual_recipients
+
+
+@email_bp.route('/send_email/preview', methods=['POST'])
+def preview_email():
+    """
+    寄送前的預覽：回傳「實際會寄出哪幾封信、每封的收件人是誰」。
+
+    刻意和 /send_email 共用同一套 _build_send_jobs，
+    預覽畫面看到的內容才會跟真正寄出的完全一致，不會兩邊各算各的而走鐘。
+    """
+    data = request.get_json() or {}
+    jobs, bcc_recipients, _ = _parse_payload(data)
+
     if not jobs:
         return jsonify({'success': False, 'message': '沒有可寄送的收件人。'}), 400
 
-    # 待分組信箱只收「手動輸入」的地址；帳號新增的聯絡人已經在 HPC 帳號管理中維護，
-    # 不需要再灌進信箱分組造成重複管理。
-    all_recipients_list = list(dict.fromkeys(to_recipients + cc_recipients + bcc_recipients))
+    return jsonify({
+        'success': True,
+        'count': len(jobs),
+        'bcc': bcc_recipients,
+        'jobs': [{
+            'label': job['label'],
+            'to': job['to'],
+            'cc': job['cc']
+        } for job in jobs]
+    })
 
+
+@email_bp.route('/send_email', methods=['POST'])
+def send_email():
+    data = request.get_json() or {}
+    subject = data.get('subject', '')
+    body = data.get('body', '')
+
+    jobs, bcc_recipients, all_recipients_list = _parse_payload(data)
+    if not jobs:
+        return jsonify({'success': False, 'message': '沒有可寄送的收件人。'}), 400
+
+    # 待分組信箱只收「手動輸入」的地址（all_recipients_list）；
+    # 帳號新增的聯絡人已經在 HPC 帳號管理中維護，不需要再灌進信箱分組造成重複管理。
     saved_mailboxes = load_mailboxes("admin")
     unassigned_group = next((g for g in saved_mailboxes if g['id'] == UNASSIGNED_GROUP_ID), None)
     if not unassigned_group:

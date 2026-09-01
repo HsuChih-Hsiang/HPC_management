@@ -1,31 +1,57 @@
-version: '3.8'
+# 固定專案名稱：CI 每次 checkout 的工作目錄名稱可能不同，
+# 不指定的話 compose 會用目錄名當 project name，導致認不得上一次
+# 部署的容器與 volume，等於每次都是全新部署。
+name: hpcemail
 
 services:
   app:
     build:
-      context: ..                  # 🌟 修改 1：改為 ..（往上跳一層到專案根目錄，這樣才讀得到 app.py）
-      dockerfile: deployment/DOCKERFILE # 🌟 修改 2：指定 Dockerfile 的精確路徑（注意大小寫需與實體檔案一致）
-      args:
-        GITHUB_TOKEN: ${GITHUB_TOKEN} 
+      context: ..                        # 專案根目錄，這樣才讀得到 app.py
+      dockerfile: deployment/DOCKERFILE  # 注意大小寫需與實體檔案一致
+    image: hpcemail-app:latest
     restart: always
     env_file:
-      - ../.env                    # 🌟 修改 3：改為 ../.env（因為 .env 在外面那層）
+      - ../.env
+    environment:
+      # 前面有 WAF + nginx 兩層代理，讓 Flask 認得 X-Forwarded-* 標頭。
+      # 細節見 app.py 裡 ProxyFix 的說明。
+      BEHIND_PROXY: "true"
+    volumes:
+      # utils/params.py 的 KEY_DIR = '/source'，RSA 私鑰寫在這裡。
+      # 這把 key 若隨部署重生，前端加密送來的密碼就再也解不開，必須持久化。
+      - app_keys:/source
+      # log/hpc_notifications 底下的通知紀錄（相對 CWD，即 /app/log）
+      - app_logs:/app/log
+    healthcheck:
+      # /login_page 是唯一不需要登入的頁面（見 utils/params.py 的 PUBLIC_ENDPOINTS）
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/login_page"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # 首次啟動要跑 init_hpc_settings / init_permission_groups 等資料表初始化，
+      # 給足暖機時間，避免還在初始化就被判定不健康而重啟
+      start_period: 90s
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    image: hpcemail-nginx:latest
+    restart: always
     ports:
       - "80:80"
       - "443:443"
-    env_file:
-      - ../.env                    # 🌟 修改 4：Nginx 也需要讀取 .env，底下的 ${DOMAIN} 才會有值
+    environment:
+      # 只用來當自簽憑證的 CN，nginx.conf 本身不再依賴這個變數
+      DOMAIN: ${DOMAIN:-localhost}
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro  # 🌟 修改 5：改為 ./nginx.conf（因為它現在跟 compose 同層）
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    command: /bin/sh -c "envsubst '${DOMAIN}' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf.tmp && mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_certs:/etc/nginx/certs
+    depends_on:
+      app:
+        condition: service_started
 
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+volumes:
+  app_keys:
+  app_logs:
+  nginx_certs:

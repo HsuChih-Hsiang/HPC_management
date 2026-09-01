@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  # 需要重新部署（例如改了 VM 上的 .env）但沒有新 commit 時，
+  # 可以到 Actions 頁面手動觸發。
+  workflow_dispatch:
+
+# 同一時間只允許一個部署在跑。若前一個還沒跑完就有新的 push，
+# 讓舊的先做完再跑新的（cancel-in-progress: false），
+# 避免 docker compose 被中途砍掉留下半啟動的狀態。
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: 部署前驗證
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 語法檢查
+        run: python -m compileall -q app.py utils server_route database tools
+
+      - name: 相依套件可安裝性
+        run: pip install -r requirements.txt
+
+  deploy:
+    name: 部署到正式機
+    needs: verify
+    # 這台 runner 裝在目標 VM 上。設定 runner 時請給它 hpcemail 這個 label，
+    # 免得未來多了別的 self-hosted runner 時搶到這個工作。
+    runs-on: [self-hosted, linux, hpcemail]
+    # 想要「部署前需人工按核准」的話，到 repo Settings > Environments >
+    # production 加上 required reviewers 即可，這裡不用改。
+    environment: production
+
+    env:
+      # .env 放在 VM 的固定位置，不進版控。runner 每次會清空 workspace，
+      # 所以不能把 .env 留在 workspace 裡。
+      HOST_ENV_FILE: /srv/hpcemail/.env
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查主機環境
+        run: |
+          set -e
+          docker --version
+          docker compose version
+          if [ ! -f "$HOST_ENV_FILE" ]; then
+            echo "::error::找不到 $HOST_ENV_FILE，請先在 VM 上依 deployment/.env.example 建立。"
+            exit 1
+          fi
+
+      - name: 帶入 .env
+        run: |
+          set -e
+          # docker compose 讀的是專案根目錄的 .env（env_file: ../.env）
+          install -m 600 "$HOST_ENV_FILE" ./.env
+
+      - name: 執行部署
+        run: bash deployment/deployment.sh
+
+      - name: 顯示服務狀態
+        if: always()
+        run: |
+          docker compose --env-file ./.env -f deployment/docker-compose.yml ps || true
+          docker compose --env-file ./.env -f deployment/docker-compose.yml logs --tail 50 || true
+
+      - name: 清除 workspace 內的密鑰
+        # workspace 會留在 VM 上直到下次 checkout，不要讓 .env 明碼躺在那裡
+        if: always()
+        run: rm -f ./.env
