@@ -18,14 +18,25 @@ app.controller('PermissionController', ['$scope', '$http', '$timeout', function(
     $scope.groupModalOpen = false;
     $scope.groupForm = { id: null, name: '', description: '', is_system: false, features: [] };
 
-    // 群組卡片顯示用：由功能代碼取得「圖示 + 名稱」
-    $scope.featureLabel = function(key) {
+    // 群組卡片顯示用：由功能代碼取得該功能。圖示與名稱分開取，
+    // 因為圖示現在是 SVG 節點（icon-ref 指令），不能再串成一個字串。
+    function featureByKey(key) {
         for (var i = 0; i < $scope.features.length; i++) {
             if ($scope.features[i].key === key) {
-                return $scope.features[i].icon + ' ' + $scope.features[i].label;
+                return $scope.features[i];
             }
         }
-        return key;
+        return null;
+    }
+
+    $scope.featureLabel = function(key) {
+        var f = featureByKey(key);
+        return f ? f.label : key;
+    };
+
+    $scope.featureIconName = function(key) {
+        var f = featureByKey(key);
+        return f ? f.icon_name : '';
     };
 
     function showMessage(text, type) {
@@ -97,6 +108,32 @@ app.controller('PermissionController', ['$scope', '$http', '$timeout', function(
                 errorMessage(error, '指派群組失敗。');
                 // 失敗時把下拉選單復原成實際值，避免畫面與後端不一致
                 user._selectedGroupId = user.group_id;
+            });
+    };
+
+    /**
+     * 刪除一筆申請（尚未開通的帳號）。
+     * 後端只允許刪除未開通的帳號，這裡的確認訊息也把
+     * 「對方再登入會重新出現」講清楚，避免誤以為是永久封鎖。
+     */
+    $scope.deleteUser = function(user) {
+        var who = user.email + (user.name ? '（' + user.name + '）' : '');
+        if (!confirm('確定要刪除 ' + who + ' 的申請嗎？\n\n' +
+                     '該帳號會從系統中移除；若對方再次以 Google 登入，會重新產生一筆新的申請。')) {
+            return;
+        }
+
+        $http.delete('/api/permission/users/' + user.id)
+            .then(function(res) {
+                var result = res.data || {};
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    reloadAll();
+                } else {
+                    showMessage(result.message || '刪除失敗。', 'error');
+                }
+            }, function(error) {
+                errorMessage(error, '刪除申請失敗。');
             });
     };
 

@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -13,11 +14,13 @@
 </head>
 <body ng-controller="PermissionController" ng-cloak>
 
+    {{ icons.sprite() }}
+
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
         <div class="right-editor-container container">
-            <h1>🔑 權限管理</h1>
+            <h1>{{ icons.icon('key') }} 權限管理</h1>
 
             <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
 
@@ -27,36 +30,46 @@
                     待開通帳號
                     <span class="pending-badge" ng-show="pendingUsers.length > 0" ng-bind="pendingUsers.length"></span>
                 </h2>
-                <p class="section-hint">以下帳號已登入過系統但尚未指派群組，目前只會看到等候畫面，無法使用任何功能。</p>
+                <p class="section-hint">
+                    以下帳號已登入過系統但尚未指派群組，目前只會看到等候畫面，無法使用任何功能。<br>
+                    不需要開通的申請可直接<strong>刪除</strong>；該帳號會從系統中移除，
+                    但對方若再次以 Google 登入仍會產生新的申請。
+                </p>
 
                 <p class="empty-hint" ng-show="!loading && pendingUsers.length === 0">目前沒有等待開通的帳號。</p>
 
-                <table class="perm-table" ng-show="pendingUsers.length > 0">
-                    <thead>
-                        <tr>
-                            <th>帳號 (Email)</th>
-                            <th>姓名</th>
-                            <th>首次登入</th>
-                            <th style="width: 240px;">指派群組</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr ng-repeat="u in pendingUsers">
-                            <td ng-bind="u.email"></td>
-                            <td ng-bind="u.name || '—'"></td>
-                            <td ng-bind="u.created_at"></td>
-                            <td>
-                                <div class="assign-row">
-                                    <select class="form-control" ng-model="u._selectedGroupId"
-                                            ng-options="g.id as g.name for g in groups"></select>
-                                    <button type="button" class="btn-assign"
-                                            ng-click="assignGroup(u)"
-                                            ng-disabled="!u._selectedGroupId">開通</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <!-- 申請一多就會把版面撐得很長，因此固定高度、超出的部分用滾輪捲動 -->
+                <div class="table-scroll" ng-show="pendingUsers.length > 0">
+                    <table class="perm-table">
+                        <thead>
+                            <tr>
+                                <th>帳號 (Email)</th>
+                                <th>姓名</th>
+                                <th>首次登入</th>
+                                <th style="width: 290px;">指派群組</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="u in pendingUsers">
+                                <td ng-bind="u.email"></td>
+                                <td ng-bind="u.name || '—'"></td>
+                                <td ng-bind="u.created_at"></td>
+                                <td>
+                                    <div class="assign-row">
+                                        <select class="form-control" ng-model="u._selectedGroupId"
+                                                ng-options="g.id as g.name for g in groups"></select>
+                                        <button type="button" class="btn-assign"
+                                                ng-click="assignGroup(u)"
+                                                ng-disabled="!u._selectedGroupId">開通</button>
+                                        <button type="button" class="btn-reject"
+                                                ng-click="deleteUser(u)"
+                                                title="刪除這筆申請">刪除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <hr>
@@ -66,37 +79,39 @@
                 <h2>帳號權限</h2>
                 <p class="section-hint">調整每個帳號所屬的權限群組。設為「未開通」會收回其所有權限。</p>
 
-                <table class="perm-table">
-                    <thead>
-                        <tr>
-                            <th>帳號 (Email)</th>
-                            <th>姓名</th>
-                            <th>目前群組</th>
-                            <th style="width: 240px;">變更群組</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr ng-repeat="u in users">
-                            <td ng-bind="u.email"></td>
-                            <td ng-bind="u.name || '—'"></td>
-                            <td>
-                                <span class="group-tag" ng-if="u.group_name" ng-bind="u.group_name"></span>
-                                <span class="group-tag is-none" ng-if="!u.group_name">未開通</span>
-                            </td>
-                            <td>
-                                <div class="assign-row">
-                                    <select class="form-control" ng-model="u._selectedGroupId">
-                                        <option ng-value="null">未開通</option>
-                                        <option ng-repeat="g in groups" ng-value="g.id" ng-bind="g.name"></option>
-                                    </select>
-                                    <button type="button" class="btn-assign"
-                                            ng-click="assignGroup(u)"
-                                            ng-disabled="u._selectedGroupId === u.group_id">儲存</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table class="perm-table">
+                        <thead>
+                            <tr>
+                                <th>帳號 (Email)</th>
+                                <th>姓名</th>
+                                <th>目前群組</th>
+                                <th style="width: 240px;">變更群組</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="u in users">
+                                <td ng-bind="u.email"></td>
+                                <td ng-bind="u.name || '—'"></td>
+                                <td>
+                                    <span class="group-tag" ng-if="u.group_name" ng-bind="u.group_name"></span>
+                                    <span class="group-tag is-none" ng-if="!u.group_name">未開通</span>
+                                </td>
+                                <td>
+                                    <div class="assign-row">
+                                        <select class="form-control" ng-model="u._selectedGroupId">
+                                            <option ng-value="null">未開通</option>
+                                            <option ng-repeat="g in groups" ng-value="g.id" ng-bind="g.name"></option>
+                                        </select>
+                                        <button type="button" class="btn-assign"
+                                                ng-click="assignGroup(u)"
+                                                ng-disabled="u._selectedGroupId === u.group_id">儲存</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <hr>
@@ -130,11 +145,16 @@
                     <div class="group-desc" ng-bind="g.description || '（無說明）'"></div>
                     <!-- 已授權的功能依側邊欄順序顯示，未授權的淡化排在後面 -->
                     <div class="feature-tags">
-                        <span class="feature-tag is-on" ng-repeat="key in g.features"
-                              ng-bind="($index + 1) + '. ' + featureLabel(key)"></span>
+                        <span class="feature-tag is-on" ng-repeat="key in g.features">
+                            <span ng-bind="($index + 1) + '.'"></span>
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use icon-ref="featureIconName(key)"></use></svg>
+                            <span ng-bind="featureLabel(key)"></span>
+                        </span>
                         <span class="feature-tag" ng-repeat="f in features"
-                              ng-if="g.features.indexOf(f.key) === -1"
-                              ng-bind="f.icon + ' ' + f.label"></span>
+                              ng-if="g.features.indexOf(f.key) === -1">
+                            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use icon-ref="f.icon_name"></use></svg>
+                            <span ng-bind="f.label"></span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -176,7 +196,8 @@
                             <span class="order-index" ng-bind="$index + 1"></span>
                             <label class="feature-checkbox">
                                 <input type="checkbox" ng-model="f.checked" ng-disabled="groupForm.is_system">
-                                <span ng-bind="f.icon + ' ' + f.label"></span>
+                                <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use icon-ref="f.icon_name"></use></svg>
+                                <span ng-bind="f.label"></span>
                             </label>
                             <div class="order-buttons">
                                 <button type="button" class="btn-order" title="上移"

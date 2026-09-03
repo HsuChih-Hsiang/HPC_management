@@ -16,6 +16,7 @@ from utils.permission_utils import (
     init_permission_groups, get_required_features, get_user_features,
     get_user_ordered_features, get_sidebar_features
 )
+from utils.params import MAIN_MENU_PATH
 from server_route import (
     mailbox_bp, hpc_bp, email_bp, template_bp, routes_bp,
     contact_bp, quota_bp, login_bp, setting_bp, permission_bp, billing_bp,
@@ -124,13 +125,16 @@ def enforce_permission_protection():
 @app.context_processor
 def inject_sidebar_features():
     if 'user_id' not in session:
-        return {'sidebar_features': [], 'allowed_features': set()}
+        return {'sidebar_features': [], 'allowed_features': set(),
+                'main_menu_path': MAIN_MENU_PATH}
 
     # 用有序的清單取得側邊欄順序（各群組可自訂），權限判斷則用 set
     ordered_features = get_user_ordered_features(session['user_id'])
     return {
         'sidebar_features': get_sidebar_features(ordered_features),
-        'allowed_features': set(ordered_features)
+        'allowed_features': set(ordered_features),
+        # 側邊欄的「主選單」連結用，路徑只在 params 定義一次
+        'main_menu_path': MAIN_MENU_PATH
     }
 
 

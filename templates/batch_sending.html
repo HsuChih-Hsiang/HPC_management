@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -13,10 +14,12 @@
     </style>
 </head>
 <body ng-controller="BatchSendingController" ng-cloak>
+
+    {{ icons.sprite() }}
     {% include 'sidebar.html' %}
 
     <div class="container">
-        <h1>📨 寄送 HTML 電子郵件</h1>
+        <h1>{{ icons.icon('mail-send') }} 寄送 HTML 電子郵件</h1>
 
         <form class="email-form" ng-submit="sendEmail()">
             <div class="form-group">
@@ -125,7 +128,7 @@
             </div>
 
             <div class="action-buttons-group">
-                <button type="button" class="save-template-button" ng-click="saveTemplate()">💾 儲存為模板</button>
+                <button type="button" class="save-template-button" ng-click="saveTemplate()">{{ icons.icon('save') }} 儲存為模板</button>
                 <button type="submit" class="send-button">寄送郵件</button>
             </div>
         </form>

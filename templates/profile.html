@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -19,6 +20,8 @@
 </head>
 <body ng-controller="ProfileController" ng-cloak>
 
+    {{ icons.sprite() }}
+
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
@@ -29,7 +32,7 @@
                 <a href="{{ back_url }}" class="back-link">← 返回上一個頁面</a>
             </div>
 
-            <h1>👤 個人資料設定</h1>
+            <h1>{{ icons.icon('user') }} 個人資料設定</h1>
 
             <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
 
@@ -47,7 +50,7 @@
                         <input type="text" id="googleEmail" class="form-control form-control-readonly"
                                ng-model="profile.google_email" readonly tabindex="-1">
                         <small class="field-hint">
-                            🔒 由 Google 登入時帶入，僅用於辨識身分，無法在此變更。
+                            {{ icons.icon('lock') }} 由 Google 登入時帶入，僅用於辨識身分，無法在此變更。
                         </small>
                     </div>
 

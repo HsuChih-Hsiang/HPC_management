@@ -51,7 +51,31 @@
     vertical-align: middle;
 }
 
-/* ===== 表格 ===== */
+/* ===== 表格 =====
+   帳號一多（例如一次湧入大量申請）時，表格若照著資料量一直長高，
+   整頁就會被撐得很長。改為固定高度的捲動框：框本身不放大，
+   超出的列用滾輪捲動，表頭則吸附在框的頂端不跟著捲走。 */
+.table-scroll {
+    max-height: 340px;
+    overflow-y: auto;
+    margin-top: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.table-scroll .perm-table {
+    margin-top: 0;
+}
+
+.table-scroll .perm-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    /* sticky 的儲存格不會帶著自己的 border 一起浮動，改用 inset 陰影畫底線 */
+    border-bottom: none;
+    box-shadow: inset 0 -1px 0 #ddd;
+}
+
 .perm-table {
     width: 100%;
     border-collapse: collapse;
@@ -104,6 +128,25 @@
 .btn-assign:disabled {
     background-color: #cbd5e0;
     cursor: not-allowed;
+}
+
+/* 刪除申請：紅色系，與綠色的「開通」明顯區隔 */
+.btn-reject {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border: 1px solid #f5b5b5;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #c53030;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-reject:hover {
+    background-color: #fdecea;
+    border-color: #e53e3e;
 }
 
 /* 目前群組標籤 */
@@ -218,6 +261,10 @@
 }
 
 .feature-tag {
+    /* 內容變成「圖示 + 文字」兩個節點，用 inline-flex 讓它們垂直置中並留間距 */
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     padding: 4px 10px;
     border-radius: 14px;
     background-color: #f7fafc;

@@ -148,6 +148,39 @@ def list_users():
     })
 
 
+@permission_bp.route('/api/permission/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """
+    刪除一筆「申請」：把尚未開通的帳號從系統中移除。
+
+    只允許刪除 group_id 為 NULL 的帳號，理由有二：
+      1. 已開通的帳號可能還在使用系統，要移除請先在畫面上改回「未開通」，
+         多一道手續可避免誤刪。
+      2. 收回權限的那條路徑已經有「最後一個 admin」的防鎖死檢查，
+         這裡限定未開通帳號就不會有繞過的問題。
+
+    刪掉的是登入紀錄本身，對方若再次用 Google 登入會重新產生一筆新的申請，
+    因此這個動作等同「駁回這次申請」，不是永久封鎖。
+    """
+    user = db.session.get(AdUser, user_id)
+    if not user:
+        return jsonify({'success': False, 'message': '找不到該帳號。'}), 404
+
+    if user.id == session.get('user_id'):
+        return jsonify({'success': False, 'message': '不可刪除自己的帳號。'}), 400
+
+    if user.group_id is not None:
+        return jsonify({
+            'success': False,
+            'message': '此帳號已開通，請先將它的群組改為「未開通」再刪除。'
+        }), 400
+
+    email = user.email
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'已刪除 {email} 的申請。'})
+
+
 @permission_bp.route('/api/permission/users/<int:user_id>/group', methods=['PUT'])
 def assign_user_group(user_id):
     user = db.session.get(AdUser, user_id)

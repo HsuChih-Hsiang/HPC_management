@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -9,6 +10,8 @@
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
 </head>
 <body ng-controller="MailboxController">
+
+    {{ icons.sprite() }}
     
     {% include 'sidebar.html' %}
 
@@ -32,12 +35,15 @@
 
         <div class="main-mailbox-content">
             <div class="container">
-                <h1>📬 信箱管理</h1>
-                
-                <form class="email-form add-group-form" id="addGroupForm" ng-submit="addGroup()">
-                    <input type="text" ng-model="newGroupName" placeholder="新增分組名稱" required>
-                    <button type="submit" class="save-template-button">新增分組</button>
-                </form>
+                {# 標題與「新增分組」並排，把橫向空間讓給下方的分組網格 #}
+                <div class="mailbox-header">
+                    <h1>{{ icons.icon('mailbox') }} 信箱管理</h1>
+
+                    <form class="email-form add-group-form" id="addGroupForm" ng-submit="addGroup()">
+                        <input type="text" ng-model="newGroupName" placeholder="新增分組名稱" required>
+                        <button type="submit" class="save-template-button">新增分組</button>
+                    </form>
+                </div>
 
                 <div class="group-list" id="groupList">
                     <p ng-if="groups.length === 0">目前沒有分組。</p>

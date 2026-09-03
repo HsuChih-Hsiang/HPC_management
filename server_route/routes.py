@@ -3,7 +3,8 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, session, redirect, url_for, request, abort
 from flask import render_template, send_from_directory, current_app
-from utils.permission_utils import get_user_ordered_features, get_landing_path
+from utils.permission_utils import (get_user_ordered_features, get_landing_path,
+                                    get_sidebar_features)
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -98,6 +99,24 @@ def profile():
 @routes_bp.route('/permission')
 def permission():
     return render_template('permission.html')
+
+@routes_bp.route('/menu')
+def main_menu():
+    """
+    主選單：登入後的落地頁，以方塊列出該使用者有權限的功能。
+
+    這一頁刻意不含側邊欄（樣板沒有 include sidebar.html），
+    是一個獨立的挑選畫面；進入功能頁之後才會看到側邊欄。
+
+    它不對應任何單一功能（列在 params.PUBLIC_ENDPOINTS），
+    因此要在這裡自己擋一次：完全沒有權限的人不該看到空選單，
+    直接送去等候開通頁面。
+    """
+    features = get_user_ordered_features(session.get('user_id'))
+    if not get_sidebar_features(features):
+        return redirect(url_for('routes.pending_approval'))
+
+    return render_template('main_menu.html')
 
 @routes_bp.route('/pending-approval')
 def pending_approval():

@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -13,11 +14,13 @@
 </head>
 <body ng-controller="SettingController" ng-cloak>
 
+    {{ icons.sprite() }}
+
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
         <div class="right-editor-container container">
-            <h1>⚙️ 設定</h1>
+            <h1>{{ icons.icon('gear') }} 設定</h1>
 
             <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
 
@@ -59,7 +62,7 @@
                                placeholder="[[ smtp.has_password ? '目前已設定密碼，留空表示不變更' : '請輸入發信密碼' ]]"
                                autocomplete="new-password">
                         <small class="field-hint" ng-show="smtp.has_password">
-                            🔒 已設定過密碼。若不需更換，請保持空白直接儲存。
+                            {{ icons.icon('lock') }} 已設定過密碼。若不需更換，請保持空白直接儲存。
                         </small>
                     </div>
 

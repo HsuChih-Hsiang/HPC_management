@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="contactManagerApp">
 <head>
@@ -58,13 +59,15 @@
     </script>
 </head>
 <body ng-controller="ContactManagerController">
+
+    {{ icons.sprite() }}
     {% include 'sidebar.html' %}
 
     <div class="main-content-wrapper" ng-cloak>
         <div class="container-card">
             
             <div class="header-section">
-                <h1>👥 HPC 帳號管理清單</h1>
+                <h1>{{ icons.icon('users') }} HPC 帳號管理清單</h1>
                 <div class="action-tools">
                     <select id="yearFilter" class="filter-select" ng-model="year">
                     <option value="">所有年份</option>
@@ -110,10 +113,10 @@
                             </div>
                         </div>
                     </div>      
-                    <button ng-click="loadData(1)" class="btn-search">🔍 搜尋</button>
-                    <button ng-click="statisticsExport()" class="text-button btn-statistics">📊 HPC 統計資料</button>
+                    <button ng-click="loadData(1)" class="btn-search">{{ icons.icon('search') }} 搜尋</button>
+                    <button ng-click="statisticsExport()" class="text-button btn-statistics">{{ icons.icon('chart') }} HPC 統計資料</button>
                     <button ng-click="openModal()" class="add-contact-button">＋ 新增聯絡人</button>
-                    <button type="button" class="setting-button" ng-click="openSettingModal()" title="系統設定">⚙️</button>
+                    <button type="button" class="setting-button" ng-click="openSettingModal()" title="系統設定">{{ icons.icon('gear') }}</button>
                 </div>
             </div>
 
@@ -221,7 +224,7 @@
                     </div>
                 </div>
 
-                <div class="section-title">🖥️ 帳號配置與主機</div>
+                <div class="section-title">{{ icons.icon('monitor') }} 帳號配置與主機</div>
                 <div class="form-grid" style="margin-top:15px;">
                     <div class="form-group">
                         <label>測試帳號(課程帳號)</label>
@@ -275,7 +278,7 @@
                     </div>
                 </div>
 
-                <div class="modal-section-title" style="margin-top: 25px;">📊 其他資訊</div>
+                <div class="modal-section-title" style="margin-top: 25px;">{{ icons.icon('chart') }} 其他資訊</div>
                 <div class="form-group full-width">
                     <label>研究內容</label>
                     <textarea id="research_content" rows="3" placeholder="請簡述研究方向..." ng-model="form.research_content"></textarea>
@@ -331,7 +334,7 @@
                     </table>
                 </div>
 
-                <div class="section-title">📋 其他聯絡人</div>
+                <div class="section-title">{{ icons.icon('clipboard') }} 其他聯絡人</div>
                 <div id="other-contacts-container">
                     <div class="contact-row" ng-repeat="row in contactRows" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                         <input type="checkbox" class="primary-radio" title="設為主要聯絡人（可再次點擊取消）"
@@ -341,7 +344,8 @@
                         <button type="button" class="btn-toggle-email" ng-class="{'is-disabled': row.email_disabled}"
                                 ng-click="toggleContactEmail(row)" ng-disabled="!row.id"
                                 title="[[ !row.id ? '請先儲存聯絡人資料後才能設定' : (row.email_disabled ? '目前不會寄信給這位聯絡人，點擊重新開啟' : '目前會寄信給這位聯絡人，點擊關閉') ]]">
-                            [[ row.email_disabled ? '🔕 停用' : '🔔 寄信中' ]]
+                            <span ng-if="row.email_disabled">{{ icons.icon('bell-off') }} 停用</span>
+                            <span ng-if="!row.email_disabled">{{ icons.icon('bell') }} 寄信中</span>
                         </button>
                         <button type="button" class="btn-remove-row" ng-click="removeContactRow($index)">✕</button>
                     </div>
@@ -399,7 +403,7 @@
         <div style="background: #ffffff; padding: 24px; border-radius: 8px; width: 90%; max-width: 900px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
             
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0; font-size: 1.25rem;">📊 近三年 HPC 統計資料</h3>
+                <h3 style="margin: 0; font-size: 1.25rem;">{{ icons.icon('chart') }} 近三年 HPC 統計資料</h3>
                 <button ng-click="closeStatisticsModal()" style="border: none; background: transparent; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
             </div>
 
@@ -417,7 +421,7 @@
             </thead>
             <tbody id="statTableBody">
                 <!-- 內容由 Angular 動態生成 -->
-                <tr ng-if="statsLoading"><td colspan="7" style="padding: 20px;">⏳ 資料計算中，請稍候...</td></tr>
+                <tr ng-if="statsLoading"><td colspan="7" style="padding: 20px;">{{ icons.icon('hourglass') }} 資料計算中，請稍候...</td></tr>
                 <tr ng-if="!statsLoading && statsError"><td colspan="7" style="color:red; padding: 20px;">[[ statsError ]]</td></tr>
                 <tr ng-repeat="item in statsRows">
                     <td style="padding: 10px; border: 1px solid #ddd;"><b>[[ item.year ]] 年</b></td>
@@ -864,22 +868,22 @@
                     <div class="detail-row"><span><strong>主旨：</strong></span><span>[[ billEmail.subject ]]</span></div>
 
                     <div class="bill-warning" ng-if="billEmail.unmatched && billEmail.unmatched.length > 0">
-                        <strong>⚠️ 有用量沒有被任何一列「繳費單格式設定」涵蓋到，這筆金額不會出現在繳費單上：</strong>
+                        <strong>{{ icons.icon('warning') }} 有用量沒有被任何一列「繳費單格式設定」涵蓋到，這筆金額不會出現在繳費單上：</strong>
                         <div ng-repeat="u in billEmail.unmatched">
                             [[ u.server ]] / [[ u.queue ]]：$[[ toLocale(u.amount) ]]
                         </div>
-                        <div>合計短少 $[[ toLocale(billEmail.unmatched_amount) ]] 元，請至「⚙️ 設定 → 繳費單格式設定」補上對應的列。</div>
+                        <div>合計短少 $[[ toLocale(billEmail.unmatched_amount) ]] 元，請至「{{ icons.icon('gear') }} 設定 → 繳費單格式設定」補上對應的列。</div>
                     </div>
 
                     <div class="bill-warning" ng-if="billEmail.unpriced && billEmail.unpriced.length > 0">
-                        <strong>⚠️ 以下用量在主機費率設定 (serverlist) 中查無單價，因此完全沒有被計費：</strong>
+                        <strong>{{ icons.icon('warning') }} 以下用量在主機費率設定 (serverlist) 中查無單價，因此完全沒有被計費：</strong>
                         <div ng-repeat="u in billEmail.unpriced">
                             [[ u.server ]] / [[ u.queue ]]：[[ toLocale(u.core_hours) ]] 核心小時（[[ u.job_count ]] 筆作業）
                         </div>
                         <div>金額無法計算，需先補上該 queue 的費率設定，否則這段用量會從帳單上消失。</div>
                     </div>
 
-                    <div class="section-title">✏️ 繳費單表頭欄位</div>
+                    <div class="section-title">{{ icons.icon('pencil') }} 繳費單表頭欄位</div>
                     <p class="quota-info-tip" style="margin-top:0;">
                         以下欄位已自動帶入該聯絡人的資料，可逐格修改；改完請按「重新產生預覽」確認。
                     </p>
@@ -973,7 +977,7 @@
                     <button type="button" ng-if="settingView !== 'menu'" class="setting-back-arrow" ng-click="backToSettingMenu()" title="返回主選單">
                         ← 返回主選單
                     </button>
-                    <span ng-if="settingView === 'menu'">⚙️ [[ settingViewTitle ]]</span>
+                    <span ng-if="settingView === 'menu'">{{ icons.icon('gear') }} [[ settingViewTitle ]]</span>
                     <span ng-if="settingView !== 'menu'">[[ settingViewTitle ]]</span>
                 </h3>
                 <span class="hpc-close" ng-click="closeSettingModal()">&times;</span>
@@ -1048,7 +1052,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">💰 預繳優惠區間</div>
+                        <div class="section-title">{{ icons.icon('money-bag') }} 預繳優惠區間</div>
                         <p style="color:#7f8c8d; font-size:13px; margin:6px 0 12px;">預繳金額達到「門檻金額」時，改以「金額 ÷ 除數」計算最終可得的額度（除數越小，優惠越高）。</p>
                         <div class="discount-row" ng-repeat="d in quotaSettingsForm.discounts">
                             <input type="number" class="form-input" placeholder="門檻金額 (例如 100001)" min="0" ng-model="d.min_amount">

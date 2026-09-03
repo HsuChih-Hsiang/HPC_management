@@ -103,6 +103,28 @@ h1 { /* 保留，應用於 right-editor-container 內 */
     font-weight: normal;
 }
 
+/* --- 單色圖示（templates/icons.html） ---
+   原本各頁面標題與按鈕上直接寫 emoji，不同作業系統畫出來的樣式差很多、
+   也跟介面的線條風格搭不起來，因此一律改用 sprite 裡的線條圖。
+   尺寸用 em：放在 h1 就跟著標題放大，放在小按鈕就跟著文字縮小；
+   顏色一律 currentColor，不另外指定，所以會自動吃周圍文字的顏色。 */
+.icon-sprite {
+    display: none;
+}
+
+.ui-icon {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    /* 與同一行的中文字視覺對齊 */
+    vertical-align: -0.14em;
+}
+
 /* --- 模態視窗通用樣式 (主頁面 index.html 使用，編輯頁面已移除) --- */
 .modal {
     display: none; /* 預設隱藏 */
@@ -743,7 +765,7 @@ h1 { /* 保留，應用於 right-editor-container 內 */
     min-width: 0; /* 沒有這行，flex 子元素不會讓長名稱折行 */
 }
 
-/* 姓名旁的齒輪：進入個人資料設定頁 */
+/* 姓名旁的兩顆圓鈕：🏠 回主選單、⚙️ 進個人資料設定頁 */
 .user-setting-button {
     flex-shrink: 0;
     display: inline-flex;
@@ -755,12 +777,19 @@ h1 { /* 保留，應用於 right-editor-container 內 */
     font-size: 15px;
     line-height: 1;
     text-decoration: none;
+    /* 一定要指定：這兩顆是 <a>，不寫的話圖示會吃到瀏覽器預設的連結藍。
+       圖示是 stroke: currentColor，所以這裡設白色線條就會是白色。 */
+    color: #ffffff;
     background-color: rgba(255, 255, 255, 0.1);
     transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .user-setting-button:hover {
     background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* 轉一下的效果只適合齒輪，房子轉起來會很怪 */
+.user-setting-button.is-gear:hover {
     transform: rotate(45deg);
 }
 

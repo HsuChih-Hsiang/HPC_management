@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -13,11 +14,13 @@
 </head>
 <body ng-controller="BillingReviewController" ng-cloak>
 
+    {{ icons.sprite() }}
+
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
         <div class="right-editor-container container">
-            <h1>💰 HPC 帳務審核</h1>
+            <h1>{{ icons.icon('money-bag') }} HPC 帳務審核</h1>
 
             <p class="section-hint">
                 此頁用來確認「HPC 帳號管理」中新增的<strong>預付額度</strong>與<strong>繳費單</strong>是否已經收到款項。<br>
@@ -61,7 +64,7 @@
                     <input type="date" id="paymentDate" class="form-control" ng-model="filter.paymentDate">
                 </div>
                 <button type="button" class="send-button btn-inline" ng-click="reload()" ng-disabled="loading">
-                    <span ng-show="!loading">🔄 重新整理</span>
+                    <span ng-show="!loading">{{ icons.icon('refresh') }} 重新整理</span>
                     <span ng-show="loading">載入中...</span>
                 </button>
             </div>
@@ -70,7 +73,7 @@
                 <span ng-bind="'已勾選 ' + counts.selected + ' 筆'"></span>
                 <div class="batch-actions">
                     <button type="button" class="btn-approve" ng-click="reviewSelected(true)" ng-disabled="saving">
-                        ✅ 批次確認繳費
+                        {{ icons.icon('check-circle') }} 批次確認繳費
                     </button>
                     <button type="button" class="btn-revert" ng-click="reviewSelected(false)" ng-disabled="saving">
                         ↩ 批次退回未繳費
@@ -130,9 +133,9 @@
                                 <span class="status-tag is-unpaid" ng-if="!p.is_paid">未繳費</span>
                                 <span class="type-tag" ng-if="p.is_bonus" ng-bind="p.kind_label"></span>
                                 <div class="warn-text" ng-if="!p.paired">
-                                    ⚠ 缺少成對的歷史存檔紀錄，請確認資料完整性。
+                                    {{ icons.icon('warning') }} 缺少成對的歷史存檔紀錄，請確認資料完整性。
                                 </div>
-                                <div class="warn-text" ng-if="p.locked" ng-bind="'🔒 ' + p.lock_reason"></div>
+                                <div class="warn-text" ng-if="p.locked">{{ icons.icon('lock') }} <span ng-bind="p.lock_reason"></span></div>
                             </td>
                             <td class="col-action">
                                 <button type="button" class="btn-approve" ng-if="!p.is_paid"
@@ -195,7 +198,7 @@
                             <td class="col-status">
                                 <span class="status-tag is-paid" ng-if="b.status === 'paid'">已繳費</span>
                                 <span class="status-tag is-unpaid" ng-if="b.status === 'unpaid'">未繳費</span>
-                                <div class="warn-text" ng-if="b.locked" ng-bind="'🔒 ' + b.lock_reason"></div>
+                                <div class="warn-text" ng-if="b.locked">{{ icons.icon('lock') }} <span ng-bind="b.lock_reason"></span></div>
                             </td>
                             <td class="col-action">
                                 <button type="button" class="btn-approve" ng-if="b.status !== 'paid'"

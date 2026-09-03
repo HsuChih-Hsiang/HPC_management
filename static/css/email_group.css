@@ -211,49 +211,194 @@
     }
 }
 
+/* =========================================================================
+ * 信箱管理頁面版面
+ *
+ * 版面目標：把可視寬度用滿，分組卡片以網格橫向鋪排，
+ * 新增分組時先往右長、鋪滿一列才換行，不再一路往下堆造成長捲軸。
+ *
+ * 左側要留出側邊選單（.side-menu 展開時寬 260px）的位置，
+ * 內容才不會被展開的選單蓋住。1200px 以下選單本來就是覆蓋式的，
+ * 只留漢堡按鈕需要的空間，把寬度還給內容。
+ * ========================================================================= */
+body {
+    /* 覆蓋 main.css 的置中 flex，改成滿版排版 */
+    display: block;
+    margin: 20px;
+    /* .side-menu 展開後實際佔 300px（width 260 + 左右各 20 的 padding，
+       且它是 content-box），這裡留 300 再加上 body 自己的 20px margin，
+       選單展開時才不會蓋到內容 */
+    padding-left: 300px;
+}
+
 .mailbox-layout {
-            display: flex;
-            align-items: stretch;
-            gap: 32px;
-            max-width: 1200px;
-            margin: 60px auto 0 auto;
-            position: relative;
-        }
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    width: 100%;
+    max-width: none;
+    margin: 40px 0 0 0;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* --- 左欄：待分組信箱（跟著捲動固定） --- */
 .unassigned-emails-section {
-    width: 260px;
+    width: 250px;
+    flex-shrink: 0;
     min-height: 200px;
-    max-height: 400px;
+    /* 用滿視窗高度，讓待分組清單自己捲動，而不是把整頁撐長 */
+    max-height: calc(100vh - 100px);
     position: sticky;
-    top: 60px;
+    top: 40px;
     left: unset;
     z-index: 10;
-    background: #fff;
+    margin: 0;
+    background: #f0f8ff;
     border-radius: 10px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     padding: 20px 16px 16px 16px;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
 }
-.main-mailbox-content {
-    flex: 1;
-}
+
 .unassigned-emails-section .email-list {
     flex: 1 1 auto;
     overflow-y: auto;
     margin-top: 12px;
     max-height: 100%;
 }
+
+/* --- 右欄：主內容 --- */
+.main-mailbox-content {
+    flex: 1;
+    min-width: 0; /* 關鍵：允許內容縮到比子元素窄，網格才不會撐破版面 */
+}
+
 .container {
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     border-radius: 10px;
     background: #fff;
-    padding: 32px 28px;
+    padding: 22px;
+    width: 100%;
+    box-sizing: border-box;
 }
+
+/* 標題與「新增分組」並排，省下一整列的垂直空間 */
+.mailbox-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #f0f2f5;
+    padding-bottom: 20px;
+}
+
+.mailbox-header h1 {
+    margin: 0;
+    text-align: left;
+    font-size: 1.9em;
+}
+
+.mailbox-header .add-group-form {
+    flex: 1 1 320px;
+    max-width: 420px;
+}
+
+/* --- 分組卡片網格 --- */
+.group-list {
+    display: grid;
+    /* 每張卡片至少 300px，剩餘空間平均分配；欄數依視窗寬度自動決定
+       （1600px 視窗約 3 欄、1920px 約 4 欄，窄視窗自動退回 1~2 欄） */
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
+    align-items: start;
+    margin-top: 24px;
+}
+
+.group-list .group-item {
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+/* 單一分組信箱太多時卡片內部捲動，不讓某一組把整列拉得特別長 */
+.group-list .group-item .email-list {
+    flex: 1 1 auto;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* 卡片變窄後把列項壓緊一點，長信箱才不會每一筆都折成兩行 */
+.group-list .email-item {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+
+.group-list .email-item span {
+    font-size: 0.95em;
+    margin-right: 8px;
+}
+
+.group-list .email-item .delete-btn {
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+/* 「目前沒有分組」的提示要橫跨整個網格 */
+#groupList p {
+    grid-column: 1 / -1;
+}
+
+/* --- 表單改為同一列（輸入框 + 按鈕） --- */
+.add-group-form,
+.add-email-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.add-email-form {
+    margin-top: 12px;
+}
+
+.add-group-form input,
+.add-email-form input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.add-group-form .save-template-button,
+.add-email-form .save-template-button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* --- 響應式 --- */
+@media (max-width: 1200px) {
+    /* 這個寬度以下側邊選單是覆蓋式的，只保留漢堡按鈕的空間 */
+    body { padding-left: 70px; }
+    .unassigned-emails-section { width: 240px; }
+    .group-list { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+}
+
 @media (max-width: 900px) {
-    .mailbox-layout { flex-direction: column; gap: 0; }
+    body { margin: 10px; padding-left: 60px; }
+    /* align-items 必須改回 stretch，否則直向堆疊時兩塊會縮成內容寬度 */
+    .mailbox-layout {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        margin-top: 24px;
+    }
     .unassigned-emails-section {
         width: 100%;
         position: static;
+        max-height: 320px;
         margin-bottom: 24px;
         height: auto;
         left: unset;
@@ -261,4 +406,23 @@
         z-index: unset;
     }
     .main-mailbox-content { margin-left: 0; }
+    .group-list { grid-template-columns: 1fr; }
+    .mailbox-header { flex-direction: column; align-items: stretch; }
+    .mailbox-header h1 { text-align: center; }
+    /* main.css 在此斷點把按鈕撐成 width:100%，表單得跟著改成直向，
+       不然輸入框會被按鈕擠到只剩幾個 px */
+    .mailbox-header .add-group-form {
+        flex: 0 0 auto; /* 直向時 flex-basis 會變成「高度」，必須取消 */
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        max-width: none;
+    }
+    /* 同理：直向排列時輸入框不可再 flex-grow，否則會被拉成一大塊 */
+    .add-group-form input,
+    .add-email-form input {
+        flex: 0 0 auto;
+    }
+    /* 小螢幕一律單欄，卡片內不再自己捲動 */
+    .group-list .group-item .email-list { max-height: none; }
 }

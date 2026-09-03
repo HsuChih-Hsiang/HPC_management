@@ -52,15 +52,21 @@ DEFAULT_HPC_SETTINGS = {
 # ============================================================
 ADMIN_GROUP_NAME = 'admin'
 
+# 登入後的落地頁：主選單（templates/main_menu.html）。
+# 這是一個不含側邊欄的獨立畫面，使用者從這裡以方塊挑選要進入的功能。
+MAIN_MENU_PATH = '/menu'
+
+# icon_name 是 templates/icons.html 裡的符號名稱（畫面上顯示的單色圖示）；
+# icon 的 emoji 僅作為沒有對應符號時的退路，不再直接顯示在介面上。
 FEATURES = [
-    {'key': 'batch_sending',   'label': '寄送郵件',     'icon': '📨', 'path': '/batch_sending'},
-    {'key': 'edit_templates',  'label': '編輯模板',     'icon': '📝', 'path': '/edit-templates'},
-    {'key': 'mailbox_manager', 'label': '信箱管理',     'icon': '📬', 'path': '/mailbox-manager'},
-    {'key': 'hpc_contact',     'label': 'HPC帳號管理',  'icon': '👥', 'path': '/hpc-contact'},
-    {'key': 'hpc_usage',       'label': 'HPC 用量通知', 'icon': '📊', 'path': '/hpc-usage'},
-    {'key': 'hpc_billing_review', 'label': 'HPC 帳務審核', 'icon': '💰', 'path': '/hpc-billing-review'},
-    {'key': 'setting',         'label': '設定',         'icon': '⚙️', 'path': '/setting'},
-    {'key': 'permission',      'label': '權限管理',     'icon': '🔑', 'path': '/permission'},
+    {'key': 'batch_sending',   'label': '寄送郵件',     'icon': '📨', 'icon_name': 'mail-send',  'path': '/batch_sending'},
+    {'key': 'edit_templates',  'label': '編輯模板',     'icon': '📝', 'icon_name': 'doc-edit',   'path': '/edit-templates'},
+    {'key': 'mailbox_manager', 'label': '信箱管理',     'icon': '📬', 'icon_name': 'mailbox',    'path': '/mailbox-manager'},
+    {'key': 'hpc_contact',     'label': 'HPC帳號管理',  'icon': '👥', 'icon_name': 'users',      'path': '/hpc-contact'},
+    {'key': 'hpc_usage',       'label': 'HPC 用量通知', 'icon': '📊', 'icon_name': 'chart',      'path': '/hpc-usage'},
+    {'key': 'hpc_billing_review', 'label': 'HPC 帳務審核', 'icon': '💰', 'icon_name': 'money-bag', 'path': '/hpc-billing-review'},
+    {'key': 'setting',         'label': '設定',         'icon': '⚙️', 'icon_name': 'gear',       'path': '/setting'},
+    {'key': 'permission',      'label': '權限管理',     'icon': '🔑', 'icon_name': 'key',        'path': '/permission'},
 ]
 
 ALL_FEATURE_KEYS = [f['key'] for f in FEATURES]
@@ -72,9 +78,13 @@ FEATURE_BY_KEY = {f['key']: f for f in FEATURES}
 # 不屬於側邊欄的功能清單，因此不放進 FEATURES，也不需要任何權限；
 # 連尚未被開通的使用者都能填寫。它只會讀寫 session['user_id'] 自己的那一筆，
 # 與需要 setting 權限的系統「設定」頁面（發信帳號）無關。
+#
+# 主選單（routes.main_menu）本身不對應任何單一功能，任何「已被開通」的使用者
+# 都能進入；尚未開通者由該路由自己導向等候頁面。
 PUBLIC_ENDPOINTS = {
     'static',
     'routes.login_page',
+    'routes.main_menu',
     'routes.pending_approval',
     'routes.profile',
     'login.login',

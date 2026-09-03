@@ -44,6 +44,13 @@
     margin-bottom: 12px;
 }
 
+/* 這裡的圖示是 48px 的大尺寸（.ui-icon 的寬高是 1em），
+   沿用預設線寬會顯得太粗，放大之後調細一點才跟其他頁面一致 */
+.pending-icon .ui-icon {
+    stroke-width: 1.3;
+    vertical-align: baseline;
+}
+
 .pending-account {
     padding: 12px;
     margin-bottom: 20px;

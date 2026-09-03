@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -12,8 +13,10 @@
     </style>
 </head>
 <body ng-controller="PendingApprovalController" ng-cloak>
+
+    {{ icons.sprite() }}
     <div class="auth-container">
-        <div class="pending-icon">⏳</div>
+        <div class="pending-icon">{{ icons.icon('hourglass') }}</div>
         <h1>帳號等待開通中</h1>
         <p>
             您的帳號已建立完成，但尚未被指派使用權限。<br>

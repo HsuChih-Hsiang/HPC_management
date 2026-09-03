@@ -18,7 +18,7 @@ from database.extensions import db
 from database.hpc_model import AdUser, PermissionGroup, GroupPermission
 from utils.params import (ADMIN_GROUP_NAME, FEATURES, PUBLIC_ENDPOINTS, PAGE_FEATURE_MAP, 
                           BLUEPRINT_FEATURE_MAP, ENDPOINT_EXTRA_FEATURES, FEATURE_BY_KEY,
-                          ALL_FEATURE_KEYS, )
+                          ALL_FEATURE_KEYS, MAIN_MENU_PATH, )
 
 
 def get_required_features(endpoint, method='GET'):
@@ -85,15 +85,15 @@ def get_sidebar_features(feature_keys):
 
 def get_landing_path(feature_keys):
     """
-    決定登入後要導向哪一頁：取該使用者側邊欄的第一個功能。
+    決定登入後要導向哪一頁：有任何權限就進主選單，由使用者自己挑功能。
     完全沒有權限則導向等候開通頁面。
     不能寫死導向 /batch_sending，否則沒有「寄送郵件」權限的使用者
-    一登入就會撞上 403。
+    一登入就會撞上 403；即使是主選單，也要先確認他至少有一項功能可用，
+    否則會看到一個空的選單畫面。
     """
-    available = get_sidebar_features(feature_keys)
-    if not available:
+    if not get_sidebar_features(feature_keys):
         return '/pending-approval'
-    return available[0]['path']
+    return MAIN_MENU_PATH
 
 
 def init_permission_groups(app):

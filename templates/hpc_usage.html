@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -13,12 +14,14 @@
     </style>
 </head>
 <body ng-controller="HpcUsageController" ng-cloak>
+
+    {{ icons.sprite() }}
     
     {% include 'sidebar.html' %}
 
     <div class="main-layout-container">
         <div class="right-editor-container container">
-            <h1>📊 HPC 用量通知</h1>
+            <h1>{{ icons.icon('chart') }} HPC 用量通知</h1>
             
             <div class="message-box" ng-class="message.type" ng-show="message.visible" ng-bind="message.text"></div>
 
@@ -47,7 +50,7 @@
                     </div>
                     <div class="button-group">
                         <button type="submit" class="send-button">儲存設定</button>
-                        <button type="button" class="setting-button" ng-click="openSettingModal()" title="確認信預設副本人員">⚙️</button>
+                        <button type="button" class="setting-button" ng-click="openSettingModal()" title="確認信預設副本人員">{{ icons.icon('gear') }}</button>
                     </div>
                 </form>
             </div>
@@ -162,7 +165,7 @@
          ng-click="onSettingModalBackdrop($event)">
         <div class="hpc-modal-content modal-width-editor">
             <div class="hpc-modal-header">
-                <h3>⚙️ 確認信預設副本人員</h3>
+                <h3>{{ icons.icon('gear') }} 確認信預設副本人員</h3>
                 <span class="hpc-close" ng-click="closeSettingModal()">&times;</span>
             </div>
             <div class="hpc-modal-body">

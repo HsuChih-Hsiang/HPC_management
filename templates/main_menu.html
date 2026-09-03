@@ -1,0 +1,74 @@
+{#
+  主選單（登入後的落地頁）
+
+  這是一個「獨立」的介面，刻意不 include sidebar.html：
+  使用者在這裡用方塊挑選要進入的功能，進入之後才會看到側邊欄。
+  方塊只會列出該使用者有權限的功能（sidebar_features 由 app.py 的
+  inject_sidebar_features 注入，順序與側邊欄一致）。
+
+  圖示：側邊欄用的是 emoji，這裡改用對應的單色 SVG 線條圖（不上色，
+  顏色一律繼承卡片的 currentColor）。符號集中放在全站共用的
+  templates/icons.html，靠 params.FEATURES 的 icon_name 對應；
+  日後新增功能時記得一併補一個符號，沒補到的會自動退回顯示 emoji。
+#}
+{% import 'icons.html' as icons %}
+<!DOCTYPE html>
+<html lang="zh-Hant" ng-app="emailApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主選單</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main_menu.css') }}">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        [ng\:cloak], [ng-cloak], .ng-cloak { display: none !important; }
+    </style>
+</head>
+<body class="menu-body">
+
+    {{ icons.sprite() }}
+
+    <div class="menu-page">
+
+        <header class="menu-header">
+            <div class="menu-brand">
+                <h1>HPC 管理系統</h1>
+                <p class="menu-subtitle">請選擇要使用的功能</p>
+            </div>
+
+            <div class="menu-account">
+                <span class="menu-user-name">{{ session.get('user_name', '使用者') }}</span>
+                {# 與側邊欄的齒輪一樣帶著 ?next 進個人資料頁，返回鍵才知道要回主選單 #}
+                <a class="menu-account-button"
+                   href="{{ url_for('routes.profile', next=request.full_path.rstrip('?')) }}"
+                   title="個人資料設定" aria-label="個人資料設定">
+                    {{ icons.icon('user', 'menu-account-icon') }}
+                </a>
+                <a class="menu-account-button is-logout" href="/logout" title="登出" aria-label="登出">
+                    {{ icons.icon('logout', 'menu-account-icon') }}
+                </a>
+            </div>
+        </header>
+
+        <main class="menu-grid">
+            {% for feature in sidebar_features %}
+            <a class="menu-card" href="{{ feature.path }}">
+                <span class="menu-card-icon">
+                    {# 尚未繪製符號的新功能退回顯示 emoji，不會變成空白方塊 #}
+                    {% if feature.icon_name %}
+                    {{ icons.icon(feature.icon_name, 'menu-icon') }}
+                    {% else %}
+                    <span class="menu-icon-fallback">{{ feature.icon }}</span>
+                    {% endif %}
+                </span>
+                <span class="menu-card-label">{{ feature.label }}</span>
+            </a>
+            {% endfor %}
+        </main>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

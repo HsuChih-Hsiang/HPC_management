@@ -1,3 +1,4 @@
+{% import 'icons.html' as icons %}
 <!DOCTYPE html>
 <html lang="zh-Hant" ng-app="emailApp">
 <head>
@@ -12,8 +13,10 @@
     </style>
 </head>
 <body>
+
+    {{ icons.sprite() }}
     <div class="auth-container">
-        <div class="pending-icon">🔒</div>
+        <div class="pending-icon">{{ icons.icon('lock') }}</div>
         <h1>權限不足</h1>
         <p>
             您沒有使用此功能的權限。<br>

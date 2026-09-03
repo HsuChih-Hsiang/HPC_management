@@ -47,6 +47,27 @@ app.directive('quillEditor', function() {
     };
 });
 
+/**
+ * 動態指定 SVG <use> 要引用 templates/icons.html 裡的哪個符號。
+ *   <svg class="ui-icon" viewBox="0 0 24 24"><use icon-ref="f.icon_name"></use></svg>
+ *
+ * 不直接寫 <use href="{{ ... }}"> 的原因：樣板會先經過 Jinja，{{ }} 會被
+ * 伺服器端吃掉；而且瀏覽器對 SVG 屬性插值的支援也不一致。
+ * href 與 xlink:href 兩個都設，舊瀏覽器只認後者。
+ */
+app.directive('iconRef', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs) {
+            scope.$watch(attrs.iconRef, function(name) {
+                var id = '#icon-' + (name || '');
+                element[0].setAttribute('href', id);
+                element[0].setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', id);
+            });
+        }
+    };
+});
+
 // HTML5 拖曳指令 (Draggable)
 app.directive('draggableTag', function() {
     return function(scope, element, attrs) {
